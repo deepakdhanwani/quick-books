@@ -7,6 +7,13 @@ dist/
 build/
 .next/
 out/
+.expo/
+target/
+
+# Java
+*.class
+*.jar
+!backend/.mvn/wrapper/maven-wrapper.jar
 
 # Environment variables
 .env
