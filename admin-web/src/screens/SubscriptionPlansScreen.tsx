@@ -288,7 +288,7 @@ export function SubscriptionPlansScreen({ token }: SubscriptionPlansScreenProps)
 
       {error ? <Text style={styles.error}>{error}</Text> : null}
 
-      <Card>
+      <Card style={styles.listCard}>
         {loading ? (
           <ActivityIndicator color={colors.primary} />
         ) : totalElements === 0 ? (
@@ -398,7 +398,9 @@ const styles = StyleSheet.create({
   },
   formField: { flexGrow: 1, flexBasis: 220, minWidth: 200, overflow: 'visible' },
   formFullWidth: { width: '100%', marginBottom: 8, zIndex: 1 },
-  formActions: { flexDirection: 'row', gap: 12, marginTop: 12 },
+  statusRow: { position: 'relative', zIndex: 10 },
+  formActions: { flexDirection: 'row', gap: 12, marginTop: 12, position: 'relative', zIndex: 1 },
+  listCard: { marginTop: 24 },
   success: { color: colors.success },
   error: { color: colors.error, marginBottom: 16 },
   empty: { color: colors.textSecondary, textAlign: 'center', paddingTop: 24 },

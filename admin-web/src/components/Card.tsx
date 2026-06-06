@@ -19,5 +19,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
     overflow: 'visible',
+    width: '100%',
+    alignSelf: 'stretch',
   },
 });

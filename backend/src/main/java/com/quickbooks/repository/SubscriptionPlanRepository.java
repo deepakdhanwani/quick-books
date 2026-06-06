@@ -16,4 +16,7 @@ public interface SubscriptionPlanRepository extends JpaRepository<SubscriptionPl
 
     @Query(value = "SELECT EXISTS(SELECT 1 FROM tax_plans WHERE plan_id = :planId)", nativeQuery = true)
     boolean existsInTaxAssignments(@Param("planId") Long planId);
+
+    @Query(value = "SELECT EXISTS(SELECT 1 FROM discount_plans WHERE plan_id = :planId)", nativeQuery = true)
+    boolean existsInDiscountAssignments(@Param("planId") Long planId);
 }

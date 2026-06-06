@@ -3,11 +3,14 @@ package com.quickbooks.controller.admin;
 import com.quickbooks.dto.common.PageResponse;
 import com.quickbooks.dto.subscriber.CreateSubscriberRequest;
 import com.quickbooks.dto.subscriber.SubscriberDetailResponse;
+import com.quickbooks.dto.subscriber.SubscriberOptionResponse;
 import com.quickbooks.dto.subscriber.SubscriberResponse;
 import com.quickbooks.dto.subscriber.UpdateSubscriberRequest;
 import com.quickbooks.service.SubscriberService;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/admin/subscribers")
@@ -24,6 +27,11 @@ public class AdminSubscriberController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size) {
         return subscriberService.findPage(page, size);
+    }
+
+    @GetMapping("/selectable")
+    public List<SubscriberOptionResponse> selectable() {
+        return subscriberService.findSelectable();
     }
 
     @GetMapping("/{id}")

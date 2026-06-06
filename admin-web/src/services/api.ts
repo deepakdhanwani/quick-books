@@ -135,6 +135,67 @@ export type UpdateSubscriptionPlanPayload = {
   active?: boolean;
 };
 
+export type Tax = {
+  id: number;
+  name: string;
+  rate: number;
+  active: boolean;
+  createdAt: string;
+  applicablePlanIds: number[];
+  applicablePlanNames: string[];
+};
+
+export type CreateTaxPayload = {
+  name: string;
+  rate: number;
+  planIds: number[];
+};
+
+export type UpdateTaxPayload = {
+  name: string;
+  rate: number;
+  planIds: number[];
+  active?: boolean;
+};
+
+export type Discount = {
+  id: number;
+  name: string;
+  type: 'PERCENTAGE' | 'FIXED';
+  value: number;
+  scope: 'ALL' | 'SPECIFIC';
+  validFrom?: string | null;
+  validTo?: string | null;
+  active: boolean;
+  createdAt: string;
+  planIds: number[];
+  planNames: string[];
+  subscriberIds: number[];
+  subscriberNames: string[];
+};
+
+export type CreateDiscountPayload = {
+  name: string;
+  type: Discount['type'];
+  value: number;
+  scope: Discount['scope'];
+  validFrom?: string;
+  validTo?: string;
+  planIds: number[];
+  subscriberIds?: number[];
+};
+
+export type UpdateDiscountPayload = CreateDiscountPayload & {
+  active?: boolean;
+};
+
+export type SubscriberOption = {
+  id: number;
+  businessName: string;
+  ownerName: string;
+  phone: string;
+};
+
 export type PageResponse<T> = {
   content: T[];
   page: number;
@@ -142,6 +203,54 @@ export type PageResponse<T> = {
   totalElements: number;
   totalPages: number;
 };
+
+export type ChartPoint = {
+  label: string;
+  value: number;
+};
+
+export type ReportSummaryItem = {
+  label: string;
+  value: string;
+};
+
+export type ReportColumn = {
+  key: string;
+  label: string;
+  align?: 'left' | 'right';
+};
+
+export type AdminReport = {
+  reportType: string;
+  title: string;
+  generatedAt: string;
+  filters: Record<string, string>;
+  summary: ReportSummaryItem[];
+  columns: ReportColumn[];
+  rows: Record<string, string>[];
+  chartData: ChartPoint[];
+};
+
+export type AdminDashboardSummary = {
+  totalSubscribers: number;
+  activeSubscriptions: number;
+  pendingSubscriptions: number;
+  expiringSoon: number;
+  revenueMtd: number;
+};
+
+type ReportQuery = Record<string, string | number | undefined>;
+
+function buildQuery(params: ReportQuery) {
+  const search = new URLSearchParams();
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== undefined && value !== '') {
+      search.set(key, String(value));
+    }
+  });
+  const query = search.toString();
+  return query ? `?${query}` : '';
+}
 
 export const api = {
   adminLogin: (email: string, password: string) =>
@@ -218,4 +327,58 @@ export const api = {
       method: 'DELETE',
       token,
     }),
+  getTaxes: (token: string, page = 0, size = 10) =>
+    request<PageResponse<Tax>>(`/api/admin/taxes?page=${page}&size=${size}`, { token }),
+  createTax: (token: string, payload: CreateTaxPayload) =>
+    request<Tax>('/api/admin/taxes', {
+      method: 'POST',
+      token,
+      body: payload,
+    }),
+  updateTax: (token: string, id: number, payload: UpdateTaxPayload) =>
+    request<Tax>(`/api/admin/taxes/${id}`, {
+      method: 'PUT',
+      token,
+      body: payload,
+    }),
+  deleteTax: (token: string, id: number) =>
+    request<void>(`/api/admin/taxes/${id}`, {
+      method: 'DELETE',
+      token,
+    }),
+  getSelectableSubscribers: (token: string) =>
+    request<SubscriberOption[]>('/api/admin/subscribers/selectable', { token }),
+  getDiscounts: (token: string, page = 0, size = 10) =>
+    request<PageResponse<Discount>>(`/api/admin/discounts?page=${page}&size=${size}`, { token }),
+  createDiscount: (token: string, payload: CreateDiscountPayload) =>
+    request<Discount>('/api/admin/discounts', {
+      method: 'POST',
+      token,
+      body: payload,
+    }),
+  updateDiscount: (token: string, id: number, payload: UpdateDiscountPayload) =>
+    request<Discount>(`/api/admin/discounts/${id}`, {
+      method: 'PUT',
+      token,
+      body: payload,
+    }),
+  deleteDiscount: (token: string, id: number) =>
+    request<void>(`/api/admin/discounts/${id}`, {
+      method: 'DELETE',
+      token,
+    }),
+  getDashboardSummary: (token: string) =>
+    request<AdminDashboardSummary>('/api/admin/reports/summary', { token }),
+  getRevenueReport: (
+    token: string,
+    params: { from?: string; to?: string; planId?: number; businessTypeId?: number } = {},
+  ) => request<AdminReport>(`/api/admin/reports/revenue${buildQuery(params)}`, { token }),
+  getPendingSubscriptionsReport: (token: string) =>
+    request<AdminReport>('/api/admin/reports/pending-subscriptions', { token }),
+  getExpiringSubscriptionsReport: (token: string, withinDays = 30) =>
+    request<AdminReport>(`/api/admin/reports/expiring-subscriptions${buildQuery({ withinDays })}`, { token }),
+  getBusinessTypeBreakdownReport: (
+    token: string,
+    params: { from?: string; to?: string } = {},
+  ) => request<AdminReport>(`/api/admin/reports/business-type-breakdown${buildQuery(params)}`, { token }),
 };

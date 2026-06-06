@@ -221,7 +221,7 @@ export function SubscribersScreen({ token }: SubscribersScreenProps) {
 
       {error ? <Text style={styles.error}>{error}</Text> : null}
 
-      <Card>
+      <Card style={styles.listCard}>
         {loading ? (
           <ActivityIndicator color={colors.primary} />
         ) : totalElements === 0 ? (
@@ -292,6 +292,7 @@ const styles = StyleSheet.create({
   warning: { color: colors.warning, marginBottom: 16 },
   success: { color: colors.success },
   error: { color: colors.error, marginBottom: 16 },
+  listCard: { marginTop: 24 },
   empty: { color: colors.textSecondary, textAlign: 'center', paddingVertical: 24 },
   tableHeader: {
     flexDirection: 'row',

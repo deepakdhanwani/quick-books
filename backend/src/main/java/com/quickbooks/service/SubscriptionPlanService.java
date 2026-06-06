@@ -102,6 +102,13 @@ public class SubscriptionPlanService {
             );
         }
 
+        if (subscriptionPlanRepository.existsInDiscountAssignments(id)) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "Cannot delete — discounts are assigned to this plan"
+            );
+        }
+
         subscriptionPlanRepository.delete(plan);
     }
 

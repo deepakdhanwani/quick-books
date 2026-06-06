@@ -9,5 +9,6 @@
     <include file="db/changelog/changes/002-business-types.xml"/>
     <include file="db/changelog/changes/003-subscriber-active.xml"/>
     <include file="db/changelog/changes/004-plan-duration-values.xml"/>
+    <include file="db/changelog/changes/005-discount-plans.xml"/>
 
 </databaseChangeLog>

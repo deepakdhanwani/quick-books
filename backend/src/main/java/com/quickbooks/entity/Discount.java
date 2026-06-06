@@ -48,6 +48,14 @@ public class Discount {
     )
     private Set<Subscriber> specificSubscribers = new HashSet<>();
 
+    @ManyToMany
+    @JoinTable(
+            name = "discount_plans",
+            joinColumns = @JoinColumn(name = "discount_id"),
+            inverseJoinColumns = @JoinColumn(name = "plan_id")
+    )
+    private Set<SubscriptionPlan> applicablePlans = new HashSet<>();
+
     @Column(name = "created_at", nullable = false)
     private OffsetDateTime createdAt = OffsetDateTime.now();
 
@@ -69,6 +77,8 @@ public class Discount {
     public void setActive(boolean active) { this.active = active; }
     public Set<Subscriber> getSpecificSubscribers() { return specificSubscribers; }
     public void setSpecificSubscribers(Set<Subscriber> specificSubscribers) { this.specificSubscribers = specificSubscribers; }
+    public Set<SubscriptionPlan> getApplicablePlans() { return applicablePlans; }
+    public void setApplicablePlans(Set<SubscriptionPlan> applicablePlans) { this.applicablePlans = applicablePlans; }
     public OffsetDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(OffsetDateTime createdAt) { this.createdAt = createdAt; }
 }

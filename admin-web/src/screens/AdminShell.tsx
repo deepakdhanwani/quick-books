@@ -3,9 +3,11 @@ import { AdminLayout } from '../components/AdminLayout';
 import { AdminRoute } from '../navigation/routes';
 import { BusinessTypesScreen } from './BusinessTypesScreen';
 import { DashboardScreen } from './DashboardScreen';
-import { PlaceholderScreen } from './PlaceholderScreen';
+import { ReportsScreen } from './ReportsScreen';
 import { SubscribersScreen } from './SubscribersScreen';
 import { SubscriptionPlansScreen } from './SubscriptionPlansScreen';
+import { TaxesScreen } from './TaxesScreen';
+import { DiscountsScreen } from './DiscountsScreen';
 
 type AdminShellProps = {
   token: string;
@@ -18,7 +20,7 @@ export function AdminShell({ token, onLogout }: AdminShellProps) {
   const renderScreen = () => {
     switch (route) {
       case 'dashboard':
-        return <DashboardScreen />;
+        return <DashboardScreen token={token} />;
       case 'business-types':
         return <BusinessTypesScreen token={token} />;
       case 'subscribers':
@@ -26,44 +28,13 @@ export function AdminShell({ token, onLogout }: AdminShellProps) {
       case 'plans':
         return <SubscriptionPlansScreen token={token} />;
       case 'taxes':
-        return (
-          <PlaceholderScreen
-            title="Taxes"
-            description="Define government taxes applied per subscription plan"
-            features={[
-              'Create tax rules with rates',
-              'Assign taxes to specific plans',
-              'Activate or deactivate taxes',
-            ]}
-          />
-        );
+        return <TaxesScreen token={token} />;
       case 'discounts':
-        return (
-          <PlaceholderScreen
-            title="Discounts"
-            description="Apply discounts for all or specific subscribers"
-            features={[
-              'Percentage or fixed discounts',
-              'Global or subscriber-specific scope',
-              'Validity date ranges',
-            ]}
-          />
-        );
+        return <DiscountsScreen token={token} />;
       case 'reports':
-        return (
-          <PlaceholderScreen
-            title="Reports"
-            description="Platform-wide revenue and subscription analytics"
-            features={[
-              'Revenue reports',
-              'Pending and expiring subscriptions',
-              'Breakdown by business type',
-              'Export and print',
-            ]}
-          />
-        );
+        return <ReportsScreen token={token} />;
       default:
-        return <DashboardScreen />;
+        return <DashboardScreen token={token} />;
     }
   };
 

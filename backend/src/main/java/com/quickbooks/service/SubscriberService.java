@@ -4,6 +4,7 @@ import com.quickbooks.dto.common.PageResponse;
 import com.quickbooks.dto.subscriber.ChangeSubscriberPinRequest;
 import com.quickbooks.dto.subscriber.CreateSubscriberRequest;
 import com.quickbooks.dto.subscriber.SubscriberDetailResponse;
+import com.quickbooks.dto.subscriber.SubscriberOptionResponse;
 import com.quickbooks.dto.subscriber.SubscriberResponse;
 import com.quickbooks.dto.subscriber.SubscriberSubscriptionInfo;
 import com.quickbooks.dto.subscriber.UpdateSubscriberRequest;
@@ -24,6 +25,8 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
+
+import java.util.List;
 
 @Service
 public class SubscriberService {
@@ -56,6 +59,13 @@ public class SubscriberService {
                 .map(SubscriberResponse::from);
 
         return PageResponse.from(result);
+    }
+
+    @Transactional(readOnly = true)
+    public List<SubscriberOptionResponse> findSelectable() {
+        return subscriberRepository.findByActiveTrueOrderByBusinessNameAsc().stream()
+                .map(SubscriberOptionResponse::from)
+                .toList();
     }
 
     public Subscriber getById(Long id) {
