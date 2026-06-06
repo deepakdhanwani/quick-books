@@ -24,12 +24,16 @@ public class Subscriber {
     @Column(name = "login_pin_hash", nullable = false)
     private String loginPinHash;
 
-    @Column(name = "business_type")
-    private String businessType;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "business_type_id")
+    private BusinessType businessType;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "subscription_status", nullable = false)
     private SubscriptionStatus subscriptionStatus = SubscriptionStatus.NONE;
+
+    @Column(name = "is_active", nullable = false)
+    private boolean active = true;
 
     @Column(name = "created_at", nullable = false)
     private OffsetDateTime createdAt = OffsetDateTime.now();
@@ -44,10 +48,12 @@ public class Subscriber {
     public void setPhone(String phone) { this.phone = phone; }
     public String getLoginPinHash() { return loginPinHash; }
     public void setLoginPinHash(String loginPinHash) { this.loginPinHash = loginPinHash; }
-    public String getBusinessType() { return businessType; }
-    public void setBusinessType(String businessType) { this.businessType = businessType; }
+    public BusinessType getBusinessType() { return businessType; }
+    public void setBusinessType(BusinessType businessType) { this.businessType = businessType; }
     public SubscriptionStatus getSubscriptionStatus() { return subscriptionStatus; }
     public void setSubscriptionStatus(SubscriptionStatus subscriptionStatus) { this.subscriptionStatus = subscriptionStatus; }
+    public boolean isActive() { return active; }
+    public void setActive(boolean active) { this.active = active; }
     public OffsetDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(OffsetDateTime createdAt) { this.createdAt = createdAt; }
 }

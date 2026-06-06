@@ -6,5 +6,8 @@
         https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
 
     <include file="db/changelog/changes/001-initial-schema.xml"/>
+    <include file="db/changelog/changes/002-business-types.xml"/>
+    <include file="db/changelog/changes/003-subscriber-active.xml"/>
+    <include file="db/changelog/changes/004-plan-duration-values.xml"/>
 
 </databaseChangeLog>

@@ -27,29 +27,32 @@ services:
       postgres:
         condition: service_healthy
     environment:
-      SERVER_PORT: 8080
+      SERVER_PORT: 9090
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${DB_NAME:-quickbooks}
       SPRING_DATASOURCE_USERNAME: ${DB_USERNAME:-postgres}
       SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:-root}
       JWT_SECRET: ${JWT_SECRET:-quickbooks-docker-secret-change-in-production-min-32-chars}
       JWT_EXPIRATION_MS: ${JWT_EXPIRATION_MS:-86400000}
-      ADMIN_AUTO_GENERATE: ${ADMIN_AUTO_GENERATE:-true}
-      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:8081,http://localhost:19006}
+      ADMIN_AUTO_CREATE: ${ADMIN_AUTO_CREATE:-true}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@quickbooks.local}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-Admin@123}
+      ADMIN_NAME: ${ADMIN_NAME:-Platform Admin}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:9091,http://localhost:9092}
     ports:
-      - "${BACKEND_PORT:-8080}:8080"
+      - "${BACKEND_PORT:-9090}:9090"
 
   admin-web:
     build:
       context: ./admin-web
       dockerfile: Dockerfile
       args:
-        EXPO_PUBLIC_API_URL: ${EXPO_PUBLIC_API_URL:-http://localhost:8080}
+        EXPO_PUBLIC_API_URL: ${EXPO_PUBLIC_API_URL:-http://localhost:9090}
     container_name: quickbooks-admin
     restart: unless-stopped
     depends_on:
       - backend
     ports:
-      - "${ADMIN_WEB_PORT:-8081}:80"
+      - "${ADMIN_WEB_PORT:-9091}:80"
 
 volumes:
   postgres_data:

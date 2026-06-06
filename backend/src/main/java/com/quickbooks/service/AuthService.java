@@ -51,6 +51,10 @@ public class AuthService {
         Subscriber subscriber = subscriberRepository.findByPhone(request.getPhone())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid credentials"));
 
+        if (!subscriber.isActive()) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Account is inactive. Contact admin.");
+        }
+
         if (!passwordEncoder.matches(request.getLoginPin(), subscriber.getLoginPinHash())) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid credentials");
         }

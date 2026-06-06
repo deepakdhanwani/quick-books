@@ -8,8 +8,7 @@ import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
-
-import java.security.SecureRandom;
+import org.springframework.util.StringUtils;
 
 @Component
 public class AdminInitializer implements ApplicationRunner {
@@ -28,33 +27,28 @@ public class AdminInitializer implements ApplicationRunner {
 
     @Override
     public void run(ApplicationArguments args) {
-        if (!appProperties.getAdmin().isAutoGenerate() || adminRepository.count() > 0) {
+        if (!appProperties.getAdmin().isAutoCreate() || adminRepository.count() > 0) {
             return;
         }
 
-        String email = "admin@quickbooks.local";
-        String password = generatePassword();
+        String email = appProperties.getAdmin().getEmail();
+        String password = appProperties.getAdmin().getPassword();
+        String name = appProperties.getAdmin().getName();
+
+        if (!StringUtils.hasText(email) || !StringUtils.hasText(password)) {
+            log.warn("Admin auto-create is enabled but ADMIN_EMAIL or ADMIN_PASSWORD is missing in .env — skipping admin creation.");
+            return;
+        }
 
         Admin admin = new Admin();
-        admin.setEmail(email);
-        admin.setName("Platform Admin");
+        admin.setEmail(email.trim());
+        admin.setName(StringUtils.hasText(name) ? name.trim() : "Platform Admin");
         admin.setPasswordHash(passwordEncoder.encode(password));
         adminRepository.save(admin);
 
         log.info("=================================================");
-        log.info("  ADMIN ACCOUNT CREATED (save these credentials)");
-        log.info("  Email:    {}", email);
-        log.info("  Password: {}", password);
+        log.info("  ADMIN ACCOUNT CREATED (from .env properties)");
+        log.info("  Email: {}", email);
         log.info("=================================================");
-    }
-
-    private String generatePassword() {
-        String chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%";
-        SecureRandom random = new SecureRandom();
-        StringBuilder password = new StringBuilder();
-        for (int i = 0; i < 16; i++) {
-            password.append(chars.charAt(random.nextInt(chars.length())));
-        }
-        return password.toString();
     }
 }

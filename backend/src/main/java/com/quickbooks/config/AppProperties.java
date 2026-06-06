@@ -26,14 +26,23 @@ public class AppProperties {
     }
 
     public static class Admin {
-        private boolean autoGenerate = true;
+        private boolean autoCreate = true;
+        private String email;
+        private String password;
+        private String name = "Platform Admin";
 
-        public boolean isAutoGenerate() { return autoGenerate; }
-        public void setAutoGenerate(boolean autoGenerate) { this.autoGenerate = autoGenerate; }
+        public boolean isAutoCreate() { return autoCreate; }
+        public void setAutoCreate(boolean autoCreate) { this.autoCreate = autoCreate; }
+        public String getEmail() { return email; }
+        public void setEmail(String email) { this.email = email; }
+        public String getPassword() { return password; }
+        public void setPassword(String password) { this.password = password; }
+        public String getName() { return name; }
+        public void setName(String name) { this.name = name; }
     }
 
     public static class Cors {
-        private String allowedOrigins = "http://localhost:8081";
+        private String allowedOrigins = "http://localhost:9091,http://localhost:9092";
 
         public String getAllowedOrigins() { return allowedOrigins; }
         public void setAllowedOrigins(String allowedOrigins) { this.allowedOrigins = allowedOrigins; }

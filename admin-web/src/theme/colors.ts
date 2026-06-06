@@ -9,4 +9,5 @@ export const colors = {
   border: '#2d3748',
   error: '#ef4444',
   success: '#22c55e',
+  warning: '#f59e0b',
 };

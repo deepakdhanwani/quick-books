@@ -5,15 +5,22 @@ type ButtonProps = {
   title: string;
   onPress: () => void;
   loading?: boolean;
+  disabled?: boolean;
   variant?: 'primary' | 'secondary';
 };
 
-export function Button({ title, onPress, loading, variant = 'primary' }: ButtonProps) {
+export function Button({ title, onPress, loading, disabled, variant = 'primary' }: ButtonProps) {
+  const isDisabled = loading || disabled;
+
   return (
     <Pressable
-      style={[styles.button, variant === 'secondary' && styles.secondary]}
+      style={[
+        styles.button,
+        variant === 'secondary' && styles.secondary,
+        isDisabled && styles.disabled,
+      ]}
       onPress={onPress}
-      disabled={loading}
+      disabled={isDisabled}
     >
       {loading ? (
         <ActivityIndicator color={colors.text} />
@@ -34,6 +41,9 @@ const styles = StyleSheet.create({
   },
   secondary: {
     backgroundColor: colors.surfaceElevated,
+  },
+  disabled: {
+    opacity: 0.5,
   },
   text: {
     color: colors.text,

@@ -1,13 +1,14 @@
 import { ReactNode } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet, View, ViewStyle } from 'react-native';
 import { colors } from '../theme/colors';
 
 type CardProps = {
   children: ReactNode;
+  style?: ViewStyle;
 };
 
-export function Card({ children }: CardProps) {
-  return <View style={styles.card}>{children}</View>;
+export function Card({ children, style }: CardProps) {
+  return <View style={[styles.card, style]}>{children}</View>;
 }
 
 const styles = StyleSheet.create({
@@ -17,5 +18,6 @@ const styles = StyleSheet.create({
     padding: 20,
     borderWidth: 1,
     borderColor: colors.border,
+    overflow: 'visible',
   },
 });

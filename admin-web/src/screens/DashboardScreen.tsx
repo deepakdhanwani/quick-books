@@ -1,56 +1,74 @@
 import { StyleSheet, Text, View } from 'react-native';
-import { Button } from '../components/Button';
 import { Card } from '../components/Card';
 import { colors } from '../theme/colors';
 
-type DashboardScreenProps = {
-  onLogout: () => void;
-};
+const STATS = [
+  { label: 'Total Subscribers', value: '—', hint: 'Connect reports API' },
+  { label: 'Active Subscriptions', value: '—', hint: 'Connect reports API' },
+  { label: 'Revenue (MTD)', value: '—', hint: 'Connect reports API' },
+  { label: 'Expiring Soon', value: '—', hint: 'Connect reports API' },
+];
 
-export function DashboardScreen({ onLogout }: DashboardScreenProps) {
+export function DashboardScreen() {
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Admin Dashboard</Text>
-      <Card>
-        <Text style={styles.text}>Manage subscribers, plans, taxes, discounts, and reports.</Text>
-        <View style={styles.menu}>
-          <Text style={styles.menuItem}>• Subscribers</Text>
-          <Text style={styles.menuItem}>• Subscription Plans</Text>
-          <Text style={styles.menuItem}>• Taxes</Text>
-          <Text style={styles.menuItem}>• Discounts</Text>
-          <Text style={styles.menuItem}>• Reports</Text>
-        </View>
-        <Button title="Sign Out" onPress={onLogout} variant="secondary" />
-      </Card>
+      <Text style={styles.welcome}>Welcome to Quick Books Admin</Text>
+      <Text style={styles.subtitle}>Platform overview and quick stats</Text>
+
+      <View style={styles.grid}>
+        {STATS.map((stat) => (
+          <View key={stat.label} style={styles.gridItem}>
+            <Card>
+              <Text style={styles.statLabel}>{stat.label}</Text>
+              <Text style={styles.statValue}>{stat.value}</Text>
+              <Text style={styles.statHint}>{stat.hint}</Text>
+            </Card>
+          </View>
+        ))}
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
-    backgroundColor: colors.background,
-    padding: 24,
-    maxWidth: 960,
     width: '100%',
-    alignSelf: 'center',
   },
-  title: {
+  welcome: {
+    color: colors.text,
+    fontSize: 18,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  subtitle: {
+    color: colors.textSecondary,
+    marginBottom: 24,
+  },
+  grid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginHorizontal: -8,
+    width: '100%',
+  },
+  gridItem: {
+    width: '25%',
+    minWidth: 220,
+    padding: 8,
+    flexGrow: 1,
+  },
+  statLabel: {
+    color: colors.textSecondary,
+    fontSize: 13,
+    marginBottom: 8,
+  },
+  statValue: {
     color: colors.text,
     fontSize: 28,
     fontWeight: '700',
-    marginBottom: 24,
+    marginBottom: 4,
   },
-  text: {
+  statHint: {
     color: colors.textSecondary,
-    marginBottom: 16,
-  },
-  menu: {
-    marginBottom: 24,
-  },
-  menuItem: {
-    color: colors.text,
-    fontSize: 16,
-    marginBottom: 8,
+    fontSize: 12,
   },
 });

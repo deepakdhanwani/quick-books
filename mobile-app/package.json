@@ -15,10 +15,10 @@
     "typescript": "~5.9.2"
   },
   "scripts": {
-    "start": "expo start",
-    "android": "expo start --android",
-    "ios": "expo start --ios",
-    "web": "expo start --web"
+    "start": "expo start --port 9092",
+    "android": "expo start --android --port 9092",
+    "ios": "expo start --ios --port 9092",
+    "web": "expo start --web --port 9092"
   },
   "private": true
 }

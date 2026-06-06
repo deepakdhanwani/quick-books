@@ -2,6 +2,7 @@ package com.quickbooks.entity.enums;
 
 public enum PlanDuration {
     MONTHLY,
-    YEARLY,
-    CUSTOM
+    QUARTERLY,
+    HALF_YEARLY,
+    ANNUAL
 }

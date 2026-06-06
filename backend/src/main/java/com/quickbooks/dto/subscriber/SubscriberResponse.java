@@ -11,8 +11,10 @@ public class SubscriberResponse {
     private String businessName;
     private String ownerName;
     private String phone;
-    private String businessType;
+    private Long businessTypeId;
+    private String businessTypeName;
     private SubscriptionStatus subscriptionStatus;
+    private boolean active;
     private OffsetDateTime createdAt;
     private String loginPin;
 
@@ -22,8 +24,12 @@ public class SubscriberResponse {
         response.setBusinessName(subscriber.getBusinessName());
         response.setOwnerName(subscriber.getOwnerName());
         response.setPhone(subscriber.getPhone());
-        response.setBusinessType(subscriber.getBusinessType());
+        if (subscriber.getBusinessType() != null) {
+            response.setBusinessTypeId(subscriber.getBusinessType().getId());
+            response.setBusinessTypeName(subscriber.getBusinessType().getName());
+        }
         response.setSubscriptionStatus(subscriber.getSubscriptionStatus());
+        response.setActive(subscriber.isActive());
         response.setCreatedAt(subscriber.getCreatedAt());
         return response;
     }
@@ -36,10 +42,14 @@ public class SubscriberResponse {
     public void setOwnerName(String ownerName) { this.ownerName = ownerName; }
     public String getPhone() { return phone; }
     public void setPhone(String phone) { this.phone = phone; }
-    public String getBusinessType() { return businessType; }
-    public void setBusinessType(String businessType) { this.businessType = businessType; }
+    public Long getBusinessTypeId() { return businessTypeId; }
+    public void setBusinessTypeId(Long businessTypeId) { this.businessTypeId = businessTypeId; }
+    public String getBusinessTypeName() { return businessTypeName; }
+    public void setBusinessTypeName(String businessTypeName) { this.businessTypeName = businessTypeName; }
     public SubscriptionStatus getSubscriptionStatus() { return subscriptionStatus; }
     public void setSubscriptionStatus(SubscriptionStatus subscriptionStatus) { this.subscriptionStatus = subscriptionStatus; }
+    public boolean isActive() { return active; }
+    public void setActive(boolean active) { this.active = active; }
     public OffsetDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(OffsetDateTime createdAt) { this.createdAt = createdAt; }
     public String getLoginPin() { return loginPin; }

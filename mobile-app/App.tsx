@@ -20,13 +20,14 @@ export default function App() {
     if (auth.requiresSubscription) {
       return (
         <SubscriptionScreen
+          token={auth.token}
           status={auth.subscriptionStatus === 'EXPIRED' ? 'EXPIRED' : 'NONE'}
           onLogout={handleLogout}
         />
       );
     }
 
-    return <DashboardScreen onLogout={handleLogout} />;
+    return <DashboardScreen token={auth.token} onLogout={handleLogout} />;
   };
 
   return (

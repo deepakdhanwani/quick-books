@@ -1,13 +1,24 @@
+import { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
+import { ChangePinScreen } from './ChangePinScreen';
 import { colors } from '../theme/colors';
 
 type DashboardScreenProps = {
+  token: string;
   onLogout: () => void;
 };
 
-export function DashboardScreen({ onLogout }: DashboardScreenProps) {
+export function DashboardScreen({ token, onLogout }: DashboardScreenProps) {
+  const [showChangePin, setShowChangePin] = useState(false);
+
+  if (showChangePin) {
+    return (
+      <ChangePinScreen token={token} onBack={() => setShowChangePin(false)} />
+    );
+  }
+
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Dashboard</Text>
@@ -21,7 +32,10 @@ export function DashboardScreen({ onLogout }: DashboardScreenProps) {
           <Text style={styles.menuItem}>• Pending Payments</Text>
           <Text style={styles.menuItem}>• Reports</Text>
         </View>
-        <Button title="Sign Out" onPress={onLogout} variant="secondary" />
+        <View style={styles.actions}>
+          <Button title="Change Login PIN" onPress={() => setShowChangePin(true)} variant="secondary" />
+          <Button title="Sign Out" onPress={onLogout} variant="secondary" />
+        </View>
       </Card>
     </View>
   );
@@ -50,5 +64,8 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontSize: 16,
     marginBottom: 8,
+  },
+  actions: {
+    gap: 12,
   },
 });

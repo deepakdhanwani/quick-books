@@ -1,4 +1,4 @@
-const API_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:8080';
+const API_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:9090';
 
 type RequestOptions = {
   method?: string;
@@ -37,10 +37,22 @@ export type SubscriberAuthResponse = {
   requiresSubscription: boolean;
 };
 
+export type ChangePinPayload = {
+  currentPin: string;
+  newPin: string;
+  confirmNewPin: string;
+};
+
 export const api = {
   subscriberLogin: (phone: string, loginPin: string) =>
     request<SubscriberAuthResponse>('/api/auth/subscriber/login', {
       method: 'POST',
       body: { phone, loginPin },
+    }),
+  changePin: (token: string, payload: ChangePinPayload) =>
+    request<{ message: string }>('/api/subscriber/account/change-pin', {
+      method: 'POST',
+      token,
+      body: payload,
     }),
 };
