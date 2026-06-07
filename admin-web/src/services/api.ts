@@ -239,7 +239,7 @@ export type AdminDashboardSummary = {
   revenueMtd: number;
 };
 
-type ReportQuery = Record<string, string | number | undefined>;
+type ReportQuery = Record<string, string | number | boolean | undefined>;
 
 function buildQuery(params: ReportQuery) {
   const search = new URLSearchParams();
@@ -446,6 +446,124 @@ export const api = {
     request<DemoDataJob>(`/api/admin/settings/demo-data-jobs/${jobId}`, { token }),
   listDemoSubscribers: (token: string) =>
     request<DemoSubscriber[]>('/api/admin/settings/demo-subscribers', { token }),
+
+  getSubscriberDataSummary: (token: string, subscriberId: number) =>
+    request<SubscriberDataSummary>(`/api/admin/subscribers/${subscriberId}/data/summary`, { token }),
+
+  getSubscriberCustomers: (
+    token: string,
+    subscriberId: number,
+    params: SubscriberListQuery = {},
+  ) =>
+    request<PageResponse<SubscriberCustomer>>(
+      `/api/admin/subscribers/${subscriberId}/data/customers${buildQuery({
+        page: params.page,
+        size: params.size,
+        active: params.active,
+        search: params.search,
+      })}`,
+      { token },
+    ),
+
+  getSubscriberVendors: (token: string, subscriberId: number, params: SubscriberListQuery = {}) =>
+    request<PageResponse<SubscriberVendor>>(
+      `/api/admin/subscribers/${subscriberId}/data/vendors${buildQuery({
+        page: params.page,
+        size: params.size,
+        active: params.active,
+        search: params.search,
+      })}`,
+      { token },
+    ),
+
+  getSubscriberProducts: (token: string, subscriberId: number, params: SubscriberListQuery = {}) =>
+    request<PageResponse<SubscriberProduct>>(
+      `/api/admin/subscribers/${subscriberId}/data/products${buildQuery({
+        page: params.page,
+        size: params.size,
+        active: params.active,
+        search: params.search,
+      })}`,
+      { token },
+    ),
+
+  getSubscriberSales: (
+    token: string,
+    subscriberId: number,
+    params: SubscriberTransactionQuery = {},
+  ) =>
+    request<PageResponse<SubscriberSale>>(
+      `/api/admin/subscribers/${subscriberId}/data/sales${buildQuery({
+        page: params.page,
+        size: params.size,
+        search: params.search,
+        paymentFilter: params.paymentFilter,
+        fromDate: params.fromDate,
+        toDate: params.toDate,
+      })}`,
+      { token },
+    ),
+
+  getSubscriberPurchases: (
+    token: string,
+    subscriberId: number,
+    params: SubscriberTransactionQuery = {},
+  ) =>
+    request<PageResponse<SubscriberPurchase>>(
+      `/api/admin/subscribers/${subscriberId}/data/purchases${buildQuery({
+        page: params.page,
+        size: params.size,
+        search: params.search,
+        paymentFilter: params.paymentFilter,
+        fromDate: params.fromDate,
+        toDate: params.toDate,
+      })}`,
+      { token },
+    ),
+
+  getSubscriberTeamUsers: (token: string, subscriberId: number) =>
+    request<SubscriberTeamUser[]>(`/api/admin/subscribers/${subscriberId}/data/users`, { token }),
+
+  getSubscriberAuditLogs: (
+    token: string,
+    subscriberId: number,
+    page = 0,
+    size = 20,
+  ) =>
+    request<PageResponse<SubscriberAuditLog>>(
+      `/api/admin/subscribers/${subscriberId}/data/audit-logs?page=${page}&size=${size}`,
+      { token },
+    ),
+
+  getSubscriberSalesReport: (
+    token: string,
+    subscriberId: number,
+    params: { from?: string; to?: string } = {},
+  ) =>
+    request<AdminReport>(
+      `/api/admin/subscribers/${subscriberId}/data/reports/sales${buildQuery(params)}`,
+      { token },
+    ),
+
+  getSubscriberPurchasesReport: (
+    token: string,
+    subscriberId: number,
+    params: { from?: string; to?: string } = {},
+  ) =>
+    request<AdminReport>(
+      `/api/admin/subscribers/${subscriberId}/data/reports/purchases${buildQuery(params)}`,
+      { token },
+    ),
+
+  getSubscriberBusinessSummaryReport: (
+    token: string,
+    subscriberId: number,
+    params: { from?: string; to?: string } = {},
+  ) =>
+    request<AdminReport>(
+      `/api/admin/subscribers/${subscriberId}/data/reports/summary${buildQuery(params)}`,
+      { token },
+    ),
 };
 
 export type TableCount = {
@@ -522,4 +640,126 @@ export type DemoSubscriber = {
   productCount: number;
   saleCount: number;
   purchaseCount: number;
+};
+
+export type PaymentListFilter = 'ALL' | 'PENDING' | 'PAID';
+
+export type SubscriberListQuery = {
+  page?: number;
+  size?: number;
+  active?: boolean;
+  search?: string;
+};
+
+export type SubscriberTransactionQuery = SubscriberListQuery & {
+  paymentFilter?: PaymentListFilter;
+  fromDate?: string;
+  toDate?: string;
+};
+
+export type SubscriberDataSummary = {
+  customerCount: number;
+  vendorCount: number;
+  productCount: number;
+  saleCount: number;
+  purchaseCount: number;
+  teamUserCount: number;
+  auditLogCount: number;
+  totalSalesAmount: number;
+  totalPurchasesAmount: number;
+  pendingSalesAmount: number;
+  pendingPurchasesAmount: number;
+};
+
+export type SubscriberCustomer = {
+  id: number;
+  name: string;
+  phone?: string;
+  email?: string;
+  address?: string;
+  customerType: 'INDIVIDUAL' | 'BUSINESS';
+  businessName?: string;
+  gstNumber?: string;
+  active: boolean;
+  createdAt: string;
+  totalPendingAmount: number;
+};
+
+export type SubscriberVendor = {
+  id: number;
+  name: string;
+  contactPerson?: string;
+  phone?: string;
+  email?: string;
+  address?: string;
+  vendorType: 'INDIVIDUAL' | 'BUSINESS';
+  businessName?: string;
+  gstNumber?: string;
+  active: boolean;
+  createdAt: string;
+  totalPendingAmount: number;
+};
+
+export type SubscriberProduct = {
+  id: number;
+  name: string;
+  sellingPrice: number;
+  discount: number;
+  netAmount: number;
+  active: boolean;
+  createdAt: string;
+};
+
+export type SubscriberSale = {
+  id: number;
+  customerId: number;
+  customerName: string;
+  invoiceNumber?: string;
+  date: string;
+  grossAmount: number;
+  discountAmount: number;
+  taxAmount: number;
+  netAmount: number;
+  paidAmount: number;
+  pendingAmount: number;
+  paymentStatus: 'PAID' | 'PARTIAL' | 'PENDING';
+  notes?: string;
+  createdAt: string;
+};
+
+export type SubscriberPurchase = {
+  id: number;
+  vendorId: number;
+  vendorName: string;
+  billNumber?: string;
+  date: string;
+  grossAmount: number;
+  discountAmount: number;
+  taxAmount: number;
+  netAmount: number;
+  paidAmount: number;
+  pendingAmount: number;
+  paymentStatus: 'PAID' | 'PARTIAL' | 'PENDING';
+  notes?: string;
+  createdAt: string;
+};
+
+export type SubscriberTeamUser = {
+  id: number;
+  name: string;
+  loginPin: string;
+  active: boolean;
+  createdAt: string;
+};
+
+export type SubscriberAuditLog = {
+  id: number;
+  actorType: 'OWNER' | 'TEAM_USER' | 'SYSTEM';
+  actorName: string;
+  actorPin?: string;
+  action: string;
+  entityType: string;
+  entityId?: number;
+  details?: string;
+  createdAt: string;
 };

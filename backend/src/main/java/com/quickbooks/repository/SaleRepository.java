@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.Collection;
 import java.util.List;
@@ -84,4 +85,34 @@ public interface SaleRepository extends JpaRepository<Sale, Long> {
             @Param("customerIds") Collection<Long> customerIds);
 
     long countBySubscriber_Id(Long subscriberId);
+
+    @Query("""
+            SELECT COALESCE(SUM(s.totalAmount), 0) FROM Sale s
+            WHERE s.subscriber.id = :subscriberId
+            AND s.date >= COALESCE(:fromDate, s.date)
+            AND s.date <= COALESCE(:toDate, s.date)
+            """)
+    BigDecimal sumNetAmountBySubscriber(
+            @Param("subscriberId") Long subscriberId,
+            @Param("fromDate") LocalDate fromDate,
+            @Param("toDate") LocalDate toDate);
+
+    @Query("""
+            SELECT COALESCE(SUM(s.pendingAmount), 0) FROM Sale s
+            WHERE s.subscriber.id = :subscriberId
+            AND s.pendingAmount > 0
+            """)
+    BigDecimal sumPendingAmountBySubscriber(@Param("subscriberId") Long subscriberId);
+
+    @Query("""
+            SELECT s.date, s.totalAmount FROM Sale s
+            WHERE s.subscriber.id = :subscriberId
+            AND s.date >= :fromDate
+            AND s.date <= :toDate
+            ORDER BY s.date ASC
+            """)
+    List<Object[]> findAmountsByDateRange(
+            @Param("subscriberId") Long subscriberId,
+            @Param("fromDate") LocalDate fromDate,
+            @Param("toDate") LocalDate toDate);
 }

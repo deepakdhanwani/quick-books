@@ -8,4 +8,6 @@ import org.springframework.data.jpa.repository.JpaRepository;
 public interface AuditLogRepository extends JpaRepository<AuditLog, Long> {
 
     Page<AuditLog> findBySubscriberIdOrderByCreatedAtDesc(Long subscriberId, Pageable pageable);
+
+    long countBySubscriberId(Long subscriberId);
 }

@@ -13,4 +13,6 @@ public interface SubscriberUserRepository extends JpaRepository<SubscriberUser, 
     Optional<SubscriberUser> findByIdAndSubscriberId(Long id, Long subscriberId);
 
     List<SubscriberUser> findBySubscriberIdAndActiveTrue(Long subscriberId);
+
+    long countBySubscriberId(Long subscriberId);
 }

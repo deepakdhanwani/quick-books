@@ -1,13 +1,26 @@
 import { ReactNode, useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Autocomplete } from '../components/Autocomplete';
 import { Badge } from '../components/Badge';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
 import { Input } from '../components/Input';
 import { Select } from '../components/Select';
-import { api, BusinessType, SubscriberDetail, SubscriberSubscriptionInfo } from '../services/api';
+import {
+  SUBSCRIBER_DATA_TABS,
+  SubscriberDataPanel,
+  SubscriberDataTab,
+  SubscriberOverviewSummary,
+} from '../components/SubscriberDataPanel';
+import {
+  api,
+  BusinessType,
+  SubscriberDataSummary,
+  SubscriberDetail,
+  SubscriberSubscriptionInfo,
+} from '../services/api';
 import { colors } from '../theme/colors';
+import { formatCurrency, formatDate, formatDateTime } from '../utils/format';
 import { formatPlanDuration } from '../utils/planDuration';
 import { shareLoginDetails } from '../utils/shareLoginDetails';
 
@@ -53,6 +66,9 @@ export function SubscriberDetailScreen({
   const [editBusinessTypeQuery, setEditBusinessTypeQuery] = useState('');
   const [editBusinessTypeId, setEditBusinessTypeId] = useState('');
   const [editActive, setEditActive] = useState('true');
+  const [activeTab, setActiveTab] = useState<SubscriberDataTab>('OVERVIEW');
+  const [dataSummary, setDataSummary] = useState<SubscriberDataSummary | null>(null);
+  const [summaryLoading, setSummaryLoading] = useState(false);
 
   useEffect(() => {
     if (initialPin) {
@@ -81,6 +97,22 @@ export function SubscriberDetailScreen({
   useEffect(() => {
     loadDetail();
   }, [loadDetail]);
+
+  const loadSummary = useCallback(async () => {
+    setSummaryLoading(true);
+    try {
+      const summary = await api.getSubscriberDataSummary(token, subscriberId);
+      setDataSummary(summary);
+    } catch {
+      setDataSummary(null);
+    } finally {
+      setSummaryLoading(false);
+    }
+  }, [token, subscriberId]);
+
+  useEffect(() => {
+    loadSummary();
+  }, [loadSummary]);
 
   const businessTypeOptions = businessTypes.map((type) => ({
     label: type.name,
@@ -248,7 +280,29 @@ export function SubscriberDetailScreen({
         </View>
       </Card>
 
-      {editing ? (
+      <View style={styles.tabs}>
+        {SUBSCRIBER_DATA_TABS.map((tab) => (
+          <Pressable
+            key={tab.id}
+            style={[styles.tab, activeTab === tab.id && styles.tabActive]}
+            onPress={() => setActiveTab(tab.id)}
+          >
+            <Text style={[styles.tabText, activeTab === tab.id && styles.tabTextActive]}>{tab.label}</Text>
+          </Pressable>
+        ))}
+      </View>
+
+      {activeTab === 'OVERVIEW' ? (
+        <SubscriberOverviewSummary
+          summary={dataSummary}
+          loading={summaryLoading}
+          onNavigate={setActiveTab}
+        />
+      ) : (
+        <SubscriberDataPanel token={token} subscriberId={subscriberId} tab={activeTab} />
+      )}
+
+      {activeTab === 'OVERVIEW' && editing ? (
         <Card style={styles.sectionCard}>
           <SectionHeader icon="✎" title="Edit Subscriber" />
           <View style={styles.formGrid}>
@@ -293,7 +347,7 @@ export function SubscriberDetailScreen({
           </View>
           {editFeedback ? <InlineFeedback feedback={editFeedback} /> : null}
         </Card>
-      ) : (
+      ) : activeTab === 'OVERVIEW' ? (
         <Card style={styles.sectionCard}>
           <SectionHeader icon="👤" title="Profile" action={<Button title="Edit" onPress={startEdit} variant="secondary" />} />
           {profileFeedback ? <InlineFeedback feedback={profileFeedback} /> : null}
@@ -305,8 +359,9 @@ export function SubscriberDetailScreen({
             <InfoTile label="Registered On" value={formatDateTime(detail.createdAt)} />
           </View>
         </Card>
-      )}
+      ) : null}
 
+      {activeTab === 'OVERVIEW' ? (
       <Card style={styles.sectionCard}>
         <SectionHeader icon="🔐" title="Login & Security" />
         <View style={styles.infoBanner}>
@@ -382,7 +437,9 @@ export function SubscriberDetailScreen({
 
         {pinFeedback ? <InlineFeedback feedback={pinFeedback} /> : null}
       </Card>
+      ) : null}
 
+      {activeTab === 'OVERVIEW' ? (
       <Card style={styles.sectionCard}>
         <SectionHeader icon="📋" title="Subscription" />
         <View style={styles.infoGrid}>
@@ -416,6 +473,7 @@ export function SubscriberDetailScreen({
           </View>
         ) : null}
       </Card>
+      ) : null}
     </ScrollView>
   );
 }
@@ -515,28 +573,6 @@ function subscriptionColor(status: SubscriberDetail['subscriptionStatus']) {
   return colors.warning;
 }
 
-function formatCurrency(amount: number) {
-  return `₹${amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-}
-
-function formatDate(value: string) {
-  return new Date(value).toLocaleDateString('en-IN', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-  });
-}
-
-function formatDateTime(value: string) {
-  return new Date(value).toLocaleString('en-IN', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-}
-
 const styles = StyleSheet.create({
   container: { flex: 1, width: '100%' },
   content: { paddingBottom: 40, gap: 16 },
@@ -561,6 +597,32 @@ const styles = StyleSheet.create({
   heroSubtitle: { color: colors.textSecondary, fontSize: 15, marginTop: 2 },
   heroPhone: { color: colors.text, fontSize: 15, marginTop: 6, fontWeight: '500' },
   badgeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  tabs: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  tab: {
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+  },
+  tabActive: {
+    borderColor: colors.primary,
+    backgroundColor: colors.primary + '22',
+  },
+  tabText: {
+    color: colors.textSecondary,
+    fontSize: 13,
+    fontWeight: '500',
+  },
+  tabTextActive: {
+    color: colors.primary,
+    fontWeight: '600',
+  },
   sectionCard: { marginTop: 0 },
   sectionHeader: {
     flexDirection: 'row',
