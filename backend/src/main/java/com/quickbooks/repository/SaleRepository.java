@@ -21,10 +21,16 @@ public interface SaleRepository extends JpaRepository<Sale, Long> {
                 OR LOWER(c.name) LIKE LOWER(CONCAT('%', :search, '%'))
                 OR LOWER(COALESCE(c.phone, '')) LIKE LOWER(CONCAT('%', :search, '%'))
             )
+            AND (
+                :paymentFilter = 'ALL'
+                OR (:paymentFilter = 'PENDING' AND s.paymentStatus <> 'PAID')
+                OR (:paymentFilter = 'PAID' AND s.paymentStatus = 'PAID')
+            )
             """)
     Page<Sale> findBySubscriber(
             @Param("subscriberId") Long subscriberId,
             @Param("search") String search,
+            @Param("paymentFilter") String paymentFilter,
             Pageable pageable);
 
     @Query("""

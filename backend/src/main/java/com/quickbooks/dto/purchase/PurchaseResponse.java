@@ -1,78 +1,61 @@
-package com.quickbooks.entity;
+package com.quickbooks.dto.purchase;
 
+import com.quickbooks.entity.Purchase;
 import com.quickbooks.entity.enums.PaymentStatus;
-import jakarta.persistence.*;
+
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
-import java.util.ArrayList;
 import java.util.List;
 
-@Entity
-@Table(name = "purchases")
-public class Purchase {
+public class PurchaseResponse {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "subscriber_id", nullable = false)
-    private Subscriber subscriber;
-
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "vendor_id", nullable = false)
-    private Vendor vendor;
-
-    @Column(name = "bill_number", length = 100)
+    private Long vendorId;
+    private String vendorName;
     private String billNumber;
-
-    @Column(nullable = false)
     private LocalDate date;
-
-    @Column(name = "gross_amount")
     private BigDecimal grossAmount;
-
-    @Column(name = "discount_amount")
     private BigDecimal discountAmount;
-
-    @Column(name = "tax_percent")
     private BigDecimal taxPercent;
-
-    @Column(name = "tax_amount")
     private BigDecimal taxAmount;
-
-    @Column(name = "total_amount", nullable = false)
-    private BigDecimal totalAmount;
-
-    @Column(name = "paid_amount", nullable = false)
-    private BigDecimal paidAmount = BigDecimal.ZERO;
-
-    @Column(name = "pending_amount", nullable = false)
-    private BigDecimal pendingAmount = BigDecimal.ZERO;
-
-    @Column(name = "adjusted_amount", nullable = false)
-    private BigDecimal adjustedAmount = BigDecimal.ZERO;
-
-    @Enumerated(EnumType.STRING)
-    @Column(name = "payment_status", nullable = false)
+    private BigDecimal netAmount;
+    private BigDecimal paidAmount;
+    private BigDecimal pendingAmount;
+    private BigDecimal adjustedAmount;
     private PaymentStatus paymentStatus;
-
-    @Column(columnDefinition = "TEXT")
     private String notes;
+    private OffsetDateTime createdAt;
+    private List<PurchaseItemResponse> items;
+    private List<PurchasePaymentResponse> payments;
 
-    @OneToMany(mappedBy = "purchase", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<PurchaseItem> items = new ArrayList<>();
-
-    @Column(name = "created_at", nullable = false)
-    private OffsetDateTime createdAt = OffsetDateTime.now();
+    public static PurchaseResponse from(Purchase purchase) {
+        PurchaseResponse response = new PurchaseResponse();
+        response.setId(purchase.getId());
+        response.setVendorId(purchase.getVendor().getId());
+        response.setVendorName(purchase.getVendor().getName());
+        response.setBillNumber(purchase.getBillNumber());
+        response.setDate(purchase.getDate());
+        response.setGrossAmount(purchase.getGrossAmount());
+        response.setDiscountAmount(purchase.getDiscountAmount());
+        response.setTaxPercent(purchase.getTaxPercent());
+        response.setTaxAmount(purchase.getTaxAmount());
+        response.setNetAmount(purchase.getTotalAmount());
+        response.setPaidAmount(purchase.getPaidAmount());
+        response.setPendingAmount(purchase.getPendingAmount());
+        response.setAdjustedAmount(purchase.getAdjustedAmount());
+        response.setPaymentStatus(purchase.getPaymentStatus());
+        response.setNotes(purchase.getNotes());
+        response.setCreatedAt(purchase.getCreatedAt());
+        return response;
+    }
 
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
-    public Subscriber getSubscriber() { return subscriber; }
-    public void setSubscriber(Subscriber subscriber) { this.subscriber = subscriber; }
-    public Vendor getVendor() { return vendor; }
-    public void setVendor(Vendor vendor) { this.vendor = vendor; }
+    public Long getVendorId() { return vendorId; }
+    public void setVendorId(Long vendorId) { this.vendorId = vendorId; }
+    public String getVendorName() { return vendorName; }
+    public void setVendorName(String vendorName) { this.vendorName = vendorName; }
     public String getBillNumber() { return billNumber; }
     public void setBillNumber(String billNumber) { this.billNumber = billNumber; }
     public LocalDate getDate() { return date; }
@@ -85,8 +68,8 @@ public class Purchase {
     public void setTaxPercent(BigDecimal taxPercent) { this.taxPercent = taxPercent; }
     public BigDecimal getTaxAmount() { return taxAmount; }
     public void setTaxAmount(BigDecimal taxAmount) { this.taxAmount = taxAmount; }
-    public BigDecimal getTotalAmount() { return totalAmount; }
-    public void setTotalAmount(BigDecimal totalAmount) { this.totalAmount = totalAmount; }
+    public BigDecimal getNetAmount() { return netAmount; }
+    public void setNetAmount(BigDecimal netAmount) { this.netAmount = netAmount; }
     public BigDecimal getPaidAmount() { return paidAmount; }
     public void setPaidAmount(BigDecimal paidAmount) { this.paidAmount = paidAmount; }
     public BigDecimal getPendingAmount() { return pendingAmount; }
@@ -97,8 +80,10 @@ public class Purchase {
     public void setPaymentStatus(PaymentStatus paymentStatus) { this.paymentStatus = paymentStatus; }
     public String getNotes() { return notes; }
     public void setNotes(String notes) { this.notes = notes; }
-    public List<PurchaseItem> getItems() { return items; }
-    public void setItems(List<PurchaseItem> items) { this.items = items; }
     public OffsetDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(OffsetDateTime createdAt) { this.createdAt = createdAt; }
+    public List<PurchaseItemResponse> getItems() { return items; }
+    public void setItems(List<PurchaseItemResponse> items) { this.items = items; }
+    public List<PurchasePaymentResponse> getPayments() { return payments; }
+    public void setPayments(List<PurchasePaymentResponse> payments) { this.payments = payments; }
 }

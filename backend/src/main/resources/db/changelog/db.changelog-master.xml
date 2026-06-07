@@ -19,5 +19,7 @@
     <include file="db/changelog/changes/012-sale-payment-fields.xml"/>
     <include file="db/changelog/changes/013-subscriber-sales-settings.xml"/>
     <include file="db/changelog/changes/014-products.xml"/>
+    <include file="db/changelog/changes/015-purchase-fields.xml"/>
+    <include file="db/changelog/changes/016-payment-adjustment.xml"/>
 
 </databaseChangeLog>

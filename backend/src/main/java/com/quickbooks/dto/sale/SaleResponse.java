@@ -23,6 +23,7 @@ public class SaleResponse {
     private BigDecimal netAmount;
     private BigDecimal paidAmount;
     private BigDecimal pendingAmount;
+    private BigDecimal adjustedAmount;
     private PaymentStatus paymentStatus;
     private String notes;
     private OffsetDateTime createdAt;
@@ -44,6 +45,7 @@ public class SaleResponse {
         response.setNetAmount(sale.getTotalAmount());
         response.setPaidAmount(sale.getPaidAmount());
         response.setPendingAmount(sale.getPendingAmount());
+        response.setAdjustedAmount(sale.getAdjustedAmount());
         response.setPaymentStatus(sale.getPaymentStatus());
         response.setNotes(sale.getNotes());
         response.setCreatedAt(sale.getCreatedAt());
@@ -76,6 +78,8 @@ public class SaleResponse {
     public void setPaidAmount(BigDecimal paidAmount) { this.paidAmount = paidAmount; }
     public BigDecimal getPendingAmount() { return pendingAmount; }
     public void setPendingAmount(BigDecimal pendingAmount) { this.pendingAmount = pendingAmount; }
+    public BigDecimal getAdjustedAmount() { return adjustedAmount; }
+    public void setAdjustedAmount(BigDecimal adjustedAmount) { this.adjustedAmount = adjustedAmount; }
     public PaymentStatus getPaymentStatus() { return paymentStatus; }
     public void setPaymentStatus(PaymentStatus paymentStatus) { this.paymentStatus = paymentStatus; }
     public String getNotes() { return notes; }

@@ -7,20 +7,20 @@ import { Card } from '../components/Card';
 import { Input } from '../components/Input';
 import { PaymentModePicker } from '../components/PaymentModePicker';
 import { RefreshableScrollView } from '../components/RefreshableScrollView';
-import { api, PaymentMode, PaymentProofFile, Sale } from '../services/api';
+import { api, PaymentMode, PaymentProofFile, Purchase } from '../services/api';
 import { colors } from '../theme/colors';
 import { PAYMENT_PROOF_PICKER_TYPES } from '../utils/paymentProofFiles';
 import { resolvePaymentSettlementType } from '../utils/paymentSettlement';
 import { formatCurrency, getPaymentDetailsLabel, parseAmount } from '../utils/saleAmounts';
 
-type ReceivePaymentScreenProps = {
+type MakePaymentScreenProps = {
   token: string;
-  saleId: number;
+  purchaseId: number;
   onSaved: () => void;
 };
 
-export function ReceivePaymentScreen({ token, saleId, onSaved }: ReceivePaymentScreenProps) {
-  const [sale, setSale] = useState<Sale | null>(null);
+export function MakePaymentScreen({ token, purchaseId, onSaved }: MakePaymentScreenProps) {
+  const [purchase, setPurchase] = useState<Purchase | null>(null);
   const [amount, setAmount] = useState('');
   const [paymentMode, setPaymentMode] = useState<PaymentMode>('CASH');
   const [paymentDetails, setPaymentDetails] = useState('');
@@ -31,19 +31,19 @@ export function ReceivePaymentScreen({ token, saleId, onSaved }: ReceivePaymentS
   const [error, setError] = useState('');
 
   useEffect(() => {
-    const loadSale = async () => {
+    const loadPurchase = async () => {
       try {
-        const data = await api.getSale(token, saleId);
-        setSale(data);
+        const data = await api.getPurchase(token, purchaseId);
+        setPurchase(data);
         setAmount(String(data.pendingAmount ?? ''));
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Could not load sale');
+        setError(err instanceof Error ? err.message : 'Could not load purchase');
       } finally {
         setLoading(false);
       }
     };
-    loadSale();
-  }, [saleId, token]);
+    loadPurchase();
+  }, [purchaseId, token]);
 
   const pickProof = async () => {
     const result = await DocumentPicker.getDocumentAsync({
@@ -70,9 +70,9 @@ export function ReceivePaymentScreen({ token, saleId, onSaved }: ReceivePaymentS
     setSaving(true);
     setError('');
     try {
-      await api.receiveSalePayment(
+      await api.makePurchasePayment(
         token,
-        saleId,
+        purchaseId,
         {
           amount: paymentAmount,
           paymentMode,
@@ -96,7 +96,7 @@ export function ReceivePaymentScreen({ token, saleId, onSaved }: ReceivePaymentS
       setError('Enter a valid payment amount');
       return;
     }
-    if (sale && paymentAmount > sale.pendingAmount) {
+    if (purchase && paymentAmount > purchase.pendingAmount) {
       setError('Amount cannot exceed pending balance');
       return;
     }
@@ -104,8 +104,8 @@ export function ReceivePaymentScreen({ token, saleId, onSaved }: ReceivePaymentS
     setError('');
     resolvePaymentSettlementType({
       paymentAmount,
-      pendingAmount: sale?.pendingAmount ?? 0,
-      documentLabel: 'invoice',
+      pendingAmount: purchase?.pendingAmount ?? 0,
+      documentLabel: 'bill',
       onChoose: submitPayment,
     });
   };
@@ -113,7 +113,7 @@ export function ReceivePaymentScreen({ token, saleId, onSaved }: ReceivePaymentS
   if (loading) {
     return (
       <View style={styles.loading}>
-        <Text style={styles.loadingText}>Loading sale...</Text>
+        <Text style={styles.loadingText}>Loading purchase...</Text>
       </View>
     );
   }
@@ -126,10 +126,10 @@ export function ReceivePaymentScreen({ token, saleId, onSaved }: ReceivePaymentS
       onRefresh={async () => {}}
     >
       <Card>
-        {sale ? (
+        {purchase ? (
           <View style={styles.summary}>
             <Text style={styles.summaryLabel}>Pending Balance</Text>
-            <Text style={styles.summaryValue}>{formatCurrency(sale.pendingAmount)}</Text>
+            <Text style={styles.summaryValue}>{formatCurrency(purchase.pendingAmount)}</Text>
           </View>
         ) : null}
 

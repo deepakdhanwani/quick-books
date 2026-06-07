@@ -1,28 +1,28 @@
 package com.quickbooks.service;
 
 import com.quickbooks.dto.common.PageResponse;
-import com.quickbooks.dto.sale.CreateSaleItemRequest;
-import com.quickbooks.dto.sale.CreateSaleRequest;
-import com.quickbooks.dto.sale.NextInvoiceNumberResponse;
-import com.quickbooks.dto.sale.SaleItemResponse;
-import com.quickbooks.dto.sale.SalePaymentResponse;
-import com.quickbooks.dto.sale.SaleResponse;
-import com.quickbooks.util.InvoiceNumberGenerator;
-import com.quickbooks.entity.Customer;
+import com.quickbooks.dto.purchase.CreatePurchaseItemRequest;
+import com.quickbooks.dto.purchase.CreatePurchaseRequest;
+import com.quickbooks.dto.purchase.NextBillNumberResponse;
+import com.quickbooks.dto.purchase.PurchaseItemResponse;
+import com.quickbooks.dto.purchase.PurchasePaymentResponse;
+import com.quickbooks.dto.purchase.PurchaseResponse;
 import com.quickbooks.entity.Payment;
 import com.quickbooks.entity.Product;
-import com.quickbooks.entity.Sale;
-import com.quickbooks.entity.SaleItem;
+import com.quickbooks.entity.Purchase;
+import com.quickbooks.entity.PurchaseItem;
 import com.quickbooks.entity.Subscriber;
+import com.quickbooks.entity.Vendor;
 import com.quickbooks.entity.enums.PaymentListFilter;
 import com.quickbooks.entity.enums.PaymentMode;
 import com.quickbooks.entity.enums.PaymentSettlementType;
 import com.quickbooks.entity.enums.PaymentStatus;
 import com.quickbooks.entity.enums.PaymentType;
 import com.quickbooks.entity.enums.ReferenceType;
-import com.quickbooks.repository.CustomerRepository;
 import com.quickbooks.repository.PaymentRepository;
-import com.quickbooks.repository.SaleRepository;
+import com.quickbooks.repository.PurchaseRepository;
+import com.quickbooks.repository.VendorRepository;
+import com.quickbooks.util.InvoiceNumberGenerator;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.UrlResource;
 import org.springframework.data.domain.Page;
@@ -43,182 +43,180 @@ import java.util.List;
 import java.util.Set;
 
 @Service
-public class SaleService {
+public class PurchaseService {
 
-    private final SaleRepository saleRepository;
+    private final PurchaseRepository purchaseRepository;
     private final PaymentRepository paymentRepository;
-    private final CustomerRepository customerRepository;
+    private final VendorRepository vendorRepository;
     private final SubscriberService subscriberService;
     private final ProductService productService;
     private final FileStorageService fileStorageService;
 
-    public SaleService(SaleRepository saleRepository,
-                       PaymentRepository paymentRepository,
-                       CustomerRepository customerRepository,
-                       SubscriberService subscriberService,
-                       ProductService productService,
-                       FileStorageService fileStorageService) {
-        this.saleRepository = saleRepository;
+    public PurchaseService(PurchaseRepository purchaseRepository,
+                           PaymentRepository paymentRepository,
+                           VendorRepository vendorRepository,
+                           SubscriberService subscriberService,
+                           ProductService productService,
+                           FileStorageService fileStorageService) {
+        this.purchaseRepository = purchaseRepository;
         this.paymentRepository = paymentRepository;
-        this.customerRepository = customerRepository;
+        this.vendorRepository = vendorRepository;
         this.subscriberService = subscriberService;
         this.productService = productService;
         this.fileStorageService = fileStorageService;
     }
 
     @Transactional(readOnly = true)
-    public PageResponse<SaleResponse> findPage(Long subscriberId, int page, int size, String search, PaymentListFilter paymentFilter) {
+    public PageResponse<PurchaseResponse> findPage(Long subscriberId, int page, int size, String search, PaymentListFilter paymentFilter) {
         int normalizedPage = Math.max(page, 0);
         int normalizedSize = Math.min(Math.max(size, 1), 100);
         String normalizedSearch = normalizeOptional(search);
         PaymentListFilter normalizedFilter = paymentFilter != null ? paymentFilter : PaymentListFilter.ALL;
 
         Pageable pageable = PageRequest.of(normalizedPage, normalizedSize, Sort.by("date").descending().and(Sort.by("id").descending()));
-        Page<SaleResponse> result = saleRepository.findBySubscriber(subscriberId, normalizedSearch, normalizedFilter.name(), pageable)
-                .map(SaleResponse::from);
+        Page<PurchaseResponse> result = purchaseRepository.findBySubscriber(subscriberId, normalizedSearch, normalizedFilter.name(), pageable)
+                .map(PurchaseResponse::from);
 
         return PageResponse.from(result);
     }
 
     @Transactional(readOnly = true)
-    public NextInvoiceNumberResponse getNextInvoiceNumber(Long subscriberId) {
-        String suggested = suggestNextInvoiceNumber(subscriberId);
-        return new NextInvoiceNumberResponse(suggested, true);
+    public NextBillNumberResponse getNextBillNumber(Long subscriberId) {
+        String suggested = suggestNextBillNumber(subscriberId);
+        return new NextBillNumberResponse(suggested, true);
     }
 
     @Transactional(readOnly = true)
-    public SaleResponse getById(Long subscriberId, Long saleId) {
-        Sale sale = getOwnedSale(subscriberId, saleId);
-        SaleResponse response = SaleResponse.from(sale);
-        response.setItems(mapSaleItems(sale));
-        response.setPayments(loadPayments(subscriberId, saleId));
+    public PurchaseResponse getById(Long subscriberId, Long purchaseId) {
+        Purchase purchase = getOwnedPurchase(subscriberId, purchaseId);
+        PurchaseResponse response = PurchaseResponse.from(purchase);
+        response.setItems(mapPurchaseItems(purchase));
+        response.setPayments(loadPayments(subscriberId, purchaseId));
         return response;
     }
 
     @Transactional
-    public SaleResponse create(Long subscriberId, CreateSaleRequest request) {
+    public PurchaseResponse create(Long subscriberId, CreatePurchaseRequest request) {
         Subscriber subscriber = subscriberService.getById(subscriberId);
-        Customer customer = customerRepository.findByIdAndSubscriberId(request.getCustomerId(), subscriberId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Customer not found"));
+        Vendor vendor = vendorRepository.findByIdAndSubscriberId(request.getVendorId(), subscriberId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Vendor not found"));
 
-        if (!customer.isActive()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Selected customer is inactive");
+        if (!vendor.isActive()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Selected vendor is inactive");
         }
 
-        String invoiceNumber = resolveInvoiceNumber(subscriberId, request.getInvoiceNumber());
-        if (saleRepository.existsBySubscriberIdAndInvoiceNumberIgnoreCase(subscriberId, invoiceNumber)) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "Invoice number already exists");
+        String billNumber = resolveBillNumber(subscriberId, request.getBillNumber());
+        if (purchaseRepository.existsBySubscriberIdAndBillNumberIgnoreCase(subscriberId, billNumber)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Bill number already exists");
         }
 
-        List<BuiltSaleItem> builtItems = buildSaleItems(subscriberId, request.getItems());
+        List<BuiltPurchaseItem> builtItems = buildPurchaseItems(subscriberId, request.getItems());
         AmountBreakdown amounts = calculateAmounts(request, builtItems);
 
-        Sale sale = new Sale();
-        sale.setSubscriber(subscriber);
-        sale.setCustomer(customer);
-        sale.setInvoiceNumber(invoiceNumber);
-        sale.setInvoiceDetails(normalizeOptional(request.getInvoiceDetails()));
-        sale.setDate(request.getDate() != null ? request.getDate() : LocalDate.now());
-        sale.setGrossAmount(amounts.grossAmount());
-        sale.setDiscountAmount(amounts.discountAmount());
-        sale.setTaxPercent(amounts.taxPercent());
-        sale.setTaxAmount(amounts.taxAmount());
-        sale.setTotalAmount(amounts.netAmount());
-        sale.setPaidAmount(BigDecimal.ZERO);
-        sale.setPendingAmount(amounts.netAmount());
-        sale.setPaymentStatus(PaymentStatus.UNPAID);
-        sale.setNotes(normalizeOptional(request.getNotes()));
+        Purchase purchase = new Purchase();
+        purchase.setSubscriber(subscriber);
+        purchase.setVendor(vendor);
+        purchase.setBillNumber(billNumber);
+        purchase.setDate(request.getDate() != null ? request.getDate() : LocalDate.now());
+        purchase.setGrossAmount(amounts.grossAmount());
+        purchase.setDiscountAmount(amounts.discountAmount());
+        purchase.setTaxPercent(amounts.taxPercent());
+        purchase.setTaxAmount(amounts.taxAmount());
+        purchase.setTotalAmount(amounts.netAmount());
+        purchase.setPaidAmount(BigDecimal.ZERO);
+        purchase.setPendingAmount(amounts.netAmount());
+        purchase.setPaymentStatus(PaymentStatus.UNPAID);
+        purchase.setNotes(normalizeOptional(request.getNotes()));
 
-        attachBuiltItems(sale, builtItems);
+        attachBuiltItems(purchase, builtItems);
 
-        Sale saved = saleRepository.save(sale);
-        SaleResponse response = SaleResponse.from(saved);
-        response.setItems(mapSaleItems(saved));
+        Purchase saved = purchaseRepository.save(purchase);
+        PurchaseResponse response = PurchaseResponse.from(saved);
+        response.setItems(mapPurchaseItems(saved));
         return response;
     }
 
     @Transactional
-    public SaleResponse update(Long subscriberId, Long saleId, CreateSaleRequest request) {
-        Sale sale = getOwnedSale(subscriberId, saleId);
+    public PurchaseResponse update(Long subscriberId, Long purchaseId, CreatePurchaseRequest request) {
+        Purchase purchase = getOwnedPurchase(subscriberId, purchaseId);
 
-        if (sale.getPaymentStatus() == PaymentStatus.PAID) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "Fully paid sales cannot be edited");
+        if (purchase.getPaymentStatus() == PaymentStatus.PAID) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Fully paid purchases cannot be edited");
         }
 
-        Customer customer = customerRepository.findByIdAndSubscriberId(request.getCustomerId(), subscriberId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Customer not found"));
+        Vendor vendor = vendorRepository.findByIdAndSubscriberId(request.getVendorId(), subscriberId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Vendor not found"));
 
-        if (!customer.isActive()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Selected customer is inactive");
+        if (!vendor.isActive()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Selected vendor is inactive");
         }
 
-        String invoiceNumber = normalizeRequired(request.getInvoiceNumber(), "Invoice number is required");
-        if (saleRepository.existsBySubscriberIdAndInvoiceNumberIgnoreCaseAndIdNot(subscriberId, invoiceNumber, saleId)) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "Invoice number already exists");
+        String billNumber = normalizeRequired(request.getBillNumber(), "Bill number is required");
+        if (purchaseRepository.existsBySubscriberIdAndBillNumberIgnoreCaseAndIdNot(subscriberId, billNumber, purchaseId)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Bill number already exists");
         }
 
-        Set<Long> existingProductIds = sale.getItems().stream()
+        Set<Long> existingProductIds = purchase.getItems().stream()
                 .filter(item -> item.getProduct() != null)
                 .map(item -> item.getProduct().getId())
                 .collect(java.util.stream.Collectors.toSet());
 
-        List<BuiltSaleItem> builtItems = buildSaleItems(subscriberId, request.getItems(), existingProductIds);
+        List<BuiltPurchaseItem> builtItems = buildPurchaseItems(subscriberId, request.getItems(), existingProductIds);
         AmountBreakdown amounts = calculateAmounts(request, builtItems);
 
-        BigDecimal paidAmount = sale.getPaidAmount();
+        BigDecimal paidAmount = purchase.getPaidAmount();
         if (paidAmount.compareTo(amounts.netAmount()) > 0) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Net amount cannot be less than amount already received");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Net amount cannot be less than amount already paid");
         }
 
-        sale.setCustomer(customer);
-        sale.setInvoiceNumber(invoiceNumber);
-        sale.setInvoiceDetails(normalizeOptional(request.getInvoiceDetails()));
+        purchase.setVendor(vendor);
+        purchase.setBillNumber(billNumber);
         if (request.getDate() != null) {
-            sale.setDate(request.getDate());
+            purchase.setDate(request.getDate());
         }
-        sale.setGrossAmount(amounts.grossAmount());
-        sale.setDiscountAmount(amounts.discountAmount());
-        sale.setTaxPercent(amounts.taxPercent());
-        sale.setTaxAmount(amounts.taxAmount());
-        sale.setTotalAmount(amounts.netAmount());
-        sale.setPendingAmount(amounts.netAmount().subtract(paidAmount).max(BigDecimal.ZERO));
-        sale.setPaymentStatus(resolvePaymentStatus(paidAmount, amounts.netAmount()));
-        sale.setNotes(normalizeOptional(request.getNotes()));
+        purchase.setGrossAmount(amounts.grossAmount());
+        purchase.setDiscountAmount(amounts.discountAmount());
+        purchase.setTaxPercent(amounts.taxPercent());
+        purchase.setTaxAmount(amounts.taxAmount());
+        purchase.setTotalAmount(amounts.netAmount());
+        purchase.setPendingAmount(amounts.netAmount().subtract(paidAmount).max(BigDecimal.ZERO));
+        purchase.setPaymentStatus(resolvePaymentStatus(paidAmount, amounts.netAmount()));
+        purchase.setNotes(normalizeOptional(request.getNotes()));
 
-        sale.getItems().clear();
-        attachBuiltItems(sale, builtItems);
+        purchase.getItems().clear();
+        attachBuiltItems(purchase, builtItems);
 
-        Sale saved = saleRepository.save(sale);
-        SaleResponse response = SaleResponse.from(saved);
-        response.setItems(mapSaleItems(saved));
-        response.setPayments(loadPayments(subscriberId, saleId));
+        Purchase saved = purchaseRepository.save(purchase);
+        PurchaseResponse response = PurchaseResponse.from(saved);
+        response.setItems(mapPurchaseItems(saved));
+        response.setPayments(loadPayments(subscriberId, purchaseId));
         return response;
     }
 
     @Transactional
-    public SaleResponse receivePayment(Long subscriberId,
-                                       Long saleId,
-                                       BigDecimal amount,
-                                       LocalDate date,
-                                       PaymentMode paymentMode,
-                                       PaymentSettlementType settlementType,
-                                       String paymentDetails,
-                                       String notes,
-                                       MultipartFile proofFile) {
+    public PurchaseResponse makePayment(Long subscriberId,
+                                        Long purchaseId,
+                                        BigDecimal amount,
+                                        LocalDate date,
+                                        PaymentMode paymentMode,
+                                        PaymentSettlementType settlementType,
+                                        String paymentDetails,
+                                        String notes,
+                                        MultipartFile proofFile) {
         if (paymentMode == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Payment mode is required");
         }
 
-        Sale sale = getOwnedSale(subscriberId, saleId);
-        if (sale.getPaymentStatus() == PaymentStatus.PAID) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "Sale is already fully paid");
+        Purchase purchase = getOwnedPurchase(subscriberId, purchaseId);
+        if (purchase.getPaymentStatus() == PaymentStatus.PAID) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Purchase is already fully paid");
         }
 
         BigDecimal paymentAmount = amount.setScale(2, RoundingMode.HALF_UP);
         if (paymentAmount.compareTo(BigDecimal.ZERO) <= 0) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Payment amount must be greater than zero");
         }
-        BigDecimal pendingBefore = sale.getPendingAmount();
+        BigDecimal pendingBefore = purchase.getPendingAmount();
         if (paymentAmount.compareTo(pendingBefore) > 0) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Payment amount exceeds pending balance");
         }
@@ -228,12 +226,12 @@ public class SaleService {
         FileStorageService.StoredFile storedFile = fileStorageService.storePaymentProof(subscriberId, proofFile);
 
         Payment payment = new Payment();
-        payment.setSubscriber(sale.getSubscriber());
-        payment.setType(PaymentType.RECEIVED);
+        payment.setSubscriber(purchase.getSubscriber());
+        payment.setType(PaymentType.PAID);
         payment.setAmount(paymentAmount);
         payment.setDate(date != null ? date : LocalDate.now());
-        payment.setReferenceType(ReferenceType.SALE);
-        payment.setReferenceId(sale.getId());
+        payment.setReferenceType(ReferenceType.PURCHASE);
+        payment.setReferenceId(purchase.getId());
         payment.setPaymentMode(paymentMode);
         payment.setPaymentDetails(normalizeOptional(paymentDetails));
         payment.setNotes(normalizeOptional(notes));
@@ -244,26 +242,26 @@ public class SaleService {
             payment.setProofContentType(storedFile.contentType());
         }
 
-        BigDecimal newPaidAmount = sale.getPaidAmount().add(paymentAmount);
+        BigDecimal newPaidAmount = purchase.getPaidAmount().add(paymentAmount);
         if (resolvedSettlementType == PaymentSettlementType.SETTLEMENT) {
             BigDecimal adjustment = pendingBefore.subtract(paymentAmount);
             payment.setAdjustedAmount(adjustment);
-            sale.setAdjustedAmount(nullToZero(sale.getAdjustedAmount()).add(adjustment));
-            sale.setPaidAmount(newPaidAmount);
-            sale.setPendingAmount(BigDecimal.ZERO);
-            sale.setPaymentStatus(PaymentStatus.PAID);
+            purchase.setAdjustedAmount(nullToZero(purchase.getAdjustedAmount()).add(adjustment));
+            purchase.setPaidAmount(newPaidAmount);
+            purchase.setPendingAmount(BigDecimal.ZERO);
+            purchase.setPaymentStatus(PaymentStatus.PAID);
         } else {
             BigDecimal newPendingAmount = pendingBefore.subtract(paymentAmount);
-            sale.setPaidAmount(newPaidAmount);
-            sale.setPendingAmount(newPendingAmount);
-            sale.setPaymentStatus(resolvePaymentStatus(newPaidAmount, sale.getTotalAmount()));
+            purchase.setPaidAmount(newPaidAmount);
+            purchase.setPendingAmount(newPendingAmount);
+            purchase.setPaymentStatus(resolvePaymentStatus(newPaidAmount, purchase.getTotalAmount()));
         }
 
         paymentRepository.save(payment);
-        saleRepository.save(sale);
+        purchaseRepository.save(purchase);
 
-        SaleResponse response = SaleResponse.from(sale);
-        response.setPayments(loadPayments(subscriberId, saleId));
+        PurchaseResponse response = PurchaseResponse.from(purchase);
+        response.setPayments(loadPayments(subscriberId, purchaseId));
         return response;
     }
 
@@ -300,58 +298,58 @@ public class SaleService {
         return payment.getProofFileName() != null ? payment.getProofFileName() : "payment-proof";
     }
 
-    private List<SalePaymentResponse> loadPayments(Long subscriberId, Long saleId) {
-        return paymentRepository.findBySale(subscriberId, ReferenceType.SALE, saleId, PaymentType.RECEIVED).stream()
-                .map(SalePaymentResponse::from)
+    private List<PurchasePaymentResponse> loadPayments(Long subscriberId, Long purchaseId) {
+        return paymentRepository.findBySale(subscriberId, ReferenceType.PURCHASE, purchaseId, PaymentType.PAID).stream()
+                .map(PurchasePaymentResponse::from)
                 .toList();
     }
 
-    private String suggestNextInvoiceNumber(Long subscriberId) {
-        return saleRepository.findFirstBySubscriber_IdOrderByIdDesc(subscriberId)
-                .map(Sale::getInvoiceNumber)
+    private String suggestNextBillNumber(Long subscriberId) {
+        return purchaseRepository.findFirstBySubscriber_IdOrderByIdDesc(subscriberId)
+                .map(Purchase::getBillNumber)
                 .map(InvoiceNumberGenerator::suggestNext)
-                .orElseGet(InvoiceNumberGenerator::defaultFirst);
+                .orElseGet(InvoiceNumberGenerator::defaultFirstBill);
     }
 
-    private String resolveInvoiceNumber(Long subscriberId, String requestedInvoiceNumber) {
-        String trimmed = normalizeOptional(requestedInvoiceNumber);
+    private String resolveBillNumber(Long subscriberId, String requestedBillNumber) {
+        String trimmed = normalizeOptional(requestedBillNumber);
         if (trimmed != null) {
             return trimmed;
         }
-        return suggestNextInvoiceNumber(subscriberId);
+        return suggestNextBillNumber(subscriberId);
     }
 
-    private Sale getOwnedSale(Long subscriberId, Long saleId) {
-        return saleRepository.findByIdAndSubscriberId(saleId, subscriberId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Sale not found"));
+    private Purchase getOwnedPurchase(Long subscriberId, Long purchaseId) {
+        return purchaseRepository.findByIdAndSubscriberId(purchaseId, subscriberId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Purchase not found"));
     }
 
-    private void attachBuiltItems(Sale sale, List<BuiltSaleItem> builtItems) {
-        for (BuiltSaleItem builtItem : builtItems) {
-            SaleItem saleItem = new SaleItem();
-            saleItem.setSale(sale);
-            saleItem.setProduct(builtItem.product());
-            saleItem.setDescription(builtItem.product().getName());
-            saleItem.setQuantity(builtItem.quantity());
-            saleItem.setUnitPrice(builtItem.product().getSellingPrice());
-            saleItem.setAmount(builtItem.lineAmount());
-            sale.getItems().add(saleItem);
+    private void attachBuiltItems(Purchase purchase, List<BuiltPurchaseItem> builtItems) {
+        for (BuiltPurchaseItem builtItem : builtItems) {
+            PurchaseItem purchaseItem = new PurchaseItem();
+            purchaseItem.setPurchase(purchase);
+            purchaseItem.setProduct(builtItem.product());
+            purchaseItem.setDescription(builtItem.product().getName());
+            purchaseItem.setQuantity(builtItem.quantity());
+            purchaseItem.setUnitPrice(builtItem.product().getSellingPrice());
+            purchaseItem.setAmount(builtItem.lineAmount());
+            purchase.getItems().add(purchaseItem);
         }
     }
 
-    private List<BuiltSaleItem> buildSaleItems(Long subscriberId, List<CreateSaleItemRequest> items) {
-        return buildSaleItems(subscriberId, items, Set.of());
+    private List<BuiltPurchaseItem> buildPurchaseItems(Long subscriberId, List<CreatePurchaseItemRequest> items) {
+        return buildPurchaseItems(subscriberId, items, Set.of());
     }
 
-    private List<BuiltSaleItem> buildSaleItems(Long subscriberId,
-                                               List<CreateSaleItemRequest> items,
-                                               Set<Long> allowedInactiveProductIds) {
+    private List<BuiltPurchaseItem> buildPurchaseItems(Long subscriberId,
+                                                       List<CreatePurchaseItemRequest> items,
+                                                       Set<Long> allowedInactiveProductIds) {
         if (items == null || items.isEmpty()) {
             return List.of();
         }
 
-        List<BuiltSaleItem> builtItems = new ArrayList<>();
-        for (CreateSaleItemRequest itemRequest : items) {
+        List<BuiltPurchaseItem> builtItems = new ArrayList<>();
+        for (CreatePurchaseItemRequest itemRequest : items) {
             Product product = productService.getOwnedEntity(subscriberId, itemRequest.getProductId());
             if (!product.isActive() && !allowedInactiveProductIds.contains(product.getId())) {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Selected product is inactive: " + product.getName());
@@ -369,29 +367,29 @@ public class SaleService {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Product line amount must be greater than zero");
             }
 
-            builtItems.add(new BuiltSaleItem(product, quantity, lineGross, lineDiscount, lineAmount));
+            builtItems.add(new BuiltPurchaseItem(product, quantity, lineGross, lineDiscount, lineAmount));
         }
         return builtItems;
     }
 
-    private List<SaleItemResponse> mapSaleItems(Sale sale) {
-        if (sale.getItems() == null || sale.getItems().isEmpty()) {
+    private List<PurchaseItemResponse> mapPurchaseItems(Purchase purchase) {
+        if (purchase.getItems() == null || purchase.getItems().isEmpty()) {
             return List.of();
         }
-        return sale.getItems().stream().map(SaleItemResponse::from).toList();
+        return purchase.getItems().stream().map(PurchaseItemResponse::from).toList();
     }
 
-    private AmountBreakdown calculateAmounts(CreateSaleRequest request, List<BuiltSaleItem> builtItems) {
+    private AmountBreakdown calculateAmounts(CreatePurchaseRequest request, List<BuiltPurchaseItem> builtItems) {
         BigDecimal grossAmount;
         BigDecimal discountAmount;
 
         if (!builtItems.isEmpty()) {
             grossAmount = builtItems.stream()
-                    .map(BuiltSaleItem::lineGross)
+                    .map(BuiltPurchaseItem::lineGross)
                     .reduce(BigDecimal.ZERO, BigDecimal::add)
                     .setScale(2, RoundingMode.HALF_UP);
             discountAmount = builtItems.stream()
-                    .map(BuiltSaleItem::lineDiscount)
+                    .map(BuiltPurchaseItem::lineDiscount)
                     .reduce(BigDecimal.ZERO, BigDecimal::add)
                     .setScale(2, RoundingMode.HALF_UP);
         } else {
@@ -468,7 +466,7 @@ public class SaleService {
         return trimmed;
     }
 
-    private record BuiltSaleItem(
+    private record BuiltPurchaseItem(
             Product product,
             BigDecimal quantity,
             BigDecimal lineGross,

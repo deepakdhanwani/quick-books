@@ -2,7 +2,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Pressable,
   StyleSheet,
   Text,
@@ -11,6 +10,7 @@ import {
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
 import { RefreshableScrollView } from '../components/RefreshableScrollView';
+import { appAlert } from '../utils/appAlert';
 import {
   api,
   SubscriberSubscriptionInfo,
@@ -68,7 +68,7 @@ export function SubscriptionScreen({
   };
 
   const handleSubscribe = (plan: SubscriptionPlanOption) => {
-    Alert.alert(
+    appAlert(
       'Confirm Subscription',
       `Subscribe to ${plan.name} for ${formatCurrency(plan.totalAmount)}?`,
       [
@@ -82,7 +82,7 @@ export function SubscriptionScreen({
               const response = await api.subscribeToPlan(token, plan.id);
               setCurrentSubscription(response.subscription);
               await onSubscribed?.();
-              Alert.alert(
+              appAlert(
                 'Subscription Active',
                 `Your plan is active until ${formatDate(response.subscription.endDate)}.`,
               );

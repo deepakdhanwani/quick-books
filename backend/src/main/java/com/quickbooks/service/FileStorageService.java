@@ -21,7 +21,16 @@ public class FileStorageService {
             "image/jpeg",
             "image/png",
             "image/webp",
-            "application/pdf"
+            "image/gif",
+            "application/pdf",
+            "application/msword",
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            "application/vnd.ms-excel",
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    );
+
+    private static final Set<String> ALLOWED_EXTENSIONS = Set.of(
+            "jpg", "jpeg", "png", "webp", "gif", "pdf", "doc", "docx", "xls", "xlsx"
     );
 
     private final Path uploadRoot;
@@ -37,15 +46,16 @@ public class FileStorageService {
 
     public StoredFile storePaymentProof(Long subscriberId, MultipartFile file) {
         if (file == null || file.isEmpty()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Payment proof file is required");
-        }
-
-        String contentType = file.getContentType();
-        if (contentType == null || !ALLOWED_CONTENT_TYPES.contains(contentType)) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Unsupported file type. Use JPG, PNG, WEBP, or PDF.");
+            return null;
         }
 
         String originalName = sanitizeFileName(file.getOriginalFilename());
+        String contentType = resolveContentType(file.getContentType(), originalName);
+        if (!isAllowedFile(contentType, originalName)) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Unsupported file type. Use images, PDF, Word, or Excel files.");
+        }
         String storedName = UUID.randomUUID() + "-" + originalName;
         Path targetDir = uploadRoot.resolve("payments").resolve(String.valueOf(subscriberId));
         Path targetFile = targetDir.resolve(storedName).normalize();
@@ -77,6 +87,52 @@ public class FileStorageService {
             return "proof";
         }
         return fileName.replaceAll("[^a-zA-Z0-9._-]", "_");
+    }
+
+    private boolean isAllowedFile(String contentType, String fileName) {
+        if (contentType != null && ALLOWED_CONTENT_TYPES.contains(contentType)) {
+            return true;
+        }
+
+        String extension = getExtension(fileName);
+        return extension != null && ALLOWED_EXTENSIONS.contains(extension);
+    }
+
+    private String resolveContentType(String contentType, String fileName) {
+        if (contentType != null && !contentType.isBlank() && !"application/octet-stream".equals(contentType)) {
+            return contentType;
+        }
+
+        String extension = getExtension(fileName);
+        if (extension == null) {
+            return contentType;
+        }
+
+        return switch (extension) {
+            case "jpg", "jpeg" -> "image/jpeg";
+            case "png" -> "image/png";
+            case "webp" -> "image/webp";
+            case "gif" -> "image/gif";
+            case "pdf" -> "application/pdf";
+            case "doc" -> "application/msword";
+            case "docx" -> "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+            case "xls" -> "application/vnd.ms-excel";
+            case "xlsx" -> "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+            default -> contentType;
+        };
+    }
+
+    private String getExtension(String fileName) {
+        if (fileName == null || fileName.isBlank()) {
+            return null;
+        }
+
+        int dotIndex = fileName.lastIndexOf('.');
+        if (dotIndex < 0 || dotIndex == fileName.length() - 1) {
+            return null;
+        }
+
+        return fileName.substring(dotIndex + 1).toLowerCase();
     }
 
     public record StoredFile(String originalFileName, String relativePath, String contentType, Path absolutePath) {}

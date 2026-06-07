@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <changeSet id="015-purchase-fields" author="quickbooks">
+        <addColumn tableName="purchases">
+            <column name="bill_number" type="VARCHAR(100)"/>
+            <column name="gross_amount" type="DECIMAL(19,2)"/>
+            <column name="discount_amount" type="DECIMAL(19,2)"/>
+            <column name="tax_percent" type="DECIMAL(5,2)"/>
+            <column name="tax_amount" type="DECIMAL(19,2)"/>
+        </addColumn>
+
+        <addColumn tableName="purchase_items">
+            <column name="product_id" type="BIGINT">
+                <constraints foreignKeyName="fk_purchase_item_product" references="products(id)"/>
+            </column>
+        </addColumn>
+    </changeSet>
+
+</databaseChangeLog>

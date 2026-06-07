@@ -2,7 +2,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Pressable,
   StyleSheet,
   Switch,
@@ -13,6 +12,7 @@ import { Button } from '../components/Button';
 import { Card } from '../components/Card';
 import { RefreshableScrollView } from '../components/RefreshableScrollView';
 import { api, Customer } from '../services/api';
+import { appAlert } from '../utils/appAlert';
 import { colors } from '../theme/colors';
 import {
   getBusinessNameLabel,
@@ -83,7 +83,7 @@ export function CustomerDetailScreen({
       const updated = await api.setCustomerActive(token, customer.id, value);
       setCustomer(updated);
     } catch (err) {
-      Alert.alert('Update failed', err instanceof Error ? err.message : 'Could not update status');
+      appAlert('Update failed', err instanceof Error ? err.message : 'Could not update status');
     } finally {
       setTogglingActive(false);
     }
@@ -94,7 +94,7 @@ export function CustomerDetailScreen({
       return;
     }
 
-    Alert.alert(
+    appAlert(
       'Delete customer',
       `Delete ${customer.name}? This cannot be undone.`,
       [
@@ -107,7 +107,7 @@ export function CustomerDetailScreen({
               await api.deleteCustomer(token, customer.id);
               onDeleted();
             } catch (err) {
-              Alert.alert('Delete failed', err instanceof Error ? err.message : 'Could not delete customer');
+              appAlert('Delete failed', err instanceof Error ? err.message : 'Could not delete customer');
             }
           },
         },

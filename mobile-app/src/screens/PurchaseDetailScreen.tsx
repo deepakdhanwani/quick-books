@@ -5,7 +5,7 @@ import { Button } from '../components/Button';
 import { Card } from '../components/Card';
 import { PaymentProofLink } from '../components/PaymentProofLink';
 import { RefreshableScrollView } from '../components/RefreshableScrollView';
-import { api, Sale, SaleItem } from '../services/api';
+import { api, Purchase, PurchaseItem } from '../services/api';
 import { colors } from '../theme/colors';
 import {
   formatCurrency,
@@ -15,40 +15,45 @@ import {
   getPaymentStatusLabel,
 } from '../utils/saleAmounts';
 
-type SaleDetailScreenProps = {
+type PurchaseDetailScreenProps = {
   token: string;
-  saleId: number;
+  purchaseId: number;
   onEdit: () => void;
-  onReceivePayment: () => void;
+  onMakePayment: () => void;
 };
 
-export function SaleDetailScreen({ token, saleId, onEdit, onReceivePayment }: SaleDetailScreenProps) {
-  const [sale, setSale] = useState<Sale | null>(null);
+export function PurchaseDetailScreen({
+  token,
+  purchaseId,
+  onEdit,
+  onMakePayment,
+}: PurchaseDetailScreenProps) {
+  const [purchase, setPurchase] = useState<Purchase | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
 
-  const loadSale = useCallback(
+  const loadPurchase = useCallback(
     async (isPullRefresh = false) => {
       if (!isPullRefresh) setLoading(true);
       setError('');
       try {
-        const data = await api.getSale(token, saleId);
-        setSale(data);
+        const data = await api.getPurchase(token, purchaseId);
+        setPurchase(data);
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Could not load sale');
+        setError(err instanceof Error ? err.message : 'Could not load purchase');
       } finally {
         setLoading(false);
       }
     },
-    [saleId, token],
+    [purchaseId, token],
   );
 
   useEffect(() => {
-    loadSale();
-  }, [loadSale]);
+    loadPurchase();
+  }, [loadPurchase]);
 
-  if (loading && !sale) {
+  if (loading && !purchase) {
     return (
       <View style={styles.loading}>
         <ActivityIndicator color={colors.primary} size="large" />
@@ -56,17 +61,17 @@ export function SaleDetailScreen({ token, saleId, onEdit, onReceivePayment }: Sa
     );
   }
 
-  if (!sale) {
+  if (!purchase) {
     return (
       <View style={styles.loading}>
-        <Text style={styles.error}>{error || 'Sale not found'}</Text>
+        <Text style={styles.error}>{error || 'Purchase not found'}</Text>
       </View>
     );
   }
 
-  const statusColor = getPaymentStatusColor(sale.paymentStatus);
-  const canReceivePayment = sale.paymentStatus !== 'PAID';
-  const canEdit = sale.paymentStatus !== 'PAID';
+  const statusColor = getPaymentStatusColor(purchase.paymentStatus);
+  const canMakePayment = purchase.paymentStatus !== 'PAID';
+  const canEdit = purchase.paymentStatus !== 'PAID';
 
   return (
     <RefreshableScrollView
@@ -75,50 +80,53 @@ export function SaleDetailScreen({ token, saleId, onEdit, onReceivePayment }: Sa
       refreshing={refreshing}
       onRefresh={async () => {
         setRefreshing(true);
-        await loadSale(true);
+        await loadPurchase(true);
         setRefreshing(false);
       }}
     >
       <Card style={styles.headerCard}>
-        <Text style={styles.invoice}>{sale.invoiceNumber ?? `Sale #${sale.id}`}</Text>
-        <Text style={styles.customer}>{sale.customerName}</Text>
+        <Text style={styles.billNumber}>{purchase.billNumber ?? `Purchase #${purchase.id}`}</Text>
+        <Text style={styles.vendor}>{purchase.vendorName}</Text>
         <View style={styles.statusPill}>
           <View style={[styles.statusDot, { backgroundColor: statusColor }]} />
           <Text style={[styles.statusText, { color: statusColor }]}>
-            {getPaymentStatusLabel(sale.paymentStatus)}
+            {getPaymentStatusLabel(purchase.paymentStatus)}
           </Text>
         </View>
       </Card>
 
-      {sale.items && sale.items.length > 0 ? (
+      {purchase.items && purchase.items.length > 0 ? (
         <Card>
           <Text style={styles.sectionTitle}>Products</Text>
-          {sale.items.map((item) => (
-            <SaleProductLine key={item.id} item={item} />
+          {purchase.items.map((item) => (
+            <PurchaseProductLine key={item.id} item={item} />
           ))}
         </Card>
       ) : null}
 
       <Card>
-        <Text style={styles.sectionTitle}>Invoice</Text>
-        <DetailRow label="Date" value={formatDate(sale.date)} />
-        <DetailRow label="Gross Amount" value={formatCurrency(sale.grossAmount)} />
-        <DetailRow label="Discount" value={formatCurrency(sale.discountAmount)} />
-        <DetailRow label="Tax %" value={sale.taxPercent != null ? `${sale.taxPercent}%` : '—'} />
-        <DetailRow label="Tax Amount" value={formatCurrency(sale.taxAmount)} />
-        <DetailRow label="Net Amount" value={formatCurrency(sale.netAmount)} highlight />
-        <DetailRow label="Paid" value={formatCurrency(sale.paidAmount)} />
-        <DetailRow label="Pending" value={formatCurrency(sale.pendingAmount)} highlight />
-        {sale.adjustedAmount != null && sale.adjustedAmount > 0 ? (
-          <DetailRow label="Adjusted" value={formatCurrency(sale.adjustedAmount)} />
+        <Text style={styles.sectionTitle}>Bill</Text>
+        <DetailRow label="Date" value={formatDate(purchase.date)} />
+        <DetailRow label="Gross Amount" value={formatCurrency(purchase.grossAmount)} />
+        <DetailRow label="Discount" value={formatCurrency(purchase.discountAmount)} />
+        <DetailRow
+          label="Tax %"
+          value={purchase.taxPercent != null ? `${purchase.taxPercent}%` : '—'}
+        />
+        <DetailRow label="Tax Amount" value={formatCurrency(purchase.taxAmount)} />
+        <DetailRow label="Net Amount" value={formatCurrency(purchase.netAmount)} highlight />
+        <DetailRow label="Paid" value={formatCurrency(purchase.paidAmount)} />
+        <DetailRow label="Pending" value={formatCurrency(purchase.pendingAmount)} highlight />
+        {purchase.adjustedAmount != null && purchase.adjustedAmount > 0 ? (
+          <DetailRow label="Adjusted" value={formatCurrency(purchase.adjustedAmount)} />
         ) : null}
-        {sale.notes ? <DetailRow label="Notes" value={sale.notes} /> : null}
+        {purchase.notes ? <DetailRow label="Notes" value={purchase.notes} /> : null}
       </Card>
 
       <Card>
-        <Text style={styles.sectionTitle}>Payments Received</Text>
-        {sale.payments && sale.payments.length > 0 ? (
-          sale.payments.map((payment) => (
+        <Text style={styles.sectionTitle}>Payments Made</Text>
+        {purchase.payments && purchase.payments.length > 0 ? (
+          purchase.payments.map((payment) => (
             <View key={payment.id} style={styles.paymentCard}>
               <View style={styles.paymentHeader}>
                 <Text style={styles.paymentAmount}>{formatCurrency(payment.amount)}</Text>
@@ -138,29 +146,27 @@ export function SaleDetailScreen({ token, saleId, onEdit, onReceivePayment }: Sa
               {payment.hasProof ? (
                 <PaymentProofLink
                   token={token}
-                  proofUrl={api.getPaymentProofUrl(saleId, payment.id)}
+                  proofUrl={api.getPurchasePaymentProofUrl(payment.id)}
                   fileName={payment.proofFileName}
                 />
               ) : null}
             </View>
           ))
         ) : (
-          <Text style={styles.emptyPayments}>No payments received yet.</Text>
+          <Text style={styles.emptyPayments}>No payments made yet.</Text>
         )}
       </Card>
 
-      {canEdit ? <Button title="Edit Sale" onPress={onEdit} /> : null}
+      {canEdit ? <Button title="Edit Purchase" onPress={onEdit} /> : null}
 
-      {canReceivePayment ? (
-        <Button title="Receive Payment" onPress={onReceivePayment} />
-      ) : null}
+      {canMakePayment ? <Button title="Make Payment" onPress={onMakePayment} /> : null}
 
       {error ? <Text style={styles.error}>{error}</Text> : null}
     </RefreshableScrollView>
   );
 }
 
-function SaleProductLine({ item }: { item: SaleItem }) {
+function PurchaseProductLine({ item }: { item: PurchaseItem }) {
   const qty = item.quantity;
   const unitDiscount = item.discount ?? 0;
   const lineGross = item.unitPrice * qty;
@@ -218,8 +224,8 @@ const styles = StyleSheet.create({
   content: { padding: 20, paddingBottom: 32, gap: 16 },
   loading: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 },
   headerCard: { alignItems: 'center', paddingVertical: 24 },
-  invoice: { color: colors.text, fontSize: 22, fontWeight: '700' },
-  customer: { color: colors.textSecondary, fontSize: 15, marginTop: 4 },
+  billNumber: { color: colors.text, fontSize: 22, fontWeight: '700' },
+  vendor: { color: colors.textSecondary, fontSize: 15, marginTop: 4 },
   statusPill: {
     flexDirection: 'row',
     alignItems: 'center',

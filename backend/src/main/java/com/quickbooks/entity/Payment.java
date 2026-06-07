@@ -1,6 +1,7 @@
 package com.quickbooks.entity;
 
 import com.quickbooks.entity.enums.PaymentMode;
+import com.quickbooks.entity.enums.PaymentSettlementType;
 import com.quickbooks.entity.enums.PaymentType;
 import com.quickbooks.entity.enums.ReferenceType;
 import jakarta.persistence.*;
@@ -56,6 +57,13 @@ public class Payment {
     @Column(columnDefinition = "TEXT")
     private String notes;
 
+    @Column(name = "adjusted_amount")
+    private BigDecimal adjustedAmount;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "settlement_type")
+    private PaymentSettlementType settlementType;
+
     @Column(name = "created_at", nullable = false)
     private OffsetDateTime createdAt = OffsetDateTime.now();
 
@@ -85,6 +93,10 @@ public class Payment {
     public void setProofContentType(String proofContentType) { this.proofContentType = proofContentType; }
     public String getNotes() { return notes; }
     public void setNotes(String notes) { this.notes = notes; }
+    public BigDecimal getAdjustedAmount() { return adjustedAmount; }
+    public void setAdjustedAmount(BigDecimal adjustedAmount) { this.adjustedAmount = adjustedAmount; }
+    public PaymentSettlementType getSettlementType() { return settlementType; }
+    public void setSettlementType(PaymentSettlementType settlementType) { this.settlementType = settlementType; }
     public OffsetDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(OffsetDateTime createdAt) { this.createdAt = createdAt; }
 }

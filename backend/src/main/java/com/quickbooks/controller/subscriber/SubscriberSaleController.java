@@ -4,7 +4,9 @@ import com.quickbooks.dto.common.PageResponse;
 import com.quickbooks.dto.sale.CreateSaleRequest;
 import com.quickbooks.dto.sale.NextInvoiceNumberResponse;
 import com.quickbooks.dto.sale.SaleResponse;
+import com.quickbooks.entity.enums.PaymentListFilter;
 import com.quickbooks.entity.enums.PaymentMode;
+import com.quickbooks.entity.enums.PaymentSettlementType;
 import com.quickbooks.security.UserPrincipal;
 import com.quickbooks.service.SaleService;
 import jakarta.validation.Valid;
@@ -34,8 +36,9 @@ public class SubscriberSaleController {
             @AuthenticationPrincipal UserPrincipal principal,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
-            @RequestParam(required = false) String search) {
-        return saleService.findPage(principal.getId(), page, size, search);
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) PaymentListFilter paymentFilter) {
+        return saleService.findPage(principal.getId(), page, size, search, paymentFilter);
     }
 
     @GetMapping("/next-invoice-number")
@@ -67,16 +70,18 @@ public class SubscriberSaleController {
                                        @PathVariable Long id,
                                        @RequestParam BigDecimal amount,
                                        @RequestParam PaymentMode paymentMode,
+                                       @RequestParam(required = false) PaymentSettlementType settlementType,
                                        @RequestParam(required = false) LocalDate date,
                                        @RequestParam(required = false) String paymentDetails,
                                        @RequestParam(required = false) String notes,
-                                       @RequestPart("proof") MultipartFile proof) {
+                                       @RequestPart(value = "proof", required = false) MultipartFile proof) {
         return saleService.receivePayment(
                 principal.getId(),
                 id,
                 amount,
                 date,
                 paymentMode,
+                settlementType,
                 paymentDetails,
                 notes,
                 proof

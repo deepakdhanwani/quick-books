@@ -1,4 +1,4 @@
-package com.quickbooks.dto.sale;
+package com.quickbooks.dto.purchase;
 
 import com.quickbooks.entity.Payment;
 import com.quickbooks.entity.enums.PaymentMode;
@@ -8,7 +8,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 
-public class SalePaymentResponse {
+public class PurchasePaymentResponse {
 
     private Long id;
     private BigDecimal amount;
@@ -22,8 +22,8 @@ public class SalePaymentResponse {
     private PaymentSettlementType settlementType;
     private OffsetDateTime createdAt;
 
-    public static SalePaymentResponse from(Payment payment) {
-        SalePaymentResponse response = new SalePaymentResponse();
+    public static PurchasePaymentResponse from(Payment payment) {
+        PurchasePaymentResponse response = new PurchasePaymentResponse();
         response.setId(payment.getId());
         response.setAmount(payment.getAmount());
         response.setDate(payment.getDate());

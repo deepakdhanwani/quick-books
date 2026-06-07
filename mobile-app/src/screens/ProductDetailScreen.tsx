@@ -2,7 +2,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Pressable,
   StyleSheet,
   Switch,
@@ -13,6 +12,7 @@ import { Button } from '../components/Button';
 import { Card } from '../components/Card';
 import { RefreshableScrollView } from '../components/RefreshableScrollView';
 import { api, Product } from '../services/api';
+import { appAlert } from '../utils/appAlert';
 import { colors } from '../theme/colors';
 import { formatCurrency } from '../utils/saleAmounts';
 
@@ -68,7 +68,7 @@ export function ProductDetailScreen({
       const updated = await api.setProductActive(token, product.id, value);
       setProduct(updated);
     } catch (err) {
-      Alert.alert('Update failed', err instanceof Error ? err.message : 'Could not update status');
+      appAlert('Update failed', err instanceof Error ? err.message : 'Could not update status');
     } finally {
       setTogglingActive(false);
     }
@@ -77,7 +77,7 @@ export function ProductDetailScreen({
   const handleDelete = () => {
     if (!product) return;
 
-    Alert.alert('Delete product', `Delete ${product.name}? This cannot be undone.`, [
+    appAlert('Delete product', `Delete ${product.name}? This cannot be undone.`, [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Delete',
@@ -87,7 +87,7 @@ export function ProductDetailScreen({
             await api.deleteProduct(token, product.id);
             onDeleted();
           } catch (err) {
-            Alert.alert('Delete failed', err instanceof Error ? err.message : 'Could not delete product');
+            appAlert('Delete failed', err instanceof Error ? err.message : 'Could not delete product');
           }
         },
       },

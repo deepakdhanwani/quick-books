@@ -54,6 +54,9 @@ public class Sale {
     @Column(name = "pending_amount", nullable = false)
     private BigDecimal pendingAmount = BigDecimal.ZERO;
 
+    @Column(name = "adjusted_amount", nullable = false)
+    private BigDecimal adjustedAmount = BigDecimal.ZERO;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "payment_status", nullable = false)
     private PaymentStatus paymentStatus;
@@ -93,6 +96,8 @@ public class Sale {
     public void setPaidAmount(BigDecimal paidAmount) { this.paidAmount = paidAmount; }
     public BigDecimal getPendingAmount() { return pendingAmount; }
     public void setPendingAmount(BigDecimal pendingAmount) { this.pendingAmount = pendingAmount; }
+    public BigDecimal getAdjustedAmount() { return adjustedAmount; }
+    public void setAdjustedAmount(BigDecimal adjustedAmount) { this.adjustedAmount = adjustedAmount; }
     public PaymentStatus getPaymentStatus() { return paymentStatus; }
     public void setPaymentStatus(PaymentStatus paymentStatus) { this.paymentStatus = paymentStatus; }
     public String getNotes() { return notes; }

@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { Card } from '../components/Card';
 import { PaymentListFilterChips } from '../components/PaymentListFilterChips';
-import { api, PaymentListFilter, Sale } from '../services/api';
+import { api, PaymentListFilter, Purchase } from '../services/api';
 import { colors } from '../theme/colors';
 import {
   formatCurrency,
@@ -23,14 +23,14 @@ import {
 
 const PAGE_SIZE = 20;
 
-type SalesScreenProps = {
+type PurchasesScreenProps = {
   token: string;
-  onAddSale: () => void;
-  onOpenSale: (id: number) => void;
+  onAddPurchase: () => void;
+  onOpenPurchase: (id: number) => void;
 };
 
-export function SalesScreen({ token, onAddSale, onOpenSale }: SalesScreenProps) {
-  const [sales, setSales] = useState<Sale[]>([]);
+export function PurchasesScreen({ token, onAddPurchase, onOpenPurchase }: PurchasesScreenProps) {
+  const [purchases, setPurchases] = useState<Purchase[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -49,15 +49,15 @@ export function SalesScreen({ token, onAddSale, onOpenSale }: SalesScreenProps) 
 
   const fetchPage = useCallback(
     async (pageNumber: number, reset: boolean) => {
-      const response = await api.listSales(token, pageNumber, PAGE_SIZE, debouncedSearch, paymentFilter);
-      setSales((current) => (reset ? response.content : [...current, ...response.content]));
+      const response = await api.listPurchases(token, pageNumber, PAGE_SIZE, debouncedSearch, paymentFilter);
+      setPurchases((current) => (reset ? response.content : [...current, ...response.content]));
       setPage(pageNumber);
       setHasMore(pageNumber + 1 < response.totalPages);
     },
     [debouncedSearch, paymentFilter, token],
   );
 
-  const loadSales = useCallback(
+  const loadPurchases = useCallback(
     async (options?: { pullRefresh?: boolean; loadMore?: boolean }) => {
       const pullRefresh = options?.pullRefresh ?? false;
       const loadMore = options?.loadMore ?? false;
@@ -70,7 +70,7 @@ export function SalesScreen({ token, onAddSale, onOpenSale }: SalesScreenProps) 
         try {
           await fetchPage(page + 1, false);
         } catch (err) {
-          setError(err instanceof Error ? err.message : 'Could not load more sales');
+          setError(err instanceof Error ? err.message : 'Could not load more purchases');
         } finally {
           loadingMoreRef.current = false;
           setLoadingMore(false);
@@ -83,9 +83,9 @@ export function SalesScreen({ token, onAddSale, onOpenSale }: SalesScreenProps) 
       try {
         await fetchPage(0, true);
       } catch (err) {
-        setSales([]);
+        setPurchases([]);
         setHasMore(false);
-        setError(err instanceof Error ? err.message : 'Could not load sales');
+        setError(err instanceof Error ? err.message : 'Could not load purchases');
       } finally {
         setLoading(false);
       }
@@ -94,26 +94,26 @@ export function SalesScreen({ token, onAddSale, onOpenSale }: SalesScreenProps) 
   );
 
   useEffect(() => {
-    loadSales();
+    loadPurchases();
   }, [debouncedSearch, paymentFilter, token]);
 
-  const renderSale = ({ item }: { item: Sale }) => {
+  const renderPurchase = ({ item }: { item: Purchase }) => {
     const statusColor = getPaymentStatusColor(item.paymentStatus);
     const statusLabel = getPaymentStatusLabel(item.paymentStatus);
     const hasPending = item.pendingAmount > 0 && item.paymentStatus !== 'PAID';
-    const invoiceRef = item.invoiceNumber ?? `#${item.id}`;
-    const subtitleParts = [invoiceRef, formatDate(item.date)];
+    const billRef = item.billNumber ?? `#${item.id}`;
+    const subtitleParts = [billRef, formatDate(item.date)];
     if (hasPending) {
       subtitleParts.push(`Due ${formatCurrency(item.pendingAmount)}`);
     }
 
     return (
-      <Pressable style={styles.row} onPress={() => onOpenSale(item.id)}>
+      <Pressable style={styles.row} onPress={() => onOpenPurchase(item.id)}>
         <View style={[styles.statusDot, { backgroundColor: statusColor }]} />
         <View style={styles.rowMain}>
           <View style={styles.rowTop}>
-            <Text style={styles.customerName} numberOfLines={1}>
-              {item.customerName}
+            <Text style={styles.vendorName} numberOfLines={1}>
+              {item.vendorName}
             </Text>
             <Text style={styles.amount}>{formatCurrency(item.netAmount)}</Text>
           </View>
@@ -129,7 +129,7 @@ export function SalesScreen({ token, onAddSale, onOpenSale }: SalesScreenProps) 
     );
   };
 
-  if (loading && sales.length === 0) {
+  if (loading && purchases.length === 0) {
     return (
       <View style={styles.loading}>
         <ActivityIndicator color={colors.primary} size="large" />
@@ -147,11 +147,11 @@ export function SalesScreen({ token, onAddSale, onOpenSale }: SalesScreenProps) 
               style={styles.searchInput}
               value={search}
               onChangeText={setSearch}
-              placeholder="Search invoice or customer"
+              placeholder="Search bill or vendor"
               placeholderTextColor={colors.textSecondary}
             />
           </View>
-          <Pressable style={styles.addButton} onPress={onAddSale}>
+          <Pressable style={styles.addButton} onPress={onAddPurchase}>
             <Ionicons name="add" size={24} color={colors.text} />
           </Pressable>
         </View>
@@ -161,9 +161,9 @@ export function SalesScreen({ token, onAddSale, onOpenSale }: SalesScreenProps) 
       {error ? <Text style={styles.error}>{error}</Text> : null}
 
       <FlatList
-        data={sales}
+        data={purchases}
         keyExtractor={(item) => String(item.id)}
-        renderItem={renderSale}
+        renderItem={renderPurchase}
         style={styles.list}
         contentContainerStyle={styles.listContent}
         initialNumToRender={15}
@@ -175,14 +175,14 @@ export function SalesScreen({ token, onAddSale, onOpenSale }: SalesScreenProps) 
             refreshing={refreshing}
             onRefresh={async () => {
               setRefreshing(true);
-              await loadSales({ pullRefresh: true });
+              await loadPurchases({ pullRefresh: true });
               setRefreshing(false);
             }}
             tintColor={colors.primary}
             colors={[colors.primary]}
           />
         }
-        onEndReached={() => loadSales({ loadMore: true })}
+        onEndReached={() => loadPurchases({ loadMore: true })}
         onEndReachedThreshold={0.35}
         ListFooterComponent={
           loadingMore ? (
@@ -193,9 +193,9 @@ export function SalesScreen({ token, onAddSale, onOpenSale }: SalesScreenProps) 
         }
         ListEmptyComponent={
           <Card style={styles.emptyCard}>
-            <Ionicons name="cart-outline" size={36} color={colors.primary} />
-            <Text style={styles.emptyTitle}>No sales found</Text>
-            <Text style={styles.emptyText}>Tap + to record a new sale.</Text>
+            <Ionicons name="bag-handle-outline" size={36} color={colors.primary} />
+            <Text style={styles.emptyTitle}>No purchases found</Text>
+            <Text style={styles.emptyText}>Tap + to record a new purchase.</Text>
           </Card>
         }
       />
@@ -268,7 +268,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: 8,
   },
-  customerName: {
+  vendorName: {
     flex: 1,
     color: colors.text,
     fontSize: 14,

@@ -14,6 +14,10 @@ public final class InvoiceNumberGenerator {
         return "INV-0001";
     }
 
+    public static String defaultFirstBill() {
+        return "BILL-0001";
+    }
+
     public static String suggestNext(String lastInvoiceNumber) {
         if (lastInvoiceNumber == null || lastInvoiceNumber.isBlank()) {
             return defaultFirst();

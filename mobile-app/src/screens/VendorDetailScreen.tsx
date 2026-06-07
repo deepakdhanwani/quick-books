@@ -2,7 +2,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Pressable,
   StyleSheet,
   Switch,
@@ -13,6 +12,7 @@ import { Button } from '../components/Button';
 import { Card } from '../components/Card';
 import { RefreshableScrollView } from '../components/RefreshableScrollView';
 import { api, Vendor } from '../services/api';
+import { appAlert } from '../utils/appAlert';
 import { colors } from '../theme/colors';
 import { getVendorDisplayName } from '../utils/vendorType';
 
@@ -76,7 +76,7 @@ export function VendorDetailScreen({
       const updated = await api.setVendorActive(token, vendor.id, value);
       setVendor(updated);
     } catch (err) {
-      Alert.alert('Update failed', err instanceof Error ? err.message : 'Could not update status');
+      appAlert('Update failed', err instanceof Error ? err.message : 'Could not update status');
     } finally {
       setTogglingActive(false);
     }
@@ -87,7 +87,7 @@ export function VendorDetailScreen({
       return;
     }
 
-    Alert.alert(
+    appAlert(
       'Delete vendor',
       `Delete ${getVendorDisplayName(vendor)}? This cannot be undone.`,
       [
@@ -100,7 +100,7 @@ export function VendorDetailScreen({
               await api.deleteVendor(token, vendor.id);
               onDeleted();
             } catch (err) {
-              Alert.alert('Delete failed', err instanceof Error ? err.message : 'Could not delete vendor');
+              appAlert('Delete failed', err instanceof Error ? err.message : 'Could not delete vendor');
             }
           },
         },

@@ -15,6 +15,10 @@ public class PurchaseItem {
     @JoinColumn(name = "purchase_id", nullable = false)
     private Purchase purchase;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "product_id")
+    private Product product;
+
     @Column(nullable = false, length = 500)
     private String description;
 
@@ -31,6 +35,8 @@ public class PurchaseItem {
     public void setId(Long id) { this.id = id; }
     public Purchase getPurchase() { return purchase; }
     public void setPurchase(Purchase purchase) { this.purchase = purchase; }
+    public Product getProduct() { return product; }
+    public void setProduct(Product product) { this.product = product; }
     public String getDescription() { return description; }
     public void setDescription(String description) { this.description = description; }
     public BigDecimal getQuantity() { return quantity; }
