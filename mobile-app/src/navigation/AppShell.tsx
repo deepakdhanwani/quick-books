@@ -11,7 +11,7 @@ import { CustomerDetailScreen } from '../screens/CustomerDetailScreen';
 import { CustomerFormScreen } from '../screens/CustomerFormScreen';
 import { CustomersScreen } from '../screens/CustomersScreen';
 import { DashboardScreen } from '../screens/DashboardScreen';
-import { PlaceholderScreen } from '../screens/PlaceholderScreen';
+import { ReportsScreen } from '../screens/ReportsScreen';
 import { SettingsScreen } from '../screens/SettingsScreen';
 import { SubscriptionScreen } from '../screens/SubscriptionScreen';
 import { MakePaymentScreen } from '../screens/MakePaymentScreen';
@@ -37,7 +37,7 @@ import { api, SubscriberAccountProfile, SubscriberAuthResponse } from '../servic
 import { saveCachedPreferences } from '../services/preferenceStorage';
 import { useUserPreferences } from '../theme/AppThemeContext';
 import { toUserPreferences } from '../utils/userPreferences';
-import { DrawerRoute, PLACEHOLDER_TITLES, StackRoute } from './types';
+import { DrawerRoute, StackRoute } from './types';
 
 type AppShellProps = {
   auth: SubscriberAuthResponse;
@@ -448,7 +448,8 @@ export function AppShell({ auth, onLogout, onSubscriptionChanged }: AppShellProp
     if (drawerRoute === 'products') return 'Products';
     if (drawerRoute === 'sales') return 'Sales';
     if (drawerRoute === 'purchases') return 'Purchases';
-    return PLACEHOLDER_TITLES[drawerRoute as keyof typeof PLACEHOLDER_TITLES] ?? 'Quick Books';
+    if (drawerRoute === 'reports') return 'Business Intelligence';
+    return 'Quick Books';
   };
 
   const headerSubtitle = () => {
@@ -707,7 +708,22 @@ export function AppShell({ auth, onLogout, onSubscriptionChanged }: AppShellProp
 
     if (drawerRoute === 'dashboard') {
       return (
-        <DashboardScreen profile={profile} refreshing={refreshing} onRefresh={handleRefresh} />
+        <DashboardScreen
+          token={auth.token}
+          profile={profile}
+          refreshing={refreshing}
+          onRefresh={handleRefresh}
+          onNewSale={openCreateSale}
+          onNewPurchase={openCreatePurchase}
+          onAddCustomer={openCreateCustomer}
+          onOpenReports={() => navigateDrawer('reports')}
+        />
+      );
+    }
+
+    if (drawerRoute === 'reports') {
+      return (
+        <ReportsScreen token={auth.token} refreshing={refreshing} onRefresh={handleRefresh} />
       );
     }
 
@@ -777,15 +793,7 @@ export function AppShell({ auth, onLogout, onSubscriptionChanged }: AppShellProp
       );
     }
 
-    const title = PLACEHOLDER_TITLES[drawerRoute as keyof typeof PLACEHOLDER_TITLES];
-    return (
-      <PlaceholderScreen
-        title={title}
-        description={`Track and manage ${title.toLowerCase()} from one place.`}
-        refreshing={refreshing}
-        onRefresh={handleRefresh}
-      />
-    );
+    return null;
   };
 
   return (

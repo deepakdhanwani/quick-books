@@ -1,4 +1,13 @@
-export type DateFilterMode = 'today' | 'week' | 'month' | 'range' | 'none';
+export type DateFilterMode =
+  | 'today'
+  | 'week'
+  | 'month'
+  | 'quarterly'
+  | 'halfYearly'
+  | 'yearly'
+  | 'lastYear'
+  | 'range'
+  | 'none';
 
 export type AppliedDateFilter = {
   mode: DateFilterMode;
@@ -51,6 +60,22 @@ export function resolveDateFilterParams(filter: AppliedDateFilter): DateFilterPa
     return getMonthRange();
   }
 
+  if (filter.mode === 'quarterly') {
+    return getQuarterRange();
+  }
+
+  if (filter.mode === 'halfYearly') {
+    return getHalfYearRange();
+  }
+
+  if (filter.mode === 'yearly') {
+    return getYearToDateRange();
+  }
+
+  if (filter.mode === 'lastYear') {
+    return getLastYearRange();
+  }
+
   if (filter.mode === 'range' && filter.fromDate && filter.toDate) {
     return { fromDate: filter.fromDate, toDate: filter.toDate };
   }
@@ -74,6 +99,22 @@ export function getDateFilterLabel(filter: AppliedDateFilter): string {
 
   if (filter.mode === 'month') {
     return 'This month';
+  }
+
+  if (filter.mode === 'quarterly') {
+    return 'This quarter';
+  }
+
+  if (filter.mode === 'halfYearly') {
+    return 'Half yearly';
+  }
+
+  if (filter.mode === 'yearly') {
+    return 'Year to date';
+  }
+
+  if (filter.mode === 'lastYear') {
+    return 'Last year';
   }
 
   if (params.fromDate === params.toDate) {
@@ -118,6 +159,36 @@ function getMonthRange(): DateFilterParams {
   const today = new Date();
   const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
   return { fromDate: toIsoDate(firstDay), toDate: toIsoDate(today) };
+}
+
+function getQuarterRange(): DateFilterParams {
+  const today = new Date();
+  const quarterStartMonth = Math.floor(today.getMonth() / 3) * 3;
+  const firstDay = new Date(today.getFullYear(), quarterStartMonth, 1);
+  return { fromDate: toIsoDate(firstDay), toDate: toIsoDate(today) };
+}
+
+function getHalfYearRange(): DateFilterParams {
+  const today = new Date();
+  const from = new Date(today);
+  from.setMonth(from.getMonth() - 5);
+  from.setDate(1);
+  return { fromDate: toIsoDate(from), toDate: toIsoDate(today) };
+}
+
+function getYearToDateRange(): DateFilterParams {
+  const today = new Date();
+  const firstDay = new Date(today.getFullYear(), 0, 1);
+  return { fromDate: toIsoDate(firstDay), toDate: toIsoDate(today) };
+}
+
+function getLastYearRange(): DateFilterParams {
+  const today = new Date();
+  const year = today.getFullYear() - 1;
+  return {
+    fromDate: `${year}-01-01`,
+    toDate: `${year}-12-31`,
+  };
 }
 
 function formatShortDate(value?: string): string {

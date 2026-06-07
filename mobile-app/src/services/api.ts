@@ -784,4 +784,145 @@ export const api = {
   },
   getPurchasePaymentProofUrl: (paymentId: number) =>
     `${getApiBaseUrl()}/api/subscriber/purchases/payments/${paymentId}/proof`,
+
+  getDashboard: (token: string) =>
+    request<SubscriberDashboard>('/api/subscriber/reports/dashboard', { token }),
+
+  getBusinessSummaryReport: (token: string, from?: string, to?: string) =>
+    request<BusinessReport>(
+      `/api/subscriber/reports/business-summary${buildReportQuery(from, to)}`,
+      { token },
+    ),
+
+  getSalesReport: (token: string, from?: string, to?: string) =>
+    request<BusinessReport>(`/api/subscriber/reports/sales${buildReportQuery(from, to)}`, { token }),
+
+  getPurchasesReport: (token: string, from?: string, to?: string) =>
+    request<BusinessReport>(
+      `/api/subscriber/reports/purchases${buildReportQuery(from, to)}`,
+      { token },
+    ),
+
+  getReceivablesReport: (token: string) =>
+    request<BusinessReport>('/api/subscriber/reports/receivables', { token }),
+
+  getPayablesReport: (token: string) =>
+    request<BusinessReport>('/api/subscriber/reports/payables', { token }),
+
+  getProductPerformanceReport: (token: string, from?: string, to?: string) =>
+    request<BusinessReport>(
+      `/api/subscriber/reports/products${buildReportQuery(from, to)}`,
+      { token },
+    ),
+
+  getIntelligence: (token: string) =>
+    request<BusinessIntelligence>('/api/subscriber/reports/intelligence', { token }),
+
+  getCustomerTrendsReport: (token: string, from?: string, to?: string) =>
+    request<BusinessReport>(
+      `/api/subscriber/reports/customer-trends${buildReportQuery(from, to)}`,
+      { token },
+    ),
+
+  getVendorTrendsReport: (token: string, from?: string, to?: string) =>
+    request<BusinessReport>(
+      `/api/subscriber/reports/vendor-trends${buildReportQuery(from, to)}`,
+      { token },
+    ),
+
+  getOrdersReport: (token: string, from?: string, to?: string) =>
+    request<BusinessReport>(`/api/subscriber/reports/orders${buildReportQuery(from, to)}`, { token }),
+};
+
+function buildReportQuery(from?: string, to?: string) {
+  const params = new URLSearchParams();
+  if (from) {
+    params.set('from', from);
+  }
+  if (to) {
+    params.set('to', to);
+  }
+  const query = params.toString();
+  return query ? `?${query}` : '';
+}
+
+export type ChartPoint = {
+  label: string;
+  value: number;
+  projected?: boolean;
+};
+
+export type ForecastMetric = {
+  key: string;
+  label: string;
+  currentValue: number;
+  projectedValue: number;
+  previousValue: number;
+  changePercent: number;
+  period: string;
+};
+
+export type BusinessInsight = {
+  type: 'FORECAST' | 'RISK' | 'ACTION' | 'OPPORTUNITY' | string;
+  priority: 'HIGH' | 'MEDIUM' | 'LOW' | string;
+  title: string;
+  message: string;
+  metric?: string;
+};
+
+export type CashFlowOutlook = {
+  expectedInflow: number;
+  expectedOutflow: number;
+  netOutlook: number;
+  receivables: number;
+  payables: number;
+  summary: string;
+};
+
+export type BusinessIntelligence = {
+  healthScore: number;
+  healthLabel: string;
+  healthSummary: string;
+  forecasts: ForecastMetric[];
+  cashFlowOutlook: CashFlowOutlook;
+  insights: BusinessInsight[];
+  salesTrend: ChartPoint[];
+  purchaseTrend: ChartPoint[];
+};
+
+export type ReportSummaryItem = {
+  label: string;
+  value: string;
+};
+
+export type ReportColumn = {
+  key: string;
+  label: string;
+  align?: 'left' | 'right';
+};
+
+export type BusinessReport = {
+  reportType: string;
+  title: string;
+  generatedAt: string;
+  filters: Record<string, string>;
+  summary: ReportSummaryItem[];
+  columns: ReportColumn[];
+  rows: Record<string, string>[];
+  chartData: ChartPoint[];
+};
+
+export type SubscriberDashboard = {
+  todaySales: number;
+  todayPurchases: number;
+  monthSales: number;
+  monthPurchases: number;
+  pendingReceivables: number;
+  pendingPayables: number;
+  monthNetPosition: number;
+  customerCount: number;
+  vendorCount: number;
+  productCount: number;
+  saleCount: number;
+  purchaseCount: number;
 };

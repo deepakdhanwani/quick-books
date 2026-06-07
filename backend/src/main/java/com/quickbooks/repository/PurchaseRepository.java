@@ -115,4 +115,50 @@ public interface PurchaseRepository extends JpaRepository<Purchase, Long> {
             @Param("subscriberId") Long subscriberId,
             @Param("fromDate") LocalDate fromDate,
             @Param("toDate") LocalDate toDate);
+
+    @Query("""
+            SELECT p.vendor.name, COALESCE(SUM(p.pendingAmount), 0)
+            FROM Purchase p
+            WHERE p.subscriber.id = :subscriberId
+            AND p.pendingAmount > 0
+            GROUP BY p.vendor.id, p.vendor.name
+            ORDER BY SUM(p.pendingAmount) DESC
+            """)
+    List<Object[]> findTopPayablesBySubscriber(@Param("subscriberId") Long subscriberId);
+
+    @Query("""
+            SELECT p.vendor.name, COALESCE(SUM(p.pendingAmount), 0), COUNT(p)
+            FROM Purchase p
+            WHERE p.subscriber.id = :subscriberId
+            AND p.pendingAmount > 0
+            GROUP BY p.vendor.id, p.vendor.name
+            ORDER BY SUM(p.pendingAmount) DESC
+            """)
+    List<Object[]> findPayableDetailsBySubscriber(@Param("subscriberId") Long subscriberId);
+
+    @Query("""
+            SELECT p.vendor.name, COUNT(p), COALESCE(SUM(p.totalAmount), 0)
+            FROM Purchase p
+            WHERE p.subscriber.id = :subscriberId
+            AND p.date >= :fromDate
+            AND p.date <= :toDate
+            GROUP BY p.vendor.id, p.vendor.name
+            ORDER BY SUM(p.totalAmount) DESC
+            """)
+    List<Object[]> findVendorPurchasesByPeriod(
+            @Param("subscriberId") Long subscriberId,
+            @Param("fromDate") LocalDate fromDate,
+            @Param("toDate") LocalDate toDate);
+
+    @Query("""
+            SELECT COUNT(p), COALESCE(SUM(p.totalAmount), 0), COALESCE(AVG(p.totalAmount), 0)
+            FROM Purchase p
+            WHERE p.subscriber.id = :subscriberId
+            AND p.date >= :fromDate
+            AND p.date <= :toDate
+            """)
+    List<Object[]> aggregatePurchasePerformance(
+            @Param("subscriberId") Long subscriberId,
+            @Param("fromDate") LocalDate fromDate,
+            @Param("toDate") LocalDate toDate);
 }
