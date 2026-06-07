@@ -22,4 +22,8 @@ public interface SubscriberRepository extends JpaRepository<Subscriber, Long> {
     List<Subscriber> findBySubscriptionStatusOrderByBusinessNameAsc(SubscriptionStatus subscriptionStatus);
 
     List<Subscriber> findByLoginPinIsNull();
+
+    Optional<Subscriber> findFirstByBusinessType_IdAndDemoTrue(Long businessTypeId);
+
+    List<Subscriber> findByDemoTrueOrderByBusinessType_NameAsc();
 }

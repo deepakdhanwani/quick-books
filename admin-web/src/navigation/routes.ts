@@ -5,7 +5,8 @@ export type AdminRoute =
   | 'plans'
   | 'taxes'
   | 'discounts'
-  | 'reports';
+  | 'reports'
+  | 'settings';
 
 export type NavItem = {
   id: AdminRoute;
@@ -21,4 +22,5 @@ export const NAV_ITEMS: NavItem[] = [
   { id: 'taxes', label: 'Taxes', icon: '💰' },
   { id: 'discounts', label: 'Discounts', icon: '🏷' },
   { id: 'reports', label: 'Reports', icon: '📊' },
+  { id: 'settings', label: 'Settings', icon: '⚙' },
 ];

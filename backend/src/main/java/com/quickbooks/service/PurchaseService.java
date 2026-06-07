@@ -72,14 +72,26 @@ public class PurchaseService {
     }
 
     @Transactional(readOnly = true)
-    public PageResponse<PurchaseResponse> findPage(Long subscriberId, int page, int size, String search, PaymentListFilter paymentFilter) {
+    public PageResponse<PurchaseResponse> findPage(Long subscriberId,
+                                                     int page,
+                                                     int size,
+                                                     String search,
+                                                     PaymentListFilter paymentFilter,
+                                                     LocalDate fromDate,
+                                                     LocalDate toDate) {
         int normalizedPage = Math.max(page, 0);
         int normalizedSize = Math.min(Math.max(size, 1), 100);
         String normalizedSearch = normalizeOptional(search);
         PaymentListFilter normalizedFilter = paymentFilter != null ? paymentFilter : PaymentListFilter.ALL;
 
         Pageable pageable = PageRequest.of(normalizedPage, normalizedSize, Sort.by("date").descending().and(Sort.by("id").descending()));
-        Page<PurchaseResponse> result = purchaseRepository.findBySubscriber(subscriberId, normalizedSearch, normalizedFilter.name(), pageable)
+        Page<PurchaseResponse> result = purchaseRepository.findBySubscriber(
+                        subscriberId,
+                        normalizedSearch,
+                        normalizedFilter.name(),
+                        fromDate,
+                        toDate,
+                        pageable)
                 .map(PurchaseResponse::from);
 
         return PageResponse.from(result);

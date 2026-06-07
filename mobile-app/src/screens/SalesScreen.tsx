@@ -12,8 +12,16 @@ import {
 } from 'react-native';
 import { Card } from '../components/Card';
 import { PaymentListFilterChips } from '../components/PaymentListFilterChips';
+import { TransactionDateFilter, TransactionDateFilterSummary } from '../components/TransactionDateFilter';
 import { api, PaymentListFilter, Sale } from '../services/api';
 import { colors } from '../theme/colors';
+import {
+  AppliedDateFilter,
+  getClearedDateFilter,
+  getDefaultDateFilter,
+  resolveDateFilterParams,
+} from '../utils/dateListFilter';
+import { LIST_PERFORMANCE_PROPS, useInfiniteScrollHandlers } from '../utils/infiniteScroll';
 import {
   formatCurrency,
   formatDate,
@@ -38,8 +46,10 @@ export function SalesScreen({ token, onAddSale, onOpenSale }: SalesScreenProps) 
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [paymentFilter, setPaymentFilter] = useState<PaymentListFilter>('ALL');
+  const [dateFilter, setDateFilter] = useState<AppliedDateFilter>(getDefaultDateFilter);
   const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(true);
+  const [totalElements, setTotalElements] = useState(0);
   const loadingMoreRef = useRef(false);
 
   useEffect(() => {
@@ -49,12 +59,22 @@ export function SalesScreen({ token, onAddSale, onOpenSale }: SalesScreenProps) 
 
   const fetchPage = useCallback(
     async (pageNumber: number, reset: boolean) => {
-      const response = await api.listSales(token, pageNumber, PAGE_SIZE, debouncedSearch, paymentFilter);
+      const { fromDate, toDate } = resolveDateFilterParams(dateFilter);
+      const response = await api.listSales(
+        token,
+        pageNumber,
+        PAGE_SIZE,
+        debouncedSearch,
+        paymentFilter,
+        fromDate,
+        toDate,
+      );
       setSales((current) => (reset ? response.content : [...current, ...response.content]));
       setPage(pageNumber);
       setHasMore(pageNumber + 1 < response.totalPages);
+      setTotalElements(response.totalElements);
     },
-    [debouncedSearch, paymentFilter, token],
+    [dateFilter, debouncedSearch, paymentFilter, token],
   );
 
   const loadSales = useCallback(
@@ -93,9 +113,11 @@ export function SalesScreen({ token, onAddSale, onOpenSale }: SalesScreenProps) 
     [fetchPage, hasMore, page],
   );
 
+  const infiniteScroll = useInfiniteScrollHandlers(() => loadSales({ loadMore: true }));
+
   useEffect(() => {
     loadSales();
-  }, [debouncedSearch, paymentFilter, token]);
+  }, [dateFilter, debouncedSearch, paymentFilter, token]);
 
   const renderSale = ({ item }: { item: Sale }) => {
     const statusColor = getPaymentStatusColor(item.paymentStatus);
@@ -151,11 +173,17 @@ export function SalesScreen({ token, onAddSale, onOpenSale }: SalesScreenProps) 
               placeholderTextColor={colors.textSecondary}
             />
           </View>
+          <TransactionDateFilter
+            value={dateFilter}
+            onApply={setDateFilter}
+            onClear={() => setDateFilter(getClearedDateFilter())}
+          />
           <Pressable style={styles.addButton} onPress={onAddSale}>
             <Ionicons name="add" size={24} color={colors.text} />
           </Pressable>
         </View>
         <PaymentListFilterChips value={paymentFilter} onChange={setPaymentFilter} />
+        <TransactionDateFilterSummary value={dateFilter} />
       </View>
 
       {error ? <Text style={styles.error}>{error}</Text> : null}
@@ -166,9 +194,7 @@ export function SalesScreen({ token, onAddSale, onOpenSale }: SalesScreenProps) 
         renderItem={renderSale}
         style={styles.list}
         contentContainerStyle={styles.listContent}
-        initialNumToRender={15}
-        maxToRenderPerBatch={12}
-        windowSize={7}
+        {...LIST_PERFORMANCE_PROPS}
         ItemSeparatorComponent={() => <View style={styles.separator} />}
         refreshControl={
           <RefreshControl
@@ -182,12 +208,18 @@ export function SalesScreen({ token, onAddSale, onOpenSale }: SalesScreenProps) 
             colors={[colors.primary]}
           />
         }
-        onEndReached={() => loadSales({ loadMore: true })}
+        onEndReached={infiniteScroll.onEndReached}
         onEndReachedThreshold={0.35}
+        onMomentumScrollBegin={infiniteScroll.onMomentumScrollBegin}
         ListFooterComponent={
-          loadingMore ? (
+          loadingMore || (sales.length > 0 && totalElements > sales.length) ? (
             <View style={styles.footerLoader}>
-              <ActivityIndicator color={colors.primary} size="small" />
+              {loadingMore ? <ActivityIndicator color={colors.primary} size="small" /> : null}
+              {!loadingMore && totalElements > sales.length ? (
+                <Text style={styles.footerMeta}>
+                  Showing {sales.length} of {totalElements}
+                </Text>
+              ) : null}
             </View>
           ) : null
         }
@@ -291,7 +323,8 @@ const styles = StyleSheet.create({
     letterSpacing: 0.3,
   },
   separator: { height: 1, backgroundColor: colors.border, marginLeft: 30 },
-  footerLoader: { paddingVertical: 16, alignItems: 'center' },
+  footerLoader: { paddingVertical: 16, alignItems: 'center', gap: 8 },
+  footerMeta: { color: colors.textSecondary, fontSize: 12 },
   emptyCard: { alignItems: 'center', paddingVertical: 36, margin: 20, gap: 8 },
   emptyTitle: { color: colors.text, fontSize: 18, fontWeight: '700' },
   emptyText: { color: colors.textSecondary, textAlign: 'center' },

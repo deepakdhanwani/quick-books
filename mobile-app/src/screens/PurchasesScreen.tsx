@@ -12,8 +12,16 @@ import {
 } from 'react-native';
 import { Card } from '../components/Card';
 import { PaymentListFilterChips } from '../components/PaymentListFilterChips';
+import { TransactionDateFilter, TransactionDateFilterSummary } from '../components/TransactionDateFilter';
 import { api, PaymentListFilter, Purchase } from '../services/api';
 import { colors } from '../theme/colors';
+import {
+  AppliedDateFilter,
+  getClearedDateFilter,
+  getDefaultDateFilter,
+  resolveDateFilterParams,
+} from '../utils/dateListFilter';
+import { LIST_PERFORMANCE_PROPS, useInfiniteScrollHandlers } from '../utils/infiniteScroll';
 import {
   formatCurrency,
   formatDate,
@@ -38,8 +46,10 @@ export function PurchasesScreen({ token, onAddPurchase, onOpenPurchase }: Purcha
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [paymentFilter, setPaymentFilter] = useState<PaymentListFilter>('ALL');
+  const [dateFilter, setDateFilter] = useState<AppliedDateFilter>(getDefaultDateFilter);
   const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(true);
+  const [totalElements, setTotalElements] = useState(0);
   const loadingMoreRef = useRef(false);
 
   useEffect(() => {
@@ -49,12 +59,22 @@ export function PurchasesScreen({ token, onAddPurchase, onOpenPurchase }: Purcha
 
   const fetchPage = useCallback(
     async (pageNumber: number, reset: boolean) => {
-      const response = await api.listPurchases(token, pageNumber, PAGE_SIZE, debouncedSearch, paymentFilter);
+      const { fromDate, toDate } = resolveDateFilterParams(dateFilter);
+      const response = await api.listPurchases(
+        token,
+        pageNumber,
+        PAGE_SIZE,
+        debouncedSearch,
+        paymentFilter,
+        fromDate,
+        toDate,
+      );
       setPurchases((current) => (reset ? response.content : [...current, ...response.content]));
       setPage(pageNumber);
       setHasMore(pageNumber + 1 < response.totalPages);
+      setTotalElements(response.totalElements);
     },
-    [debouncedSearch, paymentFilter, token],
+    [dateFilter, debouncedSearch, paymentFilter, token],
   );
 
   const loadPurchases = useCallback(
@@ -93,9 +113,11 @@ export function PurchasesScreen({ token, onAddPurchase, onOpenPurchase }: Purcha
     [fetchPage, hasMore, page],
   );
 
+  const infiniteScroll = useInfiniteScrollHandlers(() => loadPurchases({ loadMore: true }));
+
   useEffect(() => {
     loadPurchases();
-  }, [debouncedSearch, paymentFilter, token]);
+  }, [dateFilter, debouncedSearch, paymentFilter, token]);
 
   const renderPurchase = ({ item }: { item: Purchase }) => {
     const statusColor = getPaymentStatusColor(item.paymentStatus);
@@ -151,11 +173,17 @@ export function PurchasesScreen({ token, onAddPurchase, onOpenPurchase }: Purcha
               placeholderTextColor={colors.textSecondary}
             />
           </View>
+          <TransactionDateFilter
+            value={dateFilter}
+            onApply={setDateFilter}
+            onClear={() => setDateFilter(getClearedDateFilter())}
+          />
           <Pressable style={styles.addButton} onPress={onAddPurchase}>
             <Ionicons name="add" size={24} color={colors.text} />
           </Pressable>
         </View>
         <PaymentListFilterChips value={paymentFilter} onChange={setPaymentFilter} />
+        <TransactionDateFilterSummary value={dateFilter} />
       </View>
 
       {error ? <Text style={styles.error}>{error}</Text> : null}
@@ -166,9 +194,7 @@ export function PurchasesScreen({ token, onAddPurchase, onOpenPurchase }: Purcha
         renderItem={renderPurchase}
         style={styles.list}
         contentContainerStyle={styles.listContent}
-        initialNumToRender={15}
-        maxToRenderPerBatch={12}
-        windowSize={7}
+        {...LIST_PERFORMANCE_PROPS}
         ItemSeparatorComponent={() => <View style={styles.separator} />}
         refreshControl={
           <RefreshControl
@@ -182,12 +208,18 @@ export function PurchasesScreen({ token, onAddPurchase, onOpenPurchase }: Purcha
             colors={[colors.primary]}
           />
         }
-        onEndReached={() => loadPurchases({ loadMore: true })}
+        onEndReached={infiniteScroll.onEndReached}
         onEndReachedThreshold={0.35}
+        onMomentumScrollBegin={infiniteScroll.onMomentumScrollBegin}
         ListFooterComponent={
-          loadingMore ? (
+          loadingMore || (purchases.length > 0 && totalElements > purchases.length) ? (
             <View style={styles.footerLoader}>
-              <ActivityIndicator color={colors.primary} size="small" />
+              {loadingMore ? <ActivityIndicator color={colors.primary} size="small" /> : null}
+              {!loadingMore && totalElements > purchases.length ? (
+                <Text style={styles.footerMeta}>
+                  Showing {purchases.length} of {totalElements}
+                </Text>
+              ) : null}
             </View>
           ) : null
         }
@@ -291,7 +323,8 @@ const styles = StyleSheet.create({
     letterSpacing: 0.3,
   },
   separator: { height: 1, backgroundColor: colors.border, marginLeft: 30 },
-  footerLoader: { paddingVertical: 16, alignItems: 'center' },
+  footerLoader: { paddingVertical: 16, alignItems: 'center', gap: 8 },
+  footerMeta: { color: colors.textSecondary, fontSize: 12 },
   emptyCard: { alignItems: 'center', paddingVertical: 36, margin: 20, gap: 8 },
   emptyTitle: { color: colors.text, fontSize: 18, fontWeight: '700' },
   emptyText: { color: colors.textSecondary, textAlign: 'center' },

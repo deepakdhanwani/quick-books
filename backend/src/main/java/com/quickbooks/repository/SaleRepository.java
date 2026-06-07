@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.time.LocalDate;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
@@ -28,11 +29,15 @@ public interface SaleRepository extends JpaRepository<Sale, Long> {
                 OR (:paymentFilter = 'PENDING' AND s.paymentStatus <> 'PAID')
                 OR (:paymentFilter = 'PAID' AND s.paymentStatus = 'PAID')
             )
+            AND s.date >= COALESCE(:fromDate, s.date)
+            AND s.date <= COALESCE(:toDate, s.date)
             """)
     Page<Sale> findBySubscriber(
             @Param("subscriberId") Long subscriberId,
             @Param("search") String search,
             @Param("paymentFilter") String paymentFilter,
+            @Param("fromDate") LocalDate fromDate,
+            @Param("toDate") LocalDate toDate,
             Pageable pageable);
 
     @Query("""
@@ -77,4 +82,6 @@ public interface SaleRepository extends JpaRepository<Sale, Long> {
     List<Object[]> sumPendingAmountsByCustomerIds(
             @Param("subscriberId") Long subscriberId,
             @Param("customerIds") Collection<Long> customerIds);
+
+    long countBySubscriber_Id(Long subscriberId);
 }

@@ -36,4 +36,6 @@ public interface VendorRepository extends JpaRepository<Vendor, Long> {
     boolean existsBySubscriberIdAndNameIgnoreCase(Long subscriberId, String name);
 
     boolean existsBySubscriberIdAndNameIgnoreCaseAndIdNot(Long subscriberId, String name, Long id);
+
+    long countBySubscriber_Id(Long subscriberId);
 }

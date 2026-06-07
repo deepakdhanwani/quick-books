@@ -11,8 +11,10 @@ import {
   View,
 } from 'react-native';
 import { Card } from '../components/Card';
+import { StatusFilter, StatusFilterChips } from '../components/StatusFilterChips';
 import { api, Customer } from '../services/api';
 import { colors } from '../theme/colors';
+import { LIST_PERFORMANCE_PROPS, useInfiniteScrollHandlers } from '../utils/infiniteScroll';
 import { isBusinessCustomerType } from '../utils/customerType';
 import { formatCurrency } from '../utils/saleAmounts';
 
@@ -23,8 +25,6 @@ type CustomersScreenProps = {
   onAddCustomer: () => void;
   onOpenCustomer: (id: number) => void;
 };
-
-type StatusFilter = 'all' | 'active' | 'inactive';
 
 function getContactSubtitle(customer: Customer) {
   if (isBusinessCustomerType(customer.customerType) && customer.businessName) {
@@ -48,6 +48,7 @@ export function CustomersScreen({ token, onAddCustomer, onOpenCustomer }: Custom
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('active');
   const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(true);
+  const [totalElements, setTotalElements] = useState(0);
 
   const loadingMoreRef = useRef(false);
 
@@ -76,6 +77,7 @@ export function CustomersScreen({ token, onAddCustomer, onOpenCustomer }: Custom
       setCustomers((current) => (reset ? response.content : [...current, ...response.content]));
       setPage(pageNumber);
       setHasMore(pageNumber + 1 < response.totalPages);
+      setTotalElements(response.totalElements);
       return response;
     },
     [debouncedSearch, getActiveParam, token],
@@ -120,6 +122,8 @@ export function CustomersScreen({ token, onAddCustomer, onOpenCustomer }: Custom
     },
     [fetchPage, hasMore, page],
   );
+
+  const infiniteScroll = useInfiniteScrollHandlers(() => loadCustomers({ loadMore: true }));
 
   useEffect(() => {
     loadCustomers();
@@ -203,12 +207,7 @@ export function CustomersScreen({ token, onAddCustomer, onOpenCustomer }: Custom
             <Ionicons name="add" size={24} color={colors.text} />
           </Pressable>
         </View>
-      </View>
-
-      <View style={styles.filters}>
-        {renderFilterChip('All', 'all')}
-        {renderFilterChip('Active', 'active')}
-        {renderFilterChip('Inactive', 'inactive')}
+        <StatusFilterChips value={statusFilter} onChange={setStatusFilter} />
       </View>
 
       {error ? <Text style={styles.error}>{error}</Text> : null}
@@ -219,6 +218,7 @@ export function CustomersScreen({ token, onAddCustomer, onOpenCustomer }: Custom
         renderItem={renderCustomer}
         style={styles.list}
         contentContainerStyle={styles.listContent}
+        {...LIST_PERFORMANCE_PROPS}
         ItemSeparatorComponent={() => <View style={styles.separator} />}
         refreshControl={
           <RefreshControl
@@ -228,12 +228,18 @@ export function CustomersScreen({ token, onAddCustomer, onOpenCustomer }: Custom
             colors={[colors.primary]}
           />
         }
-        onEndReached={() => loadCustomers({ loadMore: true })}
+        onEndReached={infiniteScroll.onEndReached}
         onEndReachedThreshold={0.35}
+        onMomentumScrollBegin={infiniteScroll.onMomentumScrollBegin}
         ListFooterComponent={
-          loadingMore ? (
+          loadingMore || (customers.length > 0 && totalElements > customers.length) ? (
             <View style={styles.footerLoader}>
-              <ActivityIndicator color={colors.primary} size="small" />
+              {loadingMore ? <ActivityIndicator color={colors.primary} size="small" /> : null}
+              {!loadingMore && totalElements > customers.length ? (
+                <Text style={styles.footerMeta}>
+                  Showing {customers.length} of {totalElements}
+                </Text>
+              ) : null}
             </View>
           ) : null
         }
@@ -292,33 +298,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  filters: {
-    flexDirection: 'row',
-    gap: 8,
-    paddingHorizontal: 20,
-    paddingTop: 12,
-    paddingBottom: 8,
-  },
-  filterChip: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 999,
-    backgroundColor: colors.surfaceElevated,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  filterChipActive: {
-    backgroundColor: 'rgba(59, 130, 246, 0.15)',
-    borderColor: colors.primary,
-  },
-  filterChipText: {
-    color: colors.textSecondary,
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  filterChipTextActive: {
-    color: colors.primary,
-  },
   error: {
     color: colors.error,
     paddingHorizontal: 20,
@@ -327,6 +306,7 @@ const styles = StyleSheet.create({
   list: {
     backgroundColor: colors.surface,
     marginHorizontal: 20,
+    marginTop: 12,
     borderRadius: 12,
     borderWidth: 1,
     borderColor: colors.border,
@@ -389,6 +369,11 @@ const styles = StyleSheet.create({
   footerLoader: {
     paddingVertical: 16,
     alignItems: 'center',
+    gap: 8,
+  },
+  footerMeta: {
+    color: colors.textSecondary,
+    fontSize: 12,
   },
   emptyCard: {
     alignItems: 'center',

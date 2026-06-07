@@ -11,11 +11,13 @@ public class AppProperties {
     private final Admin admin = new Admin();
     private final Cors cors = new Cors();
     private final Storage storage = new Storage();
+    private final Database database = new Database();
 
     public Jwt getJwt() { return jwt; }
     public Admin getAdmin() { return admin; }
     public Cors getCors() { return cors; }
     public Storage getStorage() { return storage; }
+    public Database getDatabase() { return database; }
 
     public static class Jwt {
         private String secret;
@@ -55,5 +57,18 @@ public class AppProperties {
 
         public String getUploadDir() { return uploadDir; }
         public void setUploadDir(String uploadDir) { this.uploadDir = uploadDir; }
+    }
+
+    public static class Database {
+        private String backupDir = "backups";
+        private String pgDumpCommand = "pg_dump";
+        private String psqlCommand = "psql";
+
+        public String getBackupDir() { return backupDir; }
+        public void setBackupDir(String backupDir) { this.backupDir = backupDir; }
+        public String getPgDumpCommand() { return pgDumpCommand; }
+        public void setPgDumpCommand(String pgDumpCommand) { this.pgDumpCommand = pgDumpCommand; }
+        public String getPsqlCommand() { return psqlCommand; }
+        public void setPsqlCommand(String psqlCommand) { this.psqlCommand = psqlCommand; }
     }
 }

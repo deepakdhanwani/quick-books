@@ -11,8 +11,10 @@ import {
   View,
 } from 'react-native';
 import { Card } from '../components/Card';
+import { StatusFilter, StatusFilterChips } from '../components/StatusFilterChips';
 import { api, Vendor } from '../services/api';
 import { colors } from '../theme/colors';
+import { LIST_PERFORMANCE_PROPS, useInfiniteScrollHandlers } from '../utils/infiniteScroll';
 import { formatCurrency } from '../utils/saleAmounts';
 import { getVendorDisplayName } from '../utils/vendorType';
 
@@ -23,8 +25,6 @@ type VendorsScreenProps = {
   onAddVendor: () => void;
   onOpenVendor: (id: number) => void;
 };
-
-type StatusFilter = 'all' | 'active' | 'inactive';
 
 function getContactSubtitle(vendor: Vendor) {
   return vendor.contactPerson ?? vendor.phone ?? vendor.email ?? 'No contact info';
@@ -45,6 +45,7 @@ export function VendorsScreen({ token, onAddVendor, onOpenVendor }: VendorsScree
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('active');
   const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(true);
+  const [totalElements, setTotalElements] = useState(0);
 
   const loadingMoreRef = useRef(false);
 
@@ -73,6 +74,7 @@ export function VendorsScreen({ token, onAddVendor, onOpenVendor }: VendorsScree
       setVendors((current) => (reset ? response.content : [...current, ...response.content]));
       setPage(pageNumber);
       setHasMore(pageNumber + 1 < response.totalPages);
+      setTotalElements(response.totalElements);
       return response;
     },
     [debouncedSearch, getActiveParam, token],
@@ -118,6 +120,8 @@ export function VendorsScreen({ token, onAddVendor, onOpenVendor }: VendorsScree
     [fetchPage, hasMore, page],
   );
 
+  const infiniteScroll = useInfiniteScrollHandlers(() => loadVendors({ loadMore: true }));
+
   useEffect(() => {
     loadVendors();
   }, [debouncedSearch, statusFilter, token]);
@@ -126,19 +130,6 @@ export function VendorsScreen({ token, onAddVendor, onOpenVendor }: VendorsScree
     setRefreshing(true);
     await loadVendors({ pullRefresh: true });
     setRefreshing(false);
-  };
-
-  const renderFilterChip = (label: string, value: StatusFilter) => {
-    const selected = statusFilter === value;
-    return (
-      <Pressable
-        key={value}
-        style={[styles.filterChip, selected && styles.filterChipActive]}
-        onPress={() => setStatusFilter(value)}
-      >
-        <Text style={[styles.filterChipText, selected && styles.filterChipTextActive]}>{label}</Text>
-      </Pressable>
-    );
   };
 
   const renderVendor = ({ item }: { item: Vendor }) => {
@@ -201,12 +192,7 @@ export function VendorsScreen({ token, onAddVendor, onOpenVendor }: VendorsScree
             <Ionicons name="add" size={24} color={colors.text} />
           </Pressable>
         </View>
-      </View>
-
-      <View style={styles.filters}>
-        {renderFilterChip('All', 'all')}
-        {renderFilterChip('Active', 'active')}
-        {renderFilterChip('Inactive', 'inactive')}
+        <StatusFilterChips value={statusFilter} onChange={setStatusFilter} />
       </View>
 
       {error ? <Text style={styles.error}>{error}</Text> : null}
@@ -217,6 +203,7 @@ export function VendorsScreen({ token, onAddVendor, onOpenVendor }: VendorsScree
         renderItem={renderVendor}
         style={styles.list}
         contentContainerStyle={styles.listContent}
+        {...LIST_PERFORMANCE_PROPS}
         ItemSeparatorComponent={() => <View style={styles.separator} />}
         refreshControl={
           <RefreshControl
@@ -226,12 +213,18 @@ export function VendorsScreen({ token, onAddVendor, onOpenVendor }: VendorsScree
             colors={[colors.primary]}
           />
         }
-        onEndReached={() => loadVendors({ loadMore: true })}
+        onEndReached={infiniteScroll.onEndReached}
         onEndReachedThreshold={0.35}
+        onMomentumScrollBegin={infiniteScroll.onMomentumScrollBegin}
         ListFooterComponent={
-          loadingMore ? (
+          loadingMore || (vendors.length > 0 && totalElements > vendors.length) ? (
             <View style={styles.footerLoader}>
-              <ActivityIndicator color={colors.primary} size="small" />
+              {loadingMore ? <ActivityIndicator color={colors.primary} size="small" /> : null}
+              {!loadingMore && totalElements > vendors.length ? (
+                <Text style={styles.footerMeta}>
+                  Showing {vendors.length} of {totalElements}
+                </Text>
+              ) : null}
             </View>
           ) : null
         }
@@ -290,33 +283,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  filters: {
-    flexDirection: 'row',
-    gap: 8,
-    paddingHorizontal: 20,
-    paddingTop: 12,
-    paddingBottom: 8,
-  },
-  filterChip: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 999,
-    backgroundColor: colors.surfaceElevated,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  filterChipActive: {
-    backgroundColor: 'rgba(59, 130, 246, 0.15)',
-    borderColor: colors.primary,
-  },
-  filterChipText: {
-    color: colors.textSecondary,
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  filterChipTextActive: {
-    color: colors.primary,
-  },
   error: {
     color: colors.error,
     paddingHorizontal: 20,
@@ -325,6 +291,7 @@ const styles = StyleSheet.create({
   list: {
     backgroundColor: colors.surface,
     marginHorizontal: 20,
+    marginTop: 12,
     borderRadius: 12,
     borderWidth: 1,
     borderColor: colors.border,
@@ -387,6 +354,11 @@ const styles = StyleSheet.create({
   footerLoader: {
     paddingVertical: 16,
     alignItems: 'center',
+    gap: 8,
+  },
+  footerMeta: {
+    color: colors.textSecondary,
+    fontSize: 12,
   },
   emptyCard: {
     alignItems: 'center',

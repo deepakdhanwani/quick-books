@@ -381,4 +381,145 @@ export const api = {
     token: string,
     params: { from?: string; to?: string } = {},
   ) => request<AdminReport>(`/api/admin/reports/business-type-breakdown${buildQuery(params)}`, { token }),
+  getDataStatus: (token: string) =>
+    request<DataStatus>('/api/admin/settings/data-status', { token }),
+  truncateTransactionalData: (token: string, confirmPhrase: string) =>
+    request<TruncateResult>('/api/admin/settings/truncate-transactional', {
+      method: 'POST',
+      token,
+      body: { confirmPhrase },
+    }),
+  createDatabaseBackup: (token: string) =>
+    request<BackupInfo>('/api/admin/settings/backup', {
+      method: 'POST',
+      token,
+    }),
+  listDatabaseBackups: (token: string) =>
+    request<BackupInfo[]>('/api/admin/settings/backups', { token }),
+  downloadDatabaseBackup: async (token: string, fileName: string) => {
+    const response = await fetch(
+      `${API_URL}/api/admin/settings/backups/${encodeURIComponent(fileName)}/download`,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      },
+    );
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ detail: 'Download failed' }));
+      throw new Error(error.detail ?? 'Download failed');
+    }
+
+    return response.blob();
+  },
+  restoreDatabaseBackup: async (token: string, file: File, confirmPhrase: string) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('confirmPhrase', confirmPhrase);
+
+    const response = await fetch(`${API_URL}/api/admin/settings/restore`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ detail: 'Restore failed' }));
+      throw new Error(error.detail ?? 'Restore failed');
+    }
+
+    return response.json() as Promise<RestoreResult>;
+  },
+  startDemoDataGeneration: (
+    token: string,
+    payload: { businessTypeId: number; fromDate: string; toDate: string },
+  ) =>
+    request<DemoDataJob>('/api/admin/settings/generate-demo-data', {
+      method: 'POST',
+      token,
+      body: payload,
+    }),
+  getDemoDataJob: (token: string, jobId: string) =>
+    request<DemoDataJob>(`/api/admin/settings/demo-data-jobs/${jobId}`, { token }),
+  listDemoSubscribers: (token: string) =>
+    request<DemoSubscriber[]>('/api/admin/settings/demo-subscribers', { token }),
+};
+
+export type TableCount = {
+  tableName: string;
+  label: string;
+  rowCount: number;
+};
+
+export type BackupInfo = {
+  fileName: string;
+  sizeBytes: number;
+  createdAt: string;
+};
+
+export type DataStatus = {
+  transactionalTables: TableCount[];
+  backups: BackupInfo[];
+  lastBackupAt?: string | null;
+};
+
+export type TruncateResult = {
+  message: string;
+  clearedTables: TableCount[];
+};
+
+export type RestoreResult = {
+  message: string;
+};
+
+export type DemoDataJobStatus = 'PENDING' | 'RUNNING' | 'COMPLETED' | 'FAILED';
+
+export type DemoDataGenerationResult = {
+  subscriberId: number;
+  businessName: string;
+  businessTypeName: string;
+  ownerName: string;
+  phone: string;
+  loginPin: string;
+  customersCreated: number;
+  vendorsCreated: number;
+  productsCreated: number;
+  purchasesCreated: number;
+  salesCreated: number;
+  totalCustomers: number;
+  totalVendors: number;
+  totalProducts: number;
+  totalPurchases: number;
+  totalSales: number;
+};
+
+export type DemoDataJob = {
+  jobId: string;
+  status: DemoDataJobStatus;
+  progressPercent: number;
+  currentStep: string;
+  message: string;
+  result?: DemoDataGenerationResult | null;
+  error?: string | null;
+  startedAt: string;
+  completedAt?: string | null;
+};
+
+export type DemoSubscriber = {
+  id: number;
+  businessName: string;
+  ownerName: string;
+  phone: string;
+  loginPin: string;
+  businessTypeId?: number;
+  businessTypeName?: string;
+  createdAt: string;
+  customerCount: number;
+  vendorCount: number;
+  productCount: number;
+  saleCount: number;
+  purchaseCount: number;
 };

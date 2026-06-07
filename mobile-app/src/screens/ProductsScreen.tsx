@@ -11,8 +11,10 @@ import {
   View,
 } from 'react-native';
 import { Card } from '../components/Card';
+import { StatusFilter, StatusFilterChips } from '../components/StatusFilterChips';
 import { api, Product } from '../services/api';
 import { colors } from '../theme/colors';
+import { LIST_PERFORMANCE_PROPS, useInfiniteScrollHandlers } from '../utils/infiniteScroll';
 import { formatCurrency } from '../utils/saleAmounts';
 
 const PAGE_SIZE = 20;
@@ -22,8 +24,6 @@ type ProductsScreenProps = {
   onAddProduct: () => void;
   onOpenProduct: (id: number) => void;
 };
-
-type StatusFilter = 'all' | 'active' | 'inactive';
 
 function getAvatarColor(active: boolean) {
   return active ? colors.success : colors.textSecondary;
@@ -40,6 +40,7 @@ export function ProductsScreen({ token, onAddProduct, onOpenProduct }: ProductsS
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('active');
   const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(true);
+  const [totalElements, setTotalElements] = useState(0);
   const loadingMoreRef = useRef(false);
 
   useEffect(() => {
@@ -64,6 +65,7 @@ export function ProductsScreen({ token, onAddProduct, onOpenProduct }: ProductsS
       setProducts((current) => (reset ? response.content : [...current, ...response.content]));
       setPage(pageNumber);
       setHasMore(pageNumber + 1 < response.totalPages);
+      setTotalElements(response.totalElements);
     },
     [debouncedSearch, getActiveParam, token],
   );
@@ -104,6 +106,8 @@ export function ProductsScreen({ token, onAddProduct, onOpenProduct }: ProductsS
     [fetchPage, hasMore, page],
   );
 
+  const infiniteScroll = useInfiniteScrollHandlers(() => loadProducts({ loadMore: true }));
+
   useEffect(() => {
     loadProducts();
   }, [debouncedSearch, statusFilter, token]);
@@ -112,19 +116,6 @@ export function ProductsScreen({ token, onAddProduct, onOpenProduct }: ProductsS
     setRefreshing(true);
     await loadProducts({ pullRefresh: true });
     setRefreshing(false);
-  };
-
-  const renderFilterChip = (label: string, value: StatusFilter) => {
-    const selected = statusFilter === value;
-    return (
-      <Pressable
-        key={value}
-        style={[styles.filterChip, selected && styles.filterChipActive]}
-        onPress={() => setStatusFilter(value)}
-      >
-        <Text style={[styles.filterChipText, selected && styles.filterChipTextActive]}>{label}</Text>
-      </Pressable>
-    );
   };
 
   const renderProduct = ({ item }: { item: Product }) => {
@@ -177,12 +168,7 @@ export function ProductsScreen({ token, onAddProduct, onOpenProduct }: ProductsS
             <Ionicons name="add" size={24} color={colors.text} />
           </Pressable>
         </View>
-      </View>
-
-      <View style={styles.filters}>
-        {renderFilterChip('All', 'all')}
-        {renderFilterChip('Active', 'active')}
-        {renderFilterChip('Inactive', 'inactive')}
+        <StatusFilterChips value={statusFilter} onChange={setStatusFilter} />
       </View>
 
       {error ? <Text style={styles.error}>{error}</Text> : null}
@@ -193,6 +179,7 @@ export function ProductsScreen({ token, onAddProduct, onOpenProduct }: ProductsS
         renderItem={renderProduct}
         style={styles.list}
         contentContainerStyle={styles.listContent}
+        {...LIST_PERFORMANCE_PROPS}
         ItemSeparatorComponent={() => <View style={styles.separator} />}
         refreshControl={
           <RefreshControl
@@ -202,12 +189,18 @@ export function ProductsScreen({ token, onAddProduct, onOpenProduct }: ProductsS
             colors={[colors.primary]}
           />
         }
-        onEndReached={() => loadProducts({ loadMore: true })}
+        onEndReached={infiniteScroll.onEndReached}
         onEndReachedThreshold={0.35}
+        onMomentumScrollBegin={infiniteScroll.onMomentumScrollBegin}
         ListFooterComponent={
-          loadingMore ? (
+          loadingMore || (products.length > 0 && totalElements > products.length) ? (
             <View style={styles.footerLoader}>
-              <ActivityIndicator color={colors.primary} size="small" />
+              {loadingMore ? <ActivityIndicator color={colors.primary} size="small" /> : null}
+              {!loadingMore && totalElements > products.length ? (
+                <Text style={styles.footerMeta}>
+                  Showing {products.length} of {totalElements}
+                </Text>
+              ) : null}
             </View>
           ) : null
         }
@@ -248,31 +241,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  filters: {
-    flexDirection: 'row',
-    gap: 8,
-    paddingHorizontal: 20,
-    paddingTop: 12,
-    paddingBottom: 8,
-  },
-  filterChip: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 999,
-    backgroundColor: colors.surfaceElevated,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  filterChipActive: {
-    backgroundColor: 'rgba(59, 130, 246, 0.15)',
-    borderColor: colors.primary,
-  },
-  filterChipText: { color: colors.textSecondary, fontSize: 13, fontWeight: '600' },
-  filterChipTextActive: { color: colors.primary },
   error: { color: colors.error, paddingHorizontal: 20, marginBottom: 8 },
   list: {
     backgroundColor: colors.surface,
     marginHorizontal: 20,
+    marginTop: 12,
     borderRadius: 12,
     borderWidth: 1,
     borderColor: colors.border,
@@ -299,7 +272,8 @@ const styles = StyleSheet.create({
   subtitle: { color: colors.textSecondary, fontSize: 13, marginTop: 2 },
   statusIndicator: { width: 8, height: 8, borderRadius: 4 },
   separator: { height: 1, backgroundColor: colors.border, marginLeft: 66 },
-  footerLoader: { paddingVertical: 16, alignItems: 'center' },
+  footerLoader: { paddingVertical: 16, alignItems: 'center', gap: 8 },
+  footerMeta: { color: colors.textSecondary, fontSize: 12 },
   emptyCard: {
     alignItems: 'center',
     paddingVertical: 36,

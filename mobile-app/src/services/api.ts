@@ -618,6 +618,8 @@ export const api = {
     size = 20,
     search?: string,
     paymentFilter: PaymentListFilter = 'ALL',
+    fromDate?: string,
+    toDate?: string,
   ) => {
     const params = new URLSearchParams({ page: String(page), size: String(size) });
     if (search?.trim()) {
@@ -625,6 +627,12 @@ export const api = {
     }
     if (paymentFilter !== 'ALL') {
       params.set('paymentFilter', paymentFilter);
+    }
+    if (fromDate) {
+      params.set('fromDate', fromDate);
+    }
+    if (toDate) {
+      params.set('toDate', toDate);
     }
     return request<PageResponse<Sale>>(`/api/subscriber/sales?${params}`, { token });
   },
@@ -687,6 +695,8 @@ export const api = {
     size = 20,
     search?: string,
     paymentFilter: PaymentListFilter = 'ALL',
+    fromDate?: string,
+    toDate?: string,
   ) => {
     const params = new URLSearchParams({ page: String(page), size: String(size) });
     if (search?.trim()) {
@@ -694,6 +704,12 @@ export const api = {
     }
     if (paymentFilter !== 'ALL') {
       params.set('paymentFilter', paymentFilter);
+    }
+    if (fromDate) {
+      params.set('fromDate', fromDate);
+    }
+    if (toDate) {
+      params.set('toDate', toDate);
     }
     return request<PageResponse<Purchase>>(`/api/subscriber/purchases?${params}`, { token });
   },

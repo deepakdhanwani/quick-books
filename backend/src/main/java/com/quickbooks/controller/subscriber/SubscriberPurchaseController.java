@@ -37,8 +37,10 @@ public class SubscriberPurchaseController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
             @RequestParam(required = false) String search,
-            @RequestParam(required = false) PaymentListFilter paymentFilter) {
-        return purchaseService.findPage(principal.getId(), page, size, search, paymentFilter);
+            @RequestParam(required = false) PaymentListFilter paymentFilter,
+            @RequestParam(required = false) LocalDate fromDate,
+            @RequestParam(required = false) LocalDate toDate) {
+        return purchaseService.findPage(principal.getId(), page, size, search, paymentFilter, fromDate, toDate);
     }
 
     @GetMapping("/next-bill-number")

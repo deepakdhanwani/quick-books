@@ -45,6 +45,9 @@ public class Subscriber {
     @Column(name = "is_active", nullable = false)
     private boolean active = true;
 
+    @Column(name = "is_demo", nullable = false)
+    private boolean demo = false;
+
     @Column(name = "created_at", nullable = false)
     private OffsetDateTime createdAt = OffsetDateTime.now();
 
@@ -70,6 +73,8 @@ public class Subscriber {
     public void setGstNumber(String gstNumber) { this.gstNumber = gstNumber; }
     public boolean isActive() { return active; }
     public void setActive(boolean active) { this.active = active; }
+    public boolean isDemo() { return demo; }
+    public void setDemo(boolean demo) { this.demo = demo; }
     public OffsetDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(OffsetDateTime createdAt) { this.createdAt = createdAt; }
 }

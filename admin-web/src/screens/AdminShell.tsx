@@ -8,6 +8,7 @@ import { SubscribersScreen } from './SubscribersScreen';
 import { SubscriptionPlansScreen } from './SubscriptionPlansScreen';
 import { TaxesScreen } from './TaxesScreen';
 import { DiscountsScreen } from './DiscountsScreen';
+import { SettingsScreen } from './SettingsScreen';
 
 type AdminShellProps = {
   token: string;
@@ -33,6 +34,8 @@ export function AdminShell({ token, onLogout }: AdminShellProps) {
         return <DiscountsScreen token={token} />;
       case 'reports':
         return <ReportsScreen token={token} />;
+      case 'settings':
+        return <SettingsScreen token={token} />;
       default:
         return <DashboardScreen token={token} />;
     }
