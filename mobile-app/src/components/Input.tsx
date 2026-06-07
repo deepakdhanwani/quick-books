@@ -8,7 +8,14 @@ type InputProps = TextInputProps & {
   enableVisibilityToggle?: boolean;
 };
 
-export function Input({ label, enableVisibilityToggle, secureTextEntry, ...props }: InputProps) {
+export function Input({
+  label,
+  enableVisibilityToggle,
+  secureTextEntry,
+  multiline,
+  style,
+  ...props
+}: InputProps) {
   const [revealed, setRevealed] = useState(false);
   const isSecure = Boolean(secureTextEntry) && !revealed;
 
@@ -18,8 +25,15 @@ export function Input({ label, enableVisibilityToggle, secureTextEntry, ...props
       <View style={styles.inputRow}>
         <TextInput
           placeholderTextColor={colors.textSecondary}
-          style={[styles.input, enableVisibilityToggle && styles.inputWithToggle]}
+          style={[
+            styles.input,
+            multiline && styles.multiline,
+            enableVisibilityToggle && styles.inputWithToggle,
+            style,
+          ]}
           secureTextEntry={isSecure}
+          multiline={multiline}
+          textAlignVertical={multiline ? 'top' : 'center'}
           {...props}
         />
         {enableVisibilityToggle ? (
@@ -63,6 +77,11 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     color: colors.text,
     fontSize: 16,
+  },
+  multiline: {
+    minHeight: 88,
+    paddingTop: 12,
+    paddingBottom: 12,
   },
   inputWithToggle: {
     paddingRight: 48,

@@ -4,7 +4,7 @@ import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
 import { RefreshableScrollView } from '../components/RefreshableScrollView';
-import { api, Sale } from '../services/api';
+import { api, Sale, SaleItem } from '../services/api';
 import { colors } from '../theme/colors';
 import {
   formatCurrency,
@@ -17,10 +17,11 @@ import {
 type SaleDetailScreenProps = {
   token: string;
   saleId: number;
+  onEdit: () => void;
   onReceivePayment: () => void;
 };
 
-export function SaleDetailScreen({ token, saleId, onReceivePayment }: SaleDetailScreenProps) {
+export function SaleDetailScreen({ token, saleId, onEdit, onReceivePayment }: SaleDetailScreenProps) {
   const [sale, setSale] = useState<Sale | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -64,6 +65,7 @@ export function SaleDetailScreen({ token, saleId, onReceivePayment }: SaleDetail
 
   const statusColor = getPaymentStatusColor(sale.paymentStatus);
   const canReceivePayment = sale.paymentStatus !== 'PAID';
+  const canEdit = sale.paymentStatus !== 'PAID';
 
   return (
     <RefreshableScrollView
@@ -91,15 +93,7 @@ export function SaleDetailScreen({ token, saleId, onReceivePayment }: SaleDetail
         <Card>
           <Text style={styles.sectionTitle}>Products</Text>
           {sale.items.map((item) => (
-            <View key={item.id} style={styles.itemRow}>
-              <View style={styles.itemMain}>
-                <Text style={styles.itemName}>{item.productName ?? item.description}</Text>
-                <Text style={styles.itemMeta}>
-                  Qty {item.quantity} · {formatCurrency(item.unitPrice)} each
-                </Text>
-              </View>
-              <Text style={styles.itemAmount}>{formatCurrency(item.amount)}</Text>
-            </View>
+            <SaleProductLine key={item.id} item={item} />
           ))}
         </Card>
       ) : null}
@@ -107,7 +101,6 @@ export function SaleDetailScreen({ token, saleId, onReceivePayment }: SaleDetail
       <Card>
         <Text style={styles.sectionTitle}>Invoice</Text>
         <DetailRow label="Date" value={formatDate(sale.date)} />
-        <DetailRow label="Invoice Details" value={sale.invoiceDetails} />
         <DetailRow label="Gross Amount" value={formatCurrency(sale.grossAmount)} />
         <DetailRow label="Discount" value={formatCurrency(sale.discountAmount)} />
         <DetailRow label="Tax %" value={sale.taxPercent != null ? `${sale.taxPercent}%` : '—'} />
@@ -144,12 +137,48 @@ export function SaleDetailScreen({ token, saleId, onReceivePayment }: SaleDetail
         )}
       </Card>
 
+      {canEdit ? <Button title="Edit Sale" onPress={onEdit} /> : null}
+
       {canReceivePayment ? (
         <Button title="Receive Payment" onPress={onReceivePayment} />
       ) : null}
 
       {error ? <Text style={styles.error}>{error}</Text> : null}
     </RefreshableScrollView>
+  );
+}
+
+function SaleProductLine({ item }: { item: SaleItem }) {
+  const qty = item.quantity;
+  const unitDiscount = item.discount ?? 0;
+  const lineGross = item.unitPrice * qty;
+  const lineDiscount = unitDiscount * qty;
+  const lineNet = item.amount;
+
+  return (
+    <View style={styles.itemRow}>
+      <Text style={styles.itemName}>{item.productName ?? item.description}</Text>
+      <Text style={styles.itemMeta}>
+        Qty {qty} · {formatCurrency(item.unitPrice)} each
+        {unitDiscount > 0 ? ` · Disc ${formatCurrency(unitDiscount)} each` : ''}
+      </Text>
+      <View style={styles.priceGrid}>
+        <View style={styles.priceCell}>
+          <Text style={styles.priceLabel}>Gross</Text>
+          <Text style={styles.priceValue}>{formatCurrency(lineGross)}</Text>
+        </View>
+        <View style={styles.priceCell}>
+          <Text style={styles.priceLabel}>Discount</Text>
+          <Text style={styles.priceValue}>
+            {lineDiscount > 0 ? formatCurrency(lineDiscount) : '—'}
+          </Text>
+        </View>
+        <View style={styles.priceCell}>
+          <Text style={styles.priceLabel}>Net</Text>
+          <Text style={[styles.priceValue, styles.priceNet]}>{formatCurrency(lineNet)}</Text>
+        </View>
+      </View>
+    </View>
   );
 }
 
@@ -193,18 +222,38 @@ const styles = StyleSheet.create({
   statusText: { fontSize: 13, fontWeight: '600' },
   sectionTitle: { color: colors.text, fontSize: 15, fontWeight: '700', marginBottom: 8 },
   itemRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 12,
-    paddingVertical: 10,
+    paddingVertical: 12,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
+    gap: 6,
   },
-  itemMain: { flex: 1, minWidth: 0 },
   itemName: { color: colors.text, fontSize: 14, fontWeight: '600' },
-  itemMeta: { color: colors.textSecondary, fontSize: 12, marginTop: 2 },
-  itemAmount: { color: colors.primary, fontSize: 14, fontWeight: '700' },
+  itemMeta: { color: colors.textSecondary, fontSize: 12 },
+  priceGrid: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 4,
+  },
+  priceCell: {
+    flex: 1,
+    backgroundColor: colors.surfaceElevated,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingVertical: 8,
+    paddingHorizontal: 8,
+    alignItems: 'center',
+  },
+  priceLabel: {
+    color: colors.textSecondary,
+    fontSize: 10,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.3,
+    marginBottom: 4,
+  },
+  priceValue: { color: colors.text, fontSize: 13, fontWeight: '600' },
+  priceNet: { color: colors.primary },
   detailRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',

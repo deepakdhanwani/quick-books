@@ -55,6 +55,13 @@ public class SubscriberSaleController {
         return saleService.create(principal.getId(), request);
     }
 
+    @PutMapping("/{id}")
+    public SaleResponse update(@AuthenticationPrincipal UserPrincipal principal,
+                               @PathVariable Long id,
+                               @Valid @RequestBody CreateSaleRequest request) {
+        return saleService.update(principal.getId(), id, request);
+    }
+
     @PostMapping(value = "/{id}/payments", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public SaleResponse receivePayment(@AuthenticationPrincipal UserPrincipal principal,
                                        @PathVariable Long id,

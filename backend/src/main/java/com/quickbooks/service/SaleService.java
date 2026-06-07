@@ -38,6 +38,7 @@ import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 
 @Service
 public class SaleService {
@@ -125,20 +126,69 @@ public class SaleService {
         sale.setPaymentStatus(PaymentStatus.UNPAID);
         sale.setNotes(normalizeOptional(request.getNotes()));
 
-        for (BuiltSaleItem builtItem : builtItems) {
-            SaleItem saleItem = new SaleItem();
-            saleItem.setSale(sale);
-            saleItem.setProduct(builtItem.product());
-            saleItem.setDescription(builtItem.product().getName());
-            saleItem.setQuantity(builtItem.quantity());
-            saleItem.setUnitPrice(builtItem.product().getSellingPrice());
-            saleItem.setAmount(builtItem.lineAmount());
-            sale.getItems().add(saleItem);
-        }
+        attachBuiltItems(sale, builtItems);
 
         Sale saved = saleRepository.save(sale);
         SaleResponse response = SaleResponse.from(saved);
         response.setItems(mapSaleItems(saved));
+        return response;
+    }
+
+    @Transactional
+    public SaleResponse update(Long subscriberId, Long saleId, CreateSaleRequest request) {
+        Sale sale = getOwnedSale(subscriberId, saleId);
+
+        if (sale.getPaymentStatus() == PaymentStatus.PAID) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Fully paid sales cannot be edited");
+        }
+
+        Customer customer = customerRepository.findByIdAndSubscriberId(request.getCustomerId(), subscriberId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Customer not found"));
+
+        if (!customer.isActive()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Selected customer is inactive");
+        }
+
+        String invoiceNumber = normalizeRequired(request.getInvoiceNumber(), "Invoice number is required");
+        if (saleRepository.existsBySubscriberIdAndInvoiceNumberIgnoreCaseAndIdNot(subscriberId, invoiceNumber, saleId)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Invoice number already exists");
+        }
+
+        Set<Long> existingProductIds = sale.getItems().stream()
+                .filter(item -> item.getProduct() != null)
+                .map(item -> item.getProduct().getId())
+                .collect(java.util.stream.Collectors.toSet());
+
+        List<BuiltSaleItem> builtItems = buildSaleItems(subscriberId, request.getItems(), existingProductIds);
+        AmountBreakdown amounts = calculateAmounts(request, builtItems);
+
+        BigDecimal paidAmount = sale.getPaidAmount();
+        if (paidAmount.compareTo(amounts.netAmount()) > 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Net amount cannot be less than amount already received");
+        }
+
+        sale.setCustomer(customer);
+        sale.setInvoiceNumber(invoiceNumber);
+        sale.setInvoiceDetails(normalizeOptional(request.getInvoiceDetails()));
+        if (request.getDate() != null) {
+            sale.setDate(request.getDate());
+        }
+        sale.setGrossAmount(amounts.grossAmount());
+        sale.setDiscountAmount(amounts.discountAmount());
+        sale.setTaxPercent(amounts.taxPercent());
+        sale.setTaxAmount(amounts.taxAmount());
+        sale.setTotalAmount(amounts.netAmount());
+        sale.setPendingAmount(amounts.netAmount().subtract(paidAmount).max(BigDecimal.ZERO));
+        sale.setPaymentStatus(resolvePaymentStatus(paidAmount, amounts.netAmount()));
+        sale.setNotes(normalizeOptional(request.getNotes()));
+
+        sale.getItems().clear();
+        attachBuiltItems(sale, builtItems);
+
+        Sale saved = saleRepository.save(sale);
+        SaleResponse response = SaleResponse.from(saved);
+        response.setItems(mapSaleItems(saved));
+        response.setPayments(loadPayments(subscriberId, saleId));
         return response;
     }
 
@@ -256,7 +306,26 @@ public class SaleService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Sale not found"));
     }
 
+    private void attachBuiltItems(Sale sale, List<BuiltSaleItem> builtItems) {
+        for (BuiltSaleItem builtItem : builtItems) {
+            SaleItem saleItem = new SaleItem();
+            saleItem.setSale(sale);
+            saleItem.setProduct(builtItem.product());
+            saleItem.setDescription(builtItem.product().getName());
+            saleItem.setQuantity(builtItem.quantity());
+            saleItem.setUnitPrice(builtItem.product().getSellingPrice());
+            saleItem.setAmount(builtItem.lineAmount());
+            sale.getItems().add(saleItem);
+        }
+    }
+
     private List<BuiltSaleItem> buildSaleItems(Long subscriberId, List<CreateSaleItemRequest> items) {
+        return buildSaleItems(subscriberId, items, Set.of());
+    }
+
+    private List<BuiltSaleItem> buildSaleItems(Long subscriberId,
+                                               List<CreateSaleItemRequest> items,
+                                               Set<Long> allowedInactiveProductIds) {
         if (items == null || items.isEmpty()) {
             return List.of();
         }
@@ -264,7 +333,7 @@ public class SaleService {
         List<BuiltSaleItem> builtItems = new ArrayList<>();
         for (CreateSaleItemRequest itemRequest : items) {
             Product product = productService.getOwnedEntity(subscriberId, itemRequest.getProductId());
-            if (!product.isActive()) {
+            if (!product.isActive() && !allowedInactiveProductIds.contains(product.getId())) {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Selected product is inactive: " + product.getName());
             }
 

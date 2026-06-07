@@ -1,13 +1,13 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
 import { CustomerAutocomplete } from '../components/CustomerAutocomplete';
 import { Input } from '../components/Input';
 import { ProductAutocomplete } from '../components/ProductAutocomplete';
 import { RefreshableScrollView } from '../components/RefreshableScrollView';
-import { api, Customer, Product } from '../services/api';
+import { api, Customer, Product, SaleItem } from '../services/api';
 import { colors } from '../theme/colors';
 import { calculateLineAmount, calculateLinesTotals } from '../utils/productAmounts';
 import {
@@ -19,27 +19,49 @@ import {
 
 type SaleFormScreenProps = {
   token: string;
+  saleId?: number;
   onSaved: () => void;
 };
 
 type AmountMode = 'manual' | 'products';
 
-type ProductLine = {
+type AddedProduct = {
   key: string;
-  product: Product | null;
+  product: Product;
   quantity: string;
 };
 
-function createLine(): ProductLine {
-  return { key: String(Date.now()) + Math.random(), product: null, quantity: '1' };
+function saleItemToProduct(item: SaleItem): Product | null {
+  if (item.productId == null) {
+    return null;
+  }
+  const discount = item.discount ?? 0;
+  return {
+    id: item.productId,
+    name: item.productName ?? item.description,
+    sellingPrice: item.unitPrice,
+    discount,
+    netAmount: item.unitPrice - discount,
+    active: true,
+    createdAt: '',
+  };
 }
 
-export function SaleFormScreen({ token, onSaved }: SaleFormScreenProps) {
+function createAddedProduct(product: Product, quantity = '1'): AddedProduct {
+  return {
+    key: `${product.id}-${Date.now()}-${Math.random()}`,
+    product,
+    quantity,
+  };
+}
+
+export function SaleFormScreen({ token, saleId, onSaved }: SaleFormScreenProps) {
+  const isEditing = saleId != null;
+
   const [customer, setCustomer] = useState<Customer | null>(null);
   const [amountMode, setAmountMode] = useState<AmountMode>('manual');
-  const [productLines, setProductLines] = useState<ProductLine[]>([createLine()]);
+  const [addedProducts, setAddedProducts] = useState<AddedProduct[]>([]);
   const [invoiceNumber, setInvoiceNumber] = useState('');
-  const [invoiceDetails, setInvoiceDetails] = useState('');
   const [grossAmount, setGrossAmount] = useState('');
   const [discountAmount, setDiscountAmount] = useState('');
   const [taxPercent, setTaxPercent] = useState('');
@@ -47,7 +69,7 @@ export function SaleFormScreen({ token, onSaved }: SaleFormScreenProps) {
   const [taxEdited, setTaxEdited] = useState(false);
   const [notes, setNotes] = useState('');
   const [saving, setSaving] = useState(false);
-  const [loadingDefaults, setLoadingDefaults] = useState(true);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [customerError, setCustomerError] = useState('');
   const [lineErrors, setLineErrors] = useState<Record<string, string>>({});
@@ -55,45 +77,80 @@ export function SaleFormScreen({ token, onSaved }: SaleFormScreenProps) {
   useEffect(() => {
     let cancelled = false;
 
-    const loadDefaults = async () => {
-      setLoadingDefaults(true);
+    const loadForm = async () => {
+      setLoading(true);
+      setError('');
       try {
-        const [profile, nextInvoice] = await Promise.all([
-          api.getAccountProfile(token),
-          api.getNextInvoiceNumber(token),
-        ]);
-        if (cancelled) return;
+        if (isEditing && saleId != null) {
+          const sale = await api.getSale(token, saleId);
+          if (cancelled) return;
 
-        setInvoiceNumber(nextInvoice.invoiceNumber);
-        if (profile.defaultTaxPercent != null) {
-          setTaxPercent(String(profile.defaultTaxPercent));
+          const saleCustomer = await api.getCustomer(token, sale.customerId);
+          if (cancelled) return;
+
+          setCustomer(saleCustomer);
+          setInvoiceNumber(sale.invoiceNumber ?? '');
+          setNotes(sale.notes ?? '');
+          setTaxPercent(sale.taxPercent != null ? String(sale.taxPercent) : '');
+          setTaxAmount(sale.taxAmount != null ? String(sale.taxAmount) : '');
+          setTaxEdited(true);
+
+          if (sale.items && sale.items.length > 0) {
+            setAmountMode('products');
+            setAddedProducts(
+              sale.items
+                .map((item) => {
+                  const product = saleItemToProduct(item);
+                  if (!product) return null;
+                  return createAddedProduct(product, String(item.quantity));
+                })
+                .filter((line): line is AddedProduct => line != null),
+            );
+          } else {
+            setAmountMode('manual');
+            setGrossAmount(sale.grossAmount != null ? String(sale.grossAmount) : '');
+            setDiscountAmount(
+              sale.discountAmount != null && sale.discountAmount > 0
+                ? String(sale.discountAmount)
+                : '',
+            );
+          }
+        } else {
+          const [profile, nextInvoice] = await Promise.all([
+            api.getAccountProfile(token),
+            api.getNextInvoiceNumber(token),
+          ]);
+          if (cancelled) return;
+
+          setInvoiceNumber(nextInvoice.invoiceNumber);
+          if (profile.defaultTaxPercent != null) {
+            setTaxPercent(String(profile.defaultTaxPercent));
+          }
         }
       } catch {
         if (!cancelled) {
-          setError('Could not load sale defaults');
+          setError(isEditing ? 'Could not load sale' : 'Could not load sale defaults');
         }
       } finally {
         if (!cancelled) {
-          setLoadingDefaults(false);
+          setLoading(false);
         }
       }
     };
 
-    loadDefaults();
+    loadForm();
     return () => {
       cancelled = true;
     };
-  }, [token]);
+  }, [isEditing, saleId, token]);
 
   const parsedLines = useMemo(
     () =>
-      productLines
-        .filter((line) => line.product != null)
-        .map((line) => ({
-          product: line.product as Product,
-          quantity: parseAmount(line.quantity) || 0,
-        })),
-    [productLines],
+      addedProducts.map((line) => ({
+        product: line.product,
+        quantity: parseAmount(line.quantity) || 0,
+      })),
+    [addedProducts],
   );
 
   const productTotals = useMemo(() => calculateLinesTotals(parsedLines), [parsedLines]);
@@ -137,9 +194,23 @@ export function SaleFormScreen({ token, onSaved }: SaleFormScreenProps) {
     }
   };
 
-  const updateLine = (key: string, patch: Partial<ProductLine>) => {
-    setProductLines((current) =>
-      current.map((line) => (line.key === key ? { ...line, ...patch } : line)),
+  const handleAddProduct = (product: Product) => {
+    setAddedProducts((current) => {
+      const existing = current.find((line) => line.product.id === product.id);
+      if (existing) {
+        const nextQty = (parseAmount(existing.quantity) || 0) + 1;
+        return current.map((line) =>
+          line.key === existing.key ? { ...line, quantity: String(nextQty) } : line,
+        );
+      }
+      return [...current, createAddedProduct(product)];
+    });
+    setError('');
+  };
+
+  const updateProductQuantity = (key: string, quantity: string) => {
+    setAddedProducts((current) =>
+      current.map((line) => (line.key === key ? { ...line, quantity } : line)),
     );
     setLineErrors((current) => {
       const next = { ...current };
@@ -148,26 +219,22 @@ export function SaleFormScreen({ token, onSaved }: SaleFormScreenProps) {
     });
   };
 
-  const removeLine = (key: string) => {
-    setProductLines((current) => {
-      const next = current.filter((line) => line.key !== key);
-      return next.length > 0 ? next : [createLine()];
-    });
+  const removeProduct = (key: string) => {
+    setAddedProducts((current) => current.filter((line) => line.key !== key));
   };
 
   const validateProductLines = () => {
     const nextErrors: Record<string, string> = {};
-    const validLines = productLines.filter((line) => line.product != null);
 
-    if (validLines.length === 0) {
+    if (addedProducts.length === 0) {
       setError('Add at least one product to the sale');
       return false;
     }
 
-    for (const line of validLines) {
+    for (const line of addedProducts) {
       const qty = parseAmount(line.quantity);
       if (qty <= 0) {
-        nextErrors[line.key] = 'Quantity must be greater than zero';
+        nextErrors[line.key] = 'Invalid quantity';
       }
     }
 
@@ -180,9 +247,40 @@ export function SaleFormScreen({ token, onSaved }: SaleFormScreenProps) {
     return true;
   };
 
+  const buildPayload = () => {
+    const base = {
+      customerId: customer!.id,
+      invoiceNumber: invoiceNumber.trim() || undefined,
+      taxPercent: percent || undefined,
+      taxAmount: effectiveTax || undefined,
+      notes: notes.trim() || undefined,
+    };
+
+    if (amountMode === 'products') {
+      return {
+        ...base,
+        items: parsedLines.map((line) => ({
+          productId: line.product.id,
+          quantity: line.quantity,
+        })),
+      };
+    }
+
+    return {
+      ...base,
+      grossAmount: gross,
+      discountAmount: discount || undefined,
+    };
+  };
+
   const handleSave = async () => {
     if (!customer) {
       setCustomerError('Please select a customer');
+      return;
+    }
+
+    if (!invoiceNumber.trim()) {
+      setError('Invoice number is required');
       return;
     }
 
@@ -204,35 +302,15 @@ export function SaleFormScreen({ token, onSaved }: SaleFormScreenProps) {
     setError('');
     setCustomerError('');
     try {
-      const payload =
-        amountMode === 'products'
-          ? {
-              customerId: customer.id,
-              invoiceNumber: invoiceNumber.trim() || undefined,
-              invoiceDetails: invoiceDetails.trim() || undefined,
-              items: parsedLines.map((line) => ({
-                productId: line.product.id,
-                quantity: line.quantity,
-              })),
-              taxPercent: percent || undefined,
-              taxAmount: effectiveTax || undefined,
-              notes: notes.trim() || undefined,
-            }
-          : {
-              customerId: customer.id,
-              invoiceNumber: invoiceNumber.trim() || undefined,
-              invoiceDetails: invoiceDetails.trim() || undefined,
-              grossAmount: gross,
-              discountAmount: discount || undefined,
-              taxPercent: percent || undefined,
-              taxAmount: effectiveTax || undefined,
-              notes: notes.trim() || undefined,
-            };
-
-      await api.createSale(token, payload);
+      const payload = buildPayload();
+      if (isEditing && saleId != null) {
+        await api.updateSale(token, saleId, payload);
+      } else {
+        await api.createSale(token, payload);
+      }
       onSaved();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not create sale');
+      setError(err instanceof Error ? err.message : 'Could not save sale');
     } finally {
       setSaving(false);
     }
@@ -254,7 +332,7 @@ export function SaleFormScreen({ token, onSaved }: SaleFormScreenProps) {
     );
   };
 
-  if (loadingDefaults) {
+  if (loading) {
     return (
       <View style={styles.loading}>
         <ActivityIndicator color={colors.primary} size="large" />
@@ -276,22 +354,16 @@ export function SaleFormScreen({ token, onSaved }: SaleFormScreenProps) {
         />
 
         <Input
-          label="Invoice Number"
+          label="Invoice Number *"
           value={invoiceNumber}
           onChangeText={setInvoiceNumber}
           autoCapitalize="characters"
         />
-        <Text style={styles.fieldHint}>
-          Auto-generated from your last invoice. You can change it before saving.
-        </Text>
-        <Input
-          label="Invoice Details"
-          value={invoiceDetails}
-          onChangeText={setInvoiceDetails}
-          multiline
-          numberOfLines={3}
-          style={styles.multiline}
-        />
+        {!isEditing ? (
+          <Text style={styles.fieldHint}>
+            Auto-generated from your last invoice. You can change it before saving.
+          </Text>
+        ) : null}
 
         <Text style={styles.sectionTitle}>Invoice Amounts</Text>
         <View style={styles.modeRow}>
@@ -301,43 +373,57 @@ export function SaleFormScreen({ token, onSaved }: SaleFormScreenProps) {
 
         {amountMode === 'products' ? (
           <View style={styles.productsSection}>
-            {productLines.map((line, index) => (
-              <View key={line.key} style={styles.productLineCard}>
-                <View style={styles.productLineHeader}>
-                  <Text style={styles.productLineTitle}>Product {index + 1}</Text>
-                  {productLines.length > 1 ? (
-                    <Pressable onPress={() => removeLine(line.key)} hitSlop={8}>
-                      <Ionicons name="trash-outline" size={18} color={colors.error} />
-                    </Pressable>
-                  ) : null}
-                </View>
+            <ProductAutocomplete
+              token={token}
+              value={null}
+              clearAfterSelect
+              label="Search and add product"
+              onChange={(product) => {
+                if (product) {
+                  handleAddProduct(product);
+                }
+              }}
+            />
 
-                <ProductAutocomplete
-                  token={token}
-                  value={line.product}
-                  onChange={(product) => updateLine(line.key, { product })}
-                  error={lineErrors[line.key]}
-                />
-
-                <Input
-                  label="Quantity *"
-                  value={line.quantity}
-                  onChangeText={(value) => updateLine(line.key, { quantity: value })}
-                  keyboardType="decimal-pad"
-                />
-
-                {line.product ? (
-                  <Text style={styles.lineAmount}>
-                    Line total: {formatCurrency(calculateLineAmount(line.product, parseAmount(line.quantity) || 0))}
-                  </Text>
-                ) : null}
+            {addedProducts.length > 0 ? (
+              <View style={styles.addedList}>
+                {addedProducts.map((line) => {
+                  const qty = parseAmount(line.quantity) || 0;
+                  return (
+                    <View key={line.key} style={styles.addedRow}>
+                      <View style={styles.addedMain}>
+                        <Text style={styles.addedName} numberOfLines={1}>
+                          {line.product.name}
+                        </Text>
+                        <View style={styles.qtyRow}>
+                          <Text style={styles.qtyLabel}>Qty</Text>
+                          <TextInput
+                            style={[
+                              styles.qtyInput,
+                              lineErrors[line.key] ? styles.qtyInputError : null,
+                            ]}
+                            value={line.quantity}
+                            onChangeText={(value) => updateProductQuantity(line.key, value)}
+                            keyboardType="decimal-pad"
+                          />
+                          <Text style={styles.addedAmount}>
+                            {formatCurrency(calculateLineAmount(line.product, qty))}
+                          </Text>
+                        </View>
+                        {lineErrors[line.key] ? (
+                          <Text style={styles.lineError}>{lineErrors[line.key]}</Text>
+                        ) : null}
+                      </View>
+                      <Pressable onPress={() => removeProduct(line.key)} hitSlop={8}>
+                        <Ionicons name="close-circle" size={20} color={colors.error} />
+                      </Pressable>
+                    </View>
+                  );
+                })}
               </View>
-            ))}
-
-            <Pressable style={styles.addLineButton} onPress={() => setProductLines((c) => [...c, createLine()])}>
-              <Ionicons name="add-circle-outline" size={18} color={colors.primary} />
-              <Text style={styles.addLineText}>Add another product</Text>
-            </Pressable>
+            ) : (
+              <Text style={styles.emptyProducts}>Search and select products to add them here.</Text>
+            )}
 
             <View style={styles.calculatedRow}>
               <Text style={styles.calculatedLabel}>Gross (from products)</Text>
@@ -392,17 +478,14 @@ export function SaleFormScreen({ token, onSaved }: SaleFormScreenProps) {
           <Text style={styles.netValue}>{formatCurrency(netAmount)}</Text>
         </View>
 
-        <Input
-          label="Notes"
-          value={notes}
-          onChangeText={setNotes}
-          multiline
-          numberOfLines={2}
-          style={styles.multiline}
-        />
+        <Input label="Notes" value={notes} onChangeText={setNotes} multiline numberOfLines={3} />
 
         {error ? <Text style={styles.error}>{error}</Text> : null}
-        <Button title="Create Sale" onPress={handleSave} loading={saving} />
+        <Button
+          title={isEditing ? 'Save Sale' : 'Create Sale'}
+          onPress={handleSave}
+          loading={saving}
+        />
       </Card>
     </RefreshableScrollView>
   );
@@ -443,36 +526,53 @@ const styles = StyleSheet.create({
   modeChipText: { color: colors.textSecondary, fontSize: 13, fontWeight: '600' },
   modeChipTextActive: { color: colors.primary },
   productsSection: { marginBottom: 8 },
-  productLineCard: {
+  addedList: {
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: 10,
-    padding: 12,
     marginBottom: 12,
-    backgroundColor: colors.surfaceElevated,
+    overflow: 'hidden',
   },
-  productLineHeader: {
+  addedRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 4,
+    gap: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+    backgroundColor: colors.surfaceElevated,
   },
-  productLineTitle: { color: colors.text, fontSize: 14, fontWeight: '600' },
-  lineAmount: {
+  addedMain: { flex: 1, minWidth: 0 },
+  addedName: { color: colors.text, fontSize: 14, fontWeight: '600' },
+  qtyRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 6 },
+  qtyLabel: { color: colors.textSecondary, fontSize: 12 },
+  qtyInput: {
+    width: 56,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    color: colors.text,
+    fontSize: 14,
+    backgroundColor: colors.surface,
+  },
+  qtyInputError: { borderColor: colors.error },
+  addedAmount: {
+    flex: 1,
+    textAlign: 'right',
     color: colors.primary,
     fontSize: 13,
     fontWeight: '600',
-    marginTop: -4,
-    marginBottom: 4,
   },
-  addLineButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
+  lineError: { color: colors.error, fontSize: 11, marginTop: 4 },
+  emptyProducts: {
+    color: colors.textSecondary,
+    fontSize: 13,
     marginBottom: 12,
-    paddingVertical: 4,
+    fontStyle: 'italic',
   },
-  addLineText: { color: colors.primary, fontSize: 14, fontWeight: '600' },
   calculatedRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -482,7 +582,6 @@ const styles = StyleSheet.create({
   },
   calculatedLabel: { color: colors.textSecondary, fontSize: 13 },
   calculatedValue: { color: colors.text, fontSize: 14, fontWeight: '600' },
-  multiline: { minHeight: 80, textAlignVertical: 'top' },
   netRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',

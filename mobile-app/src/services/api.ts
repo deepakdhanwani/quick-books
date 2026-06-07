@@ -445,6 +445,8 @@ export const api = {
     request<NextInvoiceNumberResponse>('/api/subscriber/sales/next-invoice-number', { token }),
   createSale: (token: string, payload: SalePayload) =>
     request<Sale>('/api/subscriber/sales', { method: 'POST', token, body: payload }),
+  updateSale: (token: string, id: number, payload: SalePayload) =>
+    request<Sale>(`/api/subscriber/sales/${id}`, { method: 'PUT', token, body: payload }),
   receiveSalePayment: async (
     token: string,
     saleId: number,

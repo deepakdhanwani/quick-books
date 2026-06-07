@@ -42,6 +42,7 @@ export function AppShell({ auth, onLogout, onSubscriptionChanged }: AppShellProp
   const [selectedProductId, setSelectedProductId] = useState<number | undefined>(undefined);
   const [editingProductId, setEditingProductId] = useState<number | undefined>(undefined);
   const [selectedSaleId, setSelectedSaleId] = useState<number | undefined>(undefined);
+  const [editingSaleId, setEditingSaleId] = useState<number | undefined>(undefined);
 
   const [profile, setProfile] = useState<SubscriberAccountProfile | null>(null);
   const [profileLoading, setProfileLoading] = useState(true);
@@ -111,6 +112,7 @@ export function AppShell({ auth, onLogout, onSubscriptionChanged }: AppShellProp
     setSelectedProductId(undefined);
     setEditingProductId(undefined);
     setSelectedSaleId(undefined);
+    setEditingSaleId(undefined);
   };
 
   const openStack = (route: StackRoute) => {
@@ -142,6 +144,12 @@ export function AppShell({ auth, onLogout, onSubscriptionChanged }: AppShellProp
       return;
     }
 
+    if (stackRoute === 'sale-form' && selectedSaleId != null) {
+      setStackRoute('sale-detail');
+      setEditingSaleId(undefined);
+      return;
+    }
+
     if (stackRoute === 'receive-payment' && selectedSaleId != null) {
       setStackRoute('sale-detail');
       return;
@@ -155,6 +163,7 @@ export function AppShell({ auth, onLogout, onSubscriptionChanged }: AppShellProp
     setSelectedProductId(undefined);
     setEditingProductId(undefined);
     setSelectedSaleId(undefined);
+    setEditingSaleId(undefined);
   };
 
   const openCreateCustomer = () => {
@@ -241,6 +250,13 @@ export function AppShell({ auth, onLogout, onSubscriptionChanged }: AppShellProp
       return;
     }
     setSelectedSaleId(undefined);
+    setEditingSaleId(undefined);
+    openStack('sale-form');
+  };
+
+  const openEditSale = (saleId: number) => {
+    setSelectedSaleId(saleId);
+    setEditingSaleId(saleId);
     openStack('sale-form');
   };
 
@@ -250,6 +266,7 @@ export function AppShell({ auth, onLogout, onSubscriptionChanged }: AppShellProp
       return;
     }
     setSelectedSaleId(saleId);
+    setEditingSaleId(undefined);
     openStack('sale-detail');
   };
 
@@ -277,7 +294,9 @@ export function AppShell({ auth, onLogout, onSubscriptionChanged }: AppShellProp
       return editingVendorId == null ? 'Add Vendor' : 'Edit Vendor';
     }
     if (stackRoute === 'sale-detail') return 'Sale';
-    if (stackRoute === 'sale-form') return 'New Sale';
+    if (stackRoute === 'sale-form') {
+      return editingSaleId == null ? 'New Sale' : 'Edit Sale';
+    }
     if (stackRoute === 'receive-payment') return 'Receive Payment';
 
     if (drawerRoute === 'dashboard') return 'Dashboard';
@@ -421,13 +440,20 @@ export function AppShell({ auth, onLogout, onSubscriptionChanged }: AppShellProp
         <SaleDetailScreen
           token={auth.token}
           saleId={selectedSaleId}
+          onEdit={() => openEditSale(selectedSaleId)}
           onReceivePayment={() => openReceivePayment(selectedSaleId)}
         />
       );
     }
 
     if (stackRoute === 'sale-form') {
-      return <SaleFormScreen token={auth.token} onSaved={closeStack} />;
+      return (
+        <SaleFormScreen
+          token={auth.token}
+          saleId={editingSaleId}
+          onSaved={closeStack}
+        />
+      );
     }
 
     if (stackRoute === 'receive-payment' && selectedSaleId != null) {

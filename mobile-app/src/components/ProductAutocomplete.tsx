@@ -11,6 +11,7 @@ type ProductAutocompleteProps = {
   onChange: (product: Product | null) => void;
   error?: string;
   label?: string;
+  clearAfterSelect?: boolean;
 };
 
 export function ProductAutocomplete({
@@ -19,6 +20,7 @@ export function ProductAutocomplete({
   onChange,
   error,
   label = 'Product *',
+  clearAfterSelect = false,
 }: ProductAutocompleteProps) {
   const [query, setQuery] = useState(value?.name ?? '');
   const [results, setResults] = useState<Product[]>([]);
@@ -53,6 +55,11 @@ export function ProductAutocomplete({
 
   const handleSelect = (product: Product) => {
     onChange(product);
+    if (clearAfterSelect) {
+      setQuery('');
+      setOpen(false);
+      return;
+    }
     setQuery(product.name);
     setOpen(false);
   };
