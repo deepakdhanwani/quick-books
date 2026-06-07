@@ -7,6 +7,8 @@ import com.quickbooks.dto.vendor.UpdateVendorRequest;
 import com.quickbooks.dto.vendor.VendorResponse;
 import com.quickbooks.entity.Subscriber;
 import com.quickbooks.entity.Vendor;
+import com.quickbooks.entity.enums.AuditAction;
+import com.quickbooks.entity.enums.AuditEntityType;
 import com.quickbooks.entity.enums.CustomerType;
 import com.quickbooks.repository.VendorRepository;
 import org.springframework.data.domain.Page;
@@ -23,11 +25,14 @@ public class VendorService {
 
     private final VendorRepository vendorRepository;
     private final SubscriberService subscriberService;
+    private final AuditLogService auditLogService;
 
     public VendorService(VendorRepository vendorRepository,
-                         SubscriberService subscriberService) {
+                         SubscriberService subscriberService,
+                         AuditLogService auditLogService) {
         this.vendorRepository = vendorRepository;
         this.subscriberService = subscriberService;
+        this.auditLogService = auditLogService;
     }
 
     @Transactional(readOnly = true)
@@ -66,7 +71,9 @@ public class VendorService {
         applyFields(vendor, request, name);
         vendor.setActive(request.getActive() == null || request.getActive());
 
-        return VendorResponse.from(vendorRepository.save(vendor));
+        Vendor saved = vendorRepository.save(vendor);
+        auditLogService.log(AuditAction.CREATE, AuditEntityType.VENDOR, saved.getId(), saved.getName());
+        return VendorResponse.from(saved);
     }
 
     @Transactional
@@ -83,19 +90,25 @@ public class VendorService {
             vendor.setActive(request.getActive());
         }
 
-        return VendorResponse.from(vendorRepository.save(vendor));
+        Vendor saved = vendorRepository.save(vendor);
+        auditLogService.log(AuditAction.UPDATE, AuditEntityType.VENDOR, saved.getId(), saved.getName());
+        return VendorResponse.from(saved);
     }
 
     @Transactional
     public VendorResponse updateActive(Long subscriberId, Long vendorId, UpdateVendorActiveRequest request) {
         Vendor vendor = getOwnedVendor(subscriberId, vendorId);
         vendor.setActive(request.getActive());
-        return VendorResponse.from(vendorRepository.save(vendor));
+        Vendor saved = vendorRepository.save(vendor);
+        auditLogService.log(AuditAction.UPDATE, AuditEntityType.VENDOR, saved.getId(),
+                saved.getName() + " active=" + saved.isActive());
+        return VendorResponse.from(saved);
     }
 
     @Transactional
     public void delete(Long subscriberId, Long vendorId) {
         Vendor vendor = getOwnedVendor(subscriberId, vendorId);
+        auditLogService.log(AuditAction.DELETE, AuditEntityType.VENDOR, vendor.getId(), vendor.getName());
         vendorRepository.delete(vendor);
     }
 

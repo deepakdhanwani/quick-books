@@ -7,6 +7,8 @@ import com.quickbooks.dto.customer.UpdateCustomerActiveRequest;
 import com.quickbooks.dto.customer.UpdateCustomerRequest;
 import com.quickbooks.entity.Customer;
 import com.quickbooks.entity.Subscriber;
+import com.quickbooks.entity.enums.AuditAction;
+import com.quickbooks.entity.enums.AuditEntityType;
 import com.quickbooks.entity.enums.CustomerType;
 import com.quickbooks.repository.CustomerRepository;
 import org.springframework.data.domain.Page;
@@ -23,11 +25,14 @@ public class CustomerService {
 
     private final CustomerRepository customerRepository;
     private final SubscriberService subscriberService;
+    private final AuditLogService auditLogService;
 
     public CustomerService(CustomerRepository customerRepository,
-                           SubscriberService subscriberService) {
+                           SubscriberService subscriberService,
+                           AuditLogService auditLogService) {
         this.customerRepository = customerRepository;
         this.subscriberService = subscriberService;
+        this.auditLogService = auditLogService;
     }
 
     @Transactional(readOnly = true)
@@ -66,7 +71,9 @@ public class CustomerService {
         applyFields(customer, request, name);
         customer.setActive(request.getActive() == null || request.getActive());
 
-        return CustomerResponse.from(customerRepository.save(customer));
+        Customer saved = customerRepository.save(customer);
+        auditLogService.log(AuditAction.CREATE, AuditEntityType.CUSTOMER, saved.getId(), saved.getName());
+        return CustomerResponse.from(saved);
     }
 
     @Transactional
@@ -83,19 +90,25 @@ public class CustomerService {
             customer.setActive(request.getActive());
         }
 
-        return CustomerResponse.from(customerRepository.save(customer));
+        Customer saved = customerRepository.save(customer);
+        auditLogService.log(AuditAction.UPDATE, AuditEntityType.CUSTOMER, saved.getId(), saved.getName());
+        return CustomerResponse.from(saved);
     }
 
     @Transactional
     public CustomerResponse updateActive(Long subscriberId, Long customerId, UpdateCustomerActiveRequest request) {
         Customer customer = getOwnedCustomer(subscriberId, customerId);
         customer.setActive(request.getActive());
-        return CustomerResponse.from(customerRepository.save(customer));
+        Customer saved = customerRepository.save(customer);
+        auditLogService.log(AuditAction.UPDATE, AuditEntityType.CUSTOMER, saved.getId(),
+                saved.getName() + " active=" + saved.isActive());
+        return CustomerResponse.from(saved);
     }
 
     @Transactional
     public void delete(Long subscriberId, Long customerId) {
         Customer customer = getOwnedCustomer(subscriberId, customerId);
+        auditLogService.log(AuditAction.DELETE, AuditEntityType.CUSTOMER, customer.getId(), customer.getName());
         customerRepository.delete(customer);
     }
 

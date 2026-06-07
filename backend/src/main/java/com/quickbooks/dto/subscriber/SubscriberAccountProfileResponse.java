@@ -19,6 +19,10 @@ public class SubscriberAccountProfileResponse {
     private String gstNumber;
     private OffsetDateTime createdAt;
     private SubscriberSubscriptionInfo currentSubscription;
+    private String loggedInUserName;
+    private String userType;
+    private boolean canChangePin = true;
+    private boolean owner = true;
 
     public static SubscriberAccountProfileResponse from(Subscriber subscriber) {
         SubscriberAccountProfileResponse response = new SubscriberAccountProfileResponse();
@@ -59,4 +63,12 @@ public class SubscriberAccountProfileResponse {
     public void setCreatedAt(OffsetDateTime createdAt) { this.createdAt = createdAt; }
     public SubscriberSubscriptionInfo getCurrentSubscription() { return currentSubscription; }
     public void setCurrentSubscription(SubscriberSubscriptionInfo currentSubscription) { this.currentSubscription = currentSubscription; }
+    public String getLoggedInUserName() { return loggedInUserName; }
+    public void setLoggedInUserName(String loggedInUserName) { this.loggedInUserName = loggedInUserName; }
+    public String getUserType() { return userType; }
+    public void setUserType(String userType) { this.userType = userType; }
+    public boolean isCanChangePin() { return canChangePin; }
+    public void setCanChangePin(boolean canChangePin) { this.canChangePin = canChangePin; }
+    public boolean isOwner() { return owner; }
+    public void setOwner(boolean owner) { this.owner = owner; }
 }

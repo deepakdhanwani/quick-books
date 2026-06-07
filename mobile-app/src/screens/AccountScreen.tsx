@@ -18,6 +18,9 @@ type AccountScreenProps = {
   onSettingsSaved: (profile: SubscriberAccountProfile) => void;
   onChangePin: () => void;
   onSubscription: () => void;
+  onManageTeam: () => void;
+  onActivityLog: () => void;
+  isOwner: boolean;
 };
 
 function formatSubscriptionStatus(status?: SubscriberAccountProfile['subscriptionStatus']) {
@@ -52,7 +55,11 @@ export function AccountScreen({
   onSettingsSaved,
   onChangePin,
   onSubscription,
+  onManageTeam,
+  onActivityLog,
+  isOwner,
 }: AccountScreenProps) {
+  const canChangePin = profile?.canChangePin ?? isOwner;
   const [gstNumber, setGstNumber] = useState('');
   const [defaultTaxPercent, setDefaultTaxPercent] = useState('');
   const [editingSettings, setEditingSettings] = useState(false);
@@ -134,6 +141,7 @@ export function AccountScreen({
           </View>
         ) : (
           <>
+            <DetailRow label="Signed in as" value={profile?.loggedInUserName ?? profile?.ownerName ?? '—'} />
             <DetailRow label="Business" value={profile?.businessName ?? '—'} />
             <DetailRow label="Owner" value={profile?.ownerName ?? '—'} />
             <DetailRow label="Mobile" value={profile?.phone ?? '—'} />
@@ -157,6 +165,7 @@ export function AccountScreen({
         )}
       </Card>
 
+      {isOwner ? (
       <Card style={styles.settingsCard}>
         <View style={styles.settingsHeader}>
           <Text style={styles.sectionTitle}>Sales Settings</Text>
@@ -208,30 +217,65 @@ export function AccountScreen({
           </>
         )}
       </Card>
+      ) : null}
 
       <Text style={styles.actionsTitle}>Account Actions</Text>
 
-      <Pressable style={styles.actionRow} onPress={onChangePin}>
-        <View style={styles.actionIcon}>
-          <Ionicons name="key-outline" size={20} color={colors.primary} />
-        </View>
-        <View style={styles.actionText}>
-          <Text style={styles.actionLabel}>Change Login PIN</Text>
-          <Text style={styles.actionHint}>Update your secure sign-in PIN</Text>
-        </View>
-        <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
-      </Pressable>
+      {canChangePin ? (
+        <Pressable style={styles.actionRow} onPress={onChangePin}>
+          <View style={styles.actionIcon}>
+            <Ionicons name="key-outline" size={20} color={colors.primary} />
+          </View>
+          <View style={styles.actionText}>
+            <Text style={styles.actionLabel}>Change Login PIN</Text>
+            <Text style={styles.actionHint}>Update your secure sign-in PIN</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
+        </Pressable>
+      ) : (
+        <Card>
+          <Text style={styles.staffPinNote}>
+            Your PIN is managed by the account owner. Contact the owner if you need a new PIN.
+          </Text>
+        </Card>
+      )}
 
-      <Pressable style={styles.actionRow} onPress={onSubscription}>
-        <View style={styles.actionIcon}>
-          <Ionicons name="card-outline" size={20} color={colors.primary} />
-        </View>
-        <View style={styles.actionText}>
-          <Text style={styles.actionLabel}>Subscription Plans</Text>
-          <Text style={styles.actionHint}>View or manage your subscription</Text>
-        </View>
-        <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
-      </Pressable>
+      {isOwner ? (
+        <>
+          <Pressable style={styles.actionRow} onPress={onManageTeam}>
+            <View style={styles.actionIcon}>
+              <Ionicons name="people-outline" size={20} color={colors.primary} />
+            </View>
+            <View style={styles.actionText}>
+              <Text style={styles.actionLabel}>Team Users</Text>
+              <Text style={styles.actionHint}>Create users and assign PINs</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
+          </Pressable>
+
+          <Pressable style={styles.actionRow} onPress={onActivityLog}>
+            <View style={styles.actionIcon}>
+              <Ionicons name="list-outline" size={20} color={colors.primary} />
+            </View>
+            <View style={styles.actionText}>
+              <Text style={styles.actionLabel}>Activity Log</Text>
+              <Text style={styles.actionHint}>View create, edit, and delete history</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
+          </Pressable>
+
+          <Pressable style={styles.actionRow} onPress={onSubscription}>
+            <View style={styles.actionIcon}>
+              <Ionicons name="card-outline" size={20} color={colors.primary} />
+            </View>
+            <View style={styles.actionText}>
+              <Text style={styles.actionLabel}>Subscription Plans</Text>
+              <Text style={styles.actionHint}>View or manage your subscription</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
+          </Pressable>
+        </>
+      ) : null}
     </RefreshableScrollView>
   );
 }
@@ -373,5 +417,10 @@ const styles = StyleSheet.create({
   success: {
     color: colors.success,
     marginBottom: 12,
+  },
+  staffPinNote: {
+    color: colors.textSecondary,
+    fontSize: 13,
+    lineHeight: 18,
   },
 });

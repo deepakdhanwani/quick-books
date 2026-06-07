@@ -1,6 +1,7 @@
 package com.quickbooks.security;
 
 import com.quickbooks.config.AppProperties;
+import com.quickbooks.entity.enums.ActorType;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
@@ -23,14 +24,22 @@ public class JwtService {
         Date now = new Date();
         Date expiry = new Date(now.getTime() + appProperties.getJwt().getExpirationMs());
 
-        return Jwts.builder()
+        var builder = Jwts.builder()
                 .subject(principal.getIdentifier())
-                .claim("id", principal.getId())
+                .claim("id", principal.getSubscriberId())
+                .claim("subscriberId", principal.getSubscriberId())
                 .claim("role", principal.getRole().name())
                 .issuedAt(now)
-                .expiration(expiry)
-                .signWith(getSigningKey())
-                .compact();
+                .expiration(expiry);
+
+        if (principal.getRole() == UserRole.SUBSCRIBER) {
+            builder.claim("actorType", principal.getActorType().name())
+                    .claim("actorId", principal.getActorId())
+                    .claim("actorName", principal.getActorName())
+                    .claim("actorPin", principal.getActorPin());
+        }
+
+        return builder.signWith(getSigningKey()).compact();
     }
 
     public UserPrincipal parseToken(String token) {
@@ -40,10 +49,43 @@ public class JwtService {
                 .parseSignedClaims(token)
                 .getPayload();
 
+        UserRole role = UserRole.valueOf(claims.get("role", String.class));
+
+        if (role == UserRole.ADMIN) {
+            return UserPrincipal.admin(
+                    claims.get("id", Long.class),
+                    claims.getSubject()
+            );
+        }
+
+        Long subscriberId = claims.get("subscriberId", Long.class);
+        if (subscriberId == null) {
+            subscriberId = claims.get("id", Long.class);
+        }
+
+        String actorTypeValue = claims.get("actorType", String.class);
+        ActorType actorType = actorTypeValue != null ? ActorType.valueOf(actorTypeValue) : ActorType.OWNER;
+        Long actorId = claims.get("actorId", Long.class);
+        if (actorId == null) {
+            actorId = subscriberId;
+        }
+        String actorName = claims.get("actorName", String.class);
+        if (actorName == null) {
+            actorName = claims.getSubject();
+        }
+        String actorPin = claims.get("actorPin", String.class);
+        if (actorPin == null) {
+            actorPin = "OWNER";
+        }
+
         return new UserPrincipal(
-                claims.get("id", Long.class),
+                subscriberId,
                 claims.getSubject(),
-                UserRole.valueOf(claims.get("role", String.class))
+                role,
+                actorType,
+                actorId,
+                actorName,
+                actorPin
         );
     }
 

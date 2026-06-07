@@ -21,5 +21,7 @@
     <include file="db/changelog/changes/014-products.xml"/>
     <include file="db/changelog/changes/015-purchase-fields.xml"/>
     <include file="db/changelog/changes/016-payment-adjustment.xml"/>
+    <include file="db/changelog/changes/017-subscriber-users.xml"/>
+    <include file="db/changelog/changes/018-audit-logs.xml"/>
 
 </databaseChangeLog>

@@ -11,6 +11,9 @@ type SettingsScreenProps = {
   refreshing: boolean;
   onRefresh: () => void | Promise<void>;
   onOpenAccount: () => void;
+  onManageTeam: () => void;
+  onActivityLog: () => void;
+  isOwner: boolean;
 };
 
 export function SettingsScreen({
@@ -19,7 +22,13 @@ export function SettingsScreen({
   refreshing,
   onRefresh,
   onOpenAccount,
+  onManageTeam,
+  onActivityLog,
+  isOwner,
 }: SettingsScreenProps) {
+  const displayName = profile?.loggedInUserName ?? profile?.ownerName ?? 'Account';
+  const roleLabel = profile?.userType === 'STAFF' ? 'Team user' : 'Owner';
+
   return (
     <RefreshableScrollView
       style={styles.container}
@@ -35,14 +44,13 @@ export function SettingsScreen({
         <>
           <Card style={styles.profileCard}>
             <View style={styles.avatar}>
-              <Text style={styles.avatarText}>
-                {(profile?.ownerName ?? 'U').charAt(0).toUpperCase()}
-              </Text>
+              <Text style={styles.avatarText}>{displayName.charAt(0).toUpperCase()}</Text>
             </View>
             <View style={styles.profileInfo}>
-              <Text style={styles.ownerName}>{profile?.ownerName ?? 'Account'}</Text>
+              <Text style={styles.ownerName}>{displayName}</Text>
               <Text style={styles.businessName}>{profile?.businessName ?? 'Loading...'}</Text>
               <Text style={styles.phone}>{profile?.phone ?? ''}</Text>
+              <Text style={styles.role}>{roleLabel}</Text>
             </View>
           </Card>
 
@@ -58,6 +66,32 @@ export function SettingsScreen({
             </View>
             <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
           </Pressable>
+
+          {isOwner ? (
+            <>
+              <Pressable style={styles.menuRow} onPress={onManageTeam}>
+                <View style={styles.menuIcon}>
+                  <Ionicons name="people-outline" size={22} color={colors.primary} />
+                </View>
+                <View style={styles.menuText}>
+                  <Text style={styles.menuLabel}>Team Users</Text>
+                  <Text style={styles.menuHint}>Create staff users and assign PINs</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
+              </Pressable>
+
+              <Pressable style={styles.menuRow} onPress={onActivityLog}>
+                <View style={styles.menuIcon}>
+                  <Ionicons name="list-outline" size={22} color={colors.primary} />
+                </View>
+                <View style={styles.menuText}>
+                  <Text style={styles.menuLabel}>Activity Log</Text>
+                  <Text style={styles.menuHint}>Who created, edited, or deleted records</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
+              </Pressable>
+            </>
+          ) : null}
         </>
       )}
     </RefreshableScrollView>
@@ -81,20 +115,20 @@ const styles = StyleSheet.create({
   profileCard: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 16,
     marginBottom: 24,
   },
   avatar: {
     width: 56,
     height: 56,
-    borderRadius: 16,
-    backgroundColor: 'rgba(59, 130, 246, 0.18)',
+    borderRadius: 28,
+    backgroundColor: 'rgba(59, 130, 246, 0.15)',
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 14,
   },
   avatarText: {
     color: colors.primary,
-    fontSize: 24,
+    fontSize: 22,
     fontWeight: '700',
   },
   profileInfo: {
@@ -113,30 +147,37 @@ const styles = StyleSheet.create({
   phone: {
     color: colors.textSecondary,
     fontSize: 13,
-    marginTop: 4,
+    marginTop: 2,
+  },
+  role: {
+    color: colors.primary,
+    fontSize: 12,
+    fontWeight: '600',
+    marginTop: 6,
   },
   sectionTitle: {
     color: colors.textSecondary,
     fontSize: 12,
+    fontWeight: '700',
     textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    letterSpacing: 0.8,
     marginBottom: 10,
-    marginLeft: 4,
   },
   menuRow: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: colors.surface,
-    borderRadius: 14,
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 10,
     borderWidth: 1,
     borderColor: colors.border,
-    padding: 16,
   },
   menuIcon: {
     width: 40,
     height: 40,
     borderRadius: 10,
-    backgroundColor: colors.surfaceElevated,
+    backgroundColor: 'rgba(59, 130, 246, 0.1)',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
@@ -146,7 +187,7 @@ const styles = StyleSheet.create({
   },
   menuLabel: {
     color: colors.text,
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '600',
   },
   menuHint: {

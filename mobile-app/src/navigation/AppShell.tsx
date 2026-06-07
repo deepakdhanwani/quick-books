@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { appAlert } from '../utils/appAlert';
 import { AppHeader } from '../components/AppHeader';
@@ -26,13 +26,17 @@ import { VendorsScreen } from '../screens/VendorsScreen';
 import { ProductDetailScreen } from '../screens/ProductDetailScreen';
 import { ProductFormScreen } from '../screens/ProductFormScreen';
 import { ProductsScreen } from '../screens/ProductsScreen';
+import { TeamUsersScreen } from '../screens/TeamUsersScreen';
+import { TeamUserFormScreen } from '../screens/TeamUserFormScreen';
+import { TeamUserDetailScreen } from '../screens/TeamUserDetailScreen';
+import { ActivityLogScreen } from '../screens/ActivityLogScreen';
 import { api, SubscriberAccountProfile, SubscriberAuthResponse } from '../services/api';
 import { colors } from '../theme/colors';
 import { DrawerRoute, PLACEHOLDER_TITLES, StackRoute } from './types';
 
 type AppShellProps = {
   auth: SubscriberAuthResponse;
-  onLogout: () => void;
+  onLogout: () => void | Promise<void>;
   onSubscriptionChanged: (auth: SubscriberAuthResponse) => void | Promise<void>;
 };
 
@@ -50,14 +54,19 @@ export function AppShell({ auth, onLogout, onSubscriptionChanged }: AppShellProp
   const [editingSaleId, setEditingSaleId] = useState<number | undefined>(undefined);
   const [selectedPurchaseId, setSelectedPurchaseId] = useState<number | undefined>(undefined);
   const [editingPurchaseId, setEditingPurchaseId] = useState<number | undefined>(undefined);
+  const [selectedTeamUserId, setSelectedTeamUserId] = useState<number | undefined>(undefined);
 
   const [profile, setProfile] = useState<SubscriberAccountProfile | null>(null);
   const [profileLoading, setProfileLoading] = useState(true);
   const [profileError, setProfileError] = useState('');
   const [refreshing, setRefreshing] = useState(false);
+  const isActiveRef = useRef(true);
 
   const hasActiveSubscription = profile?.subscriptionStatus === 'ACTIVE';
   const requiresSubscription = profile != null && !hasActiveSubscription;
+  const isOwner =
+    (profile?.owner ?? auth.userType !== 'STAFF') &&
+    (profile?.userType ?? auth.userType ?? 'OWNER') !== 'STAFF';
 
   const loadProfile = useCallback(
     async (isPullRefresh = false) => {
@@ -67,11 +76,17 @@ export function AppShell({ auth, onLogout, onSubscriptionChanged }: AppShellProp
       setProfileError('');
       try {
         const data = await api.getAccountProfile(auth.token);
+        if (!isActiveRef.current) {
+          return;
+        }
         setProfile(data);
         await onSubscriptionChanged({
           ...auth,
           subscriptionStatus: data.subscriptionStatus,
           requiresSubscription: data.subscriptionStatus !== 'ACTIVE',
+          userName: data.loggedInUserName ?? auth.userName,
+          userType: data.userType ?? auth.userType,
+          canChangePin: data.canChangePin ?? auth.canChangePin,
         });
       } catch (err) {
         setProfileError(err instanceof Error ? err.message : 'Could not load account details');
@@ -91,14 +106,30 @@ export function AppShell({ auth, onLogout, onSubscriptionChanged }: AppShellProp
   }, [loadProfile]);
 
   useEffect(() => {
-    loadProfile();
+    isActiveRef.current = true;
+    void loadProfile();
+    return () => {
+      isActiveRef.current = false;
+    };
   }, [loadProfile]);
+
+  const handleSignOut = async () => {
+    isActiveRef.current = false;
+    closeDrawer();
+    setStackRoute(null);
+    setDrawerRoute('dashboard');
+    await onLogout();
+  };
 
   const promptMembershipRequired = () => {
     appAlert(
       'Membership Required',
       'Please select a membership plan before using this feature.',
     );
+  };
+
+  const promptOwnerRequired = () => {
+    appAlert('Owner only', 'Only the account owner can access this section.');
   };
 
   const openDrawer = () => setDrawerOpen(true);
@@ -175,6 +206,17 @@ export function AppShell({ auth, onLogout, onSubscriptionChanged }: AppShellProp
       return;
     }
 
+    if (stackRoute === 'team-user-form') {
+      setStackRoute('team-users');
+      return;
+    }
+
+    if (stackRoute === 'team-user-detail') {
+      setStackRoute('team-users');
+      setSelectedTeamUserId(undefined);
+      return;
+    }
+
     setStackRoute(null);
     setSelectedCustomerId(undefined);
     setEditingCustomerId(undefined);
@@ -186,6 +228,32 @@ export function AppShell({ auth, onLogout, onSubscriptionChanged }: AppShellProp
     setEditingSaleId(undefined);
     setSelectedPurchaseId(undefined);
     setEditingPurchaseId(undefined);
+    setSelectedTeamUserId(undefined);
+  };
+
+  const openTeamUsers = () => {
+    if (!isOwner) {
+      promptOwnerRequired();
+      return;
+    }
+    openStack('team-users');
+  };
+
+  const openTeamUserForm = () => {
+    openStack('team-user-form');
+  };
+
+  const openTeamUserDetail = (userId: number) => {
+    setSelectedTeamUserId(userId);
+    openStack('team-user-detail');
+  };
+
+  const openActivityLog = () => {
+    if (!isOwner) {
+      promptOwnerRequired();
+      return;
+    }
+    openStack('activity-log');
   };
 
   const openCreateCustomer = () => {
@@ -356,6 +424,10 @@ export function AppShell({ auth, onLogout, onSubscriptionChanged }: AppShellProp
       return editingPurchaseId == null ? 'New Purchase' : 'Edit Purchase';
     }
     if (stackRoute === 'make-payment') return 'Make Payment';
+    if (stackRoute === 'team-users') return 'Team Users';
+    if (stackRoute === 'team-user-form') return 'Add Team User';
+    if (stackRoute === 'team-user-detail') return 'Team User';
+    if (stackRoute === 'activity-log') return 'Activity Log';
 
     if (drawerRoute === 'dashboard') return 'Dashboard';
     if (drawerRoute === 'settings') return 'Settings';
@@ -415,6 +487,56 @@ export function AppShell({ auth, onLogout, onSubscriptionChanged }: AppShellProp
       );
     }
 
+    if (stackRoute === 'team-users') {
+      return (
+        <TeamUsersScreen
+          token={auth.token}
+          refreshing={refreshing}
+          onRefresh={handleRefresh}
+          onAddUser={openTeamUserForm}
+          onOpenUser={openTeamUserDetail}
+        />
+      );
+    }
+
+    if (stackRoute === 'team-user-form') {
+      return (
+        <TeamUserFormScreen
+          token={auth.token}
+          refreshing={refreshing}
+          onRefresh={handleRefresh}
+          onSaved={() => {
+            setStackRoute('team-users');
+          }}
+        />
+      );
+    }
+
+    if (stackRoute === 'team-user-detail' && selectedTeamUserId != null) {
+      return (
+        <TeamUserDetailScreen
+          token={auth.token}
+          userId={selectedTeamUserId}
+          refreshing={refreshing}
+          onRefresh={handleRefresh}
+          onDeleted={() => {
+            setStackRoute('team-users');
+            setSelectedTeamUserId(undefined);
+          }}
+        />
+      );
+    }
+
+    if (stackRoute === 'activity-log') {
+      return (
+        <ActivityLogScreen
+          token={auth.token}
+          refreshing={refreshing}
+          onRefresh={handleRefresh}
+        />
+      );
+    }
+
     if (stackRoute === 'account') {
       return (
         <AccountScreen
@@ -427,6 +549,9 @@ export function AppShell({ auth, onLogout, onSubscriptionChanged }: AppShellProp
           onSettingsSaved={setProfile}
           onChangePin={() => openStack('change-pin')}
           onSubscription={() => openStack('subscription')}
+          onManageTeam={openTeamUsers}
+          onActivityLog={openActivityLog}
+          isOwner={isOwner}
         />
       );
     }
@@ -620,6 +745,9 @@ export function AppShell({ auth, onLogout, onSubscriptionChanged }: AppShellProp
           refreshing={refreshing}
           onRefresh={handleRefresh}
           onOpenAccount={() => openStack('account')}
+          onManageTeam={openTeamUsers}
+          onActivityLog={openActivityLog}
+          isOwner={isOwner}
         />
       );
     }
@@ -642,7 +770,7 @@ export function AppShell({ auth, onLogout, onSubscriptionChanged }: AppShellProp
       profile={profile}
       onClose={closeDrawer}
       onNavigate={navigateDrawer}
-      onSignOut={onLogout}
+      onSignOut={handleSignOut}
     >
       <View style={styles.shell}>
         <AppHeader

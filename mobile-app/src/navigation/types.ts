@@ -28,7 +28,11 @@ export type StackRoute =
   | 'receive-payment'
   | 'purchase-detail'
   | 'purchase-form'
-  | 'make-payment';
+  | 'make-payment'
+  | 'team-users'
+  | 'team-user-form'
+  | 'team-user-detail'
+  | 'activity-log';
 
 export type AppRoute = DrawerRoute | StackRoute;
 

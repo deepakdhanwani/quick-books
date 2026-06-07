@@ -14,6 +14,8 @@ import com.quickbooks.entity.Product;
 import com.quickbooks.entity.Sale;
 import com.quickbooks.entity.SaleItem;
 import com.quickbooks.entity.Subscriber;
+import com.quickbooks.entity.enums.AuditAction;
+import com.quickbooks.entity.enums.AuditEntityType;
 import com.quickbooks.entity.enums.PaymentListFilter;
 import com.quickbooks.entity.enums.PaymentMode;
 import com.quickbooks.entity.enums.PaymentSettlementType;
@@ -51,19 +53,22 @@ public class SaleService {
     private final SubscriberService subscriberService;
     private final ProductService productService;
     private final FileStorageService fileStorageService;
+    private final AuditLogService auditLogService;
 
     public SaleService(SaleRepository saleRepository,
                        PaymentRepository paymentRepository,
                        CustomerRepository customerRepository,
                        SubscriberService subscriberService,
                        ProductService productService,
-                       FileStorageService fileStorageService) {
+                       FileStorageService fileStorageService,
+                       AuditLogService auditLogService) {
         this.saleRepository = saleRepository;
         this.paymentRepository = paymentRepository;
         this.customerRepository = customerRepository;
         this.subscriberService = subscriberService;
         this.productService = productService;
         this.fileStorageService = fileStorageService;
+        this.auditLogService = auditLogService;
     }
 
     @Transactional(readOnly = true)
@@ -132,6 +137,7 @@ public class SaleService {
         attachBuiltItems(sale, builtItems);
 
         Sale saved = saleRepository.save(sale);
+        auditLogService.log(AuditAction.CREATE, AuditEntityType.SALE, saved.getId(), saved.getInvoiceNumber());
         SaleResponse response = SaleResponse.from(saved);
         response.setItems(mapSaleItems(saved));
         return response;
@@ -259,8 +265,12 @@ public class SaleService {
             sale.setPaymentStatus(resolvePaymentStatus(newPaidAmount, sale.getTotalAmount()));
         }
 
-        paymentRepository.save(payment);
+        Payment savedPayment = paymentRepository.save(payment);
         saleRepository.save(sale);
+
+        auditLogService.log(AuditAction.CREATE, AuditEntityType.PAYMENT, savedPayment.getId(),
+                "Received " + paymentAmount + " for sale " + sale.getInvoiceNumber());
+        auditLogService.log(AuditAction.UPDATE, AuditEntityType.SALE, sale.getId(), sale.getInvoiceNumber());
 
         SaleResponse response = SaleResponse.from(sale);
         response.setPayments(loadPayments(subscriberId, saleId));

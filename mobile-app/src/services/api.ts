@@ -164,12 +164,18 @@ export type ProductPayload = {
   active?: boolean;
 };
 
+export type SubscriberUserType = 'OWNER' | 'STAFF';
+
 export type SubscriberAuthResponse = {
   token: string;
   role: string;
   userId: number;
   subscriptionStatus: 'NONE' | 'ACTIVE' | 'EXPIRED';
   requiresSubscription: boolean;
+  userName?: string;
+  userType?: SubscriberUserType;
+  canChangePin?: boolean;
+  staffUserId?: number;
 };
 
 export type ChangePinPayload = {
@@ -307,6 +313,40 @@ export type SubscriberAccountProfile = {
   gstNumber?: string;
   createdAt: string;
   currentSubscription?: SubscriberSubscriptionInfo;
+  loggedInUserName?: string;
+  userType?: SubscriberUserType;
+  canChangePin?: boolean;
+  owner?: boolean;
+};
+
+export type TeamUser = {
+  id: number;
+  name: string;
+  loginPin: string;
+  active: boolean;
+  createdAt: string;
+};
+
+export type TeamUserPayload = {
+  name: string;
+  loginPin: string;
+};
+
+export type UpdateTeamUserPayload = {
+  name: string;
+  active?: boolean;
+};
+
+export type AuditLogEntry = {
+  id: number;
+  actorType: SubscriberUserType;
+  actorName: string;
+  actorPin: string;
+  action: 'CREATE' | 'UPDATE' | 'DELETE';
+  entityType: string;
+  entityId?: number;
+  details?: string;
+  createdAt: string;
 };
 
 export type UpdateAccountSettingsPayload = {
@@ -416,6 +456,29 @@ export const api = {
       token,
       body: payload,
     }),
+  listTeamUsers: (token: string) =>
+    request<TeamUser[]>('/api/subscriber/users', { token }),
+  createTeamUser: (token: string, payload: TeamUserPayload) =>
+    request<TeamUser>('/api/subscriber/users', { method: 'POST', token, body: payload }),
+  getTeamUser: (token: string, id: number) =>
+    request<TeamUser>(`/api/subscriber/users/${id}`, { token }),
+  updateTeamUser: (token: string, id: number, payload: UpdateTeamUserPayload) =>
+    request<TeamUser>(`/api/subscriber/users/${id}`, { method: 'PUT', token, body: payload }),
+  setTeamUserPin: (token: string, id: number, loginPin: string) =>
+    request<TeamUser>(`/api/subscriber/users/${id}/set-pin`, {
+      method: 'POST',
+      token,
+      body: { loginPin },
+    }),
+  resetTeamUserPin: (token: string, id: number) =>
+    request<TeamUser>(`/api/subscriber/users/${id}/reset-pin`, { method: 'POST', token }),
+  deleteTeamUser: (token: string, id: number) =>
+    request<void>(`/api/subscriber/users/${id}`, { method: 'DELETE', token }),
+  listAuditLogs: (token: string, page = 0, size = 20) =>
+    request<PageResponse<AuditLogEntry>>(
+      `/api/subscriber/audit-logs?page=${page}&size=${size}`,
+      { token },
+    ),
   listCustomers: (
     token: string,
     page = 0,

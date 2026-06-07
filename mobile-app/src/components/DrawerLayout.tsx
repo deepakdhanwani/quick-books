@@ -23,7 +23,7 @@ type DrawerLayoutProps = {
   profile: SubscriberAccountProfile | null;
   onClose: () => void;
   onNavigate: (route: DrawerRoute) => void;
-  onSignOut: () => void;
+  onSignOut: () => void | Promise<void>;
   children: ReactNode;
 };
 
@@ -41,6 +41,11 @@ export function DrawerLayout({
   const handleNavigate = (route: DrawerRoute) => {
     onNavigate(route);
     onClose();
+  };
+
+  const handleSignOut = () => {
+    onClose();
+    void onSignOut();
   };
 
   return (
@@ -88,7 +93,12 @@ export function DrawerLayout({
               ))}
             </ScrollView>
 
-            <Pressable style={styles.signOutButton} onPress={onSignOut} accessibilityRole="button">
+            <Pressable
+              style={styles.signOutButton}
+              onPress={handleSignOut}
+              accessibilityRole="button"
+              accessibilityLabel="Sign out"
+            >
               <Ionicons name="log-out-outline" size={17} color={colors.error} />
               <Text style={styles.signOutText}>Sign Out</Text>
             </Pressable>

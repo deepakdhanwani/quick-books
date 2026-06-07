@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { AlertProvider } from './src/components/AlertProvider';
@@ -15,6 +15,7 @@ import {
 export default function App() {
   const [auth, setAuth] = useState<SubscriberAuthResponse | null>(null);
   const [ready, setReady] = useState(false);
+  const isLoggingOutRef = useRef(false);
 
   useEffect(() => {
     void initDownloadNotifications();
@@ -37,6 +38,9 @@ export default function App() {
             ...storedAuth,
             subscriptionStatus: profile.subscriptionStatus,
             requiresSubscription: profile.subscriptionStatus !== 'ACTIVE',
+            userName: profile.loggedInUserName ?? storedAuth.userName,
+            userType: profile.userType ?? storedAuth.userType,
+            canChangePin: profile.canChangePin ?? storedAuth.canChangePin,
           };
           await saveAuthSession(refreshedAuth);
           setAuth(refreshedAuth);
@@ -51,20 +55,25 @@ export default function App() {
     bootstrap();
   }, []);
 
-  const handleLogin = async (response: SubscriberAuthResponse) => {
-    await saveAuthSession(response);
-    setAuth(response);
-  };
-
   const handleLogout = async () => {
+    isLoggingOutRef.current = true;
     await clearAuthSession();
     setAuth(null);
   };
 
   const handleSubscriptionChanged = useCallback(async (nextAuth: SubscriberAuthResponse) => {
+    if (isLoggingOutRef.current) {
+      return;
+    }
     setAuth(nextAuth);
     await saveAuthSession(nextAuth);
   }, []);
+
+  const handleLogin = async (response: SubscriberAuthResponse) => {
+    isLoggingOutRef.current = false;
+    await saveAuthSession(response);
+    setAuth(response);
+  };
 
   if (!ready) {
     return (

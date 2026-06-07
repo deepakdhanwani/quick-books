@@ -7,6 +7,8 @@ import com.quickbooks.dto.product.UpdateProductActiveRequest;
 import com.quickbooks.dto.product.UpdateProductRequest;
 import com.quickbooks.entity.Product;
 import com.quickbooks.entity.Subscriber;
+import com.quickbooks.entity.enums.AuditAction;
+import com.quickbooks.entity.enums.AuditEntityType;
 import com.quickbooks.repository.ProductRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -25,11 +27,14 @@ public class ProductService {
 
     private final ProductRepository productRepository;
     private final SubscriberService subscriberService;
+    private final AuditLogService auditLogService;
 
     public ProductService(ProductRepository productRepository,
-                          SubscriberService subscriberService) {
+                          SubscriberService subscriberService,
+                          AuditLogService auditLogService) {
         this.productRepository = productRepository;
         this.subscriberService = subscriberService;
+        this.auditLogService = auditLogService;
     }
 
     @Transactional(readOnly = true)
@@ -73,7 +78,9 @@ public class ProductService {
         product.setDiscount(discount);
         product.setActive(request.getActive() == null || request.getActive());
 
-        return ProductResponse.from(productRepository.save(product));
+        Product saved = productRepository.save(product);
+        auditLogService.log(AuditAction.CREATE, AuditEntityType.PRODUCT, saved.getId(), saved.getName());
+        return ProductResponse.from(saved);
     }
 
     @Transactional
@@ -95,19 +102,25 @@ public class ProductService {
             product.setActive(request.getActive());
         }
 
-        return ProductResponse.from(productRepository.save(product));
+        Product saved = productRepository.save(product);
+        auditLogService.log(AuditAction.UPDATE, AuditEntityType.PRODUCT, saved.getId(), saved.getName());
+        return ProductResponse.from(saved);
     }
 
     @Transactional
     public ProductResponse updateActive(Long subscriberId, Long productId, UpdateProductActiveRequest request) {
         Product product = getOwnedProduct(subscriberId, productId);
         product.setActive(request.getActive());
-        return ProductResponse.from(productRepository.save(product));
+        Product saved = productRepository.save(product);
+        auditLogService.log(AuditAction.UPDATE, AuditEntityType.PRODUCT, saved.getId(),
+                saved.getName() + " active=" + saved.isActive());
+        return ProductResponse.from(saved);
     }
 
     @Transactional
     public void delete(Long subscriberId, Long productId) {
         Product product = getOwnedProduct(subscriberId, productId);
+        auditLogService.log(AuditAction.DELETE, AuditEntityType.PRODUCT, product.getId(), product.getName());
         productRepository.delete(product);
     }
 

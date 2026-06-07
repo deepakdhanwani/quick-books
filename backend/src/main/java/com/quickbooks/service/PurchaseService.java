@@ -13,6 +13,8 @@ import com.quickbooks.entity.Purchase;
 import com.quickbooks.entity.PurchaseItem;
 import com.quickbooks.entity.Subscriber;
 import com.quickbooks.entity.Vendor;
+import com.quickbooks.entity.enums.AuditAction;
+import com.quickbooks.entity.enums.AuditEntityType;
 import com.quickbooks.entity.enums.PaymentListFilter;
 import com.quickbooks.entity.enums.PaymentMode;
 import com.quickbooks.entity.enums.PaymentSettlementType;
@@ -51,19 +53,22 @@ public class PurchaseService {
     private final SubscriberService subscriberService;
     private final ProductService productService;
     private final FileStorageService fileStorageService;
+    private final AuditLogService auditLogService;
 
     public PurchaseService(PurchaseRepository purchaseRepository,
                            PaymentRepository paymentRepository,
                            VendorRepository vendorRepository,
                            SubscriberService subscriberService,
                            ProductService productService,
-                           FileStorageService fileStorageService) {
+                           FileStorageService fileStorageService,
+                           AuditLogService auditLogService) {
         this.purchaseRepository = purchaseRepository;
         this.paymentRepository = paymentRepository;
         this.vendorRepository = vendorRepository;
         this.subscriberService = subscriberService;
         this.productService = productService;
         this.fileStorageService = fileStorageService;
+        this.auditLogService = auditLogService;
     }
 
     @Transactional(readOnly = true)
@@ -131,6 +136,7 @@ public class PurchaseService {
         attachBuiltItems(purchase, builtItems);
 
         Purchase saved = purchaseRepository.save(purchase);
+        auditLogService.log(AuditAction.CREATE, AuditEntityType.PURCHASE, saved.getId(), saved.getBillNumber());
         PurchaseResponse response = PurchaseResponse.from(saved);
         response.setItems(mapPurchaseItems(saved));
         return response;
@@ -187,6 +193,7 @@ public class PurchaseService {
         attachBuiltItems(purchase, builtItems);
 
         Purchase saved = purchaseRepository.save(purchase);
+        auditLogService.log(AuditAction.UPDATE, AuditEntityType.PURCHASE, saved.getId(), saved.getBillNumber());
         PurchaseResponse response = PurchaseResponse.from(saved);
         response.setItems(mapPurchaseItems(saved));
         response.setPayments(loadPayments(subscriberId, purchaseId));
@@ -257,8 +264,12 @@ public class PurchaseService {
             purchase.setPaymentStatus(resolvePaymentStatus(newPaidAmount, purchase.getTotalAmount()));
         }
 
-        paymentRepository.save(payment);
+        Payment savedPayment = paymentRepository.save(payment);
         purchaseRepository.save(purchase);
+
+        auditLogService.log(AuditAction.CREATE, AuditEntityType.PAYMENT, savedPayment.getId(),
+                "Paid " + paymentAmount + " for purchase " + purchase.getBillNumber());
+        auditLogService.log(AuditAction.UPDATE, AuditEntityType.PURCHASE, purchase.getId(), purchase.getBillNumber());
 
         PurchaseResponse response = PurchaseResponse.from(purchase);
         response.setPayments(loadPayments(subscriberId, purchaseId));

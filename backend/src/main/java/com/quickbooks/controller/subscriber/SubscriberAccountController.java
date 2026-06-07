@@ -4,6 +4,7 @@ import com.quickbooks.dto.subscriber.ChangeSubscriberPinRequest;
 import com.quickbooks.dto.subscriber.SubscriberAccountProfileResponse;
 import com.quickbooks.dto.subscriber.UpdateSubscriberAccountSettingsRequest;
 import com.quickbooks.security.UserPrincipal;
+import com.quickbooks.service.AuditLogService;
 import com.quickbooks.service.SubscriberService;
 import jakarta.validation.Valid;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -28,20 +29,21 @@ public class SubscriberAccountController {
 
     @GetMapping("/profile")
     public SubscriberAccountProfileResponse profile(@AuthenticationPrincipal UserPrincipal principal) {
-        return subscriberService.getAccountProfile(principal.getId());
+        return subscriberService.getAccountProfile(principal.getSubscriberId(), principal);
     }
 
     @PutMapping("/settings")
     public SubscriberAccountProfileResponse updateSettings(
             @AuthenticationPrincipal UserPrincipal principal,
             @Valid @RequestBody UpdateSubscriberAccountSettingsRequest request) {
-        return subscriberService.updateAccountSettings(principal.getId(), request);
+        AuditLogService.requireOwner(principal);
+        return subscriberService.updateAccountSettings(principal.getSubscriberId(), request);
     }
 
     @PostMapping("/change-pin")
     public Map<String, String> changePin(@AuthenticationPrincipal UserPrincipal principal,
                                          @Valid @RequestBody ChangeSubscriberPinRequest request) {
-        subscriberService.changeLoginPin(principal.getId(), request);
+        subscriberService.changeLoginPin(principal.getSubscriberId(), request, principal);
         return Map.of("message", "Login PIN updated successfully");
     }
 }

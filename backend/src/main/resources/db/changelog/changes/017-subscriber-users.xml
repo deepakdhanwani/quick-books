@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <changeSet id="017-subscriber-users" author="quickbooks">
+        <createTable tableName="subscriber_users">
+            <column name="id" type="BIGSERIAL">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="subscriber_id" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="name" type="VARCHAR(120)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="login_pin_hash" type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="login_pin" type="VARCHAR(20)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="is_active" type="BOOLEAN" defaultValueBoolean="true">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_at" type="TIMESTAMPTZ" defaultValueComputed="CURRENT_TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <addForeignKeyConstraint
+                baseTableName="subscriber_users"
+                baseColumnNames="subscriber_id"
+                referencedTableName="subscribers"
+                referencedColumnNames="id"
+                constraintName="fk_subscriber_users_subscriber"/>
+
+        <createIndex tableName="subscriber_users" indexName="idx_subscriber_users_subscriber_id">
+            <column name="subscriber_id"/>
+        </createIndex>
+    </changeSet>
+
+</databaseChangeLog>

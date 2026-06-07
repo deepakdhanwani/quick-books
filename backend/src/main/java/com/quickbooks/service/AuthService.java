@@ -5,9 +5,12 @@ import com.quickbooks.dto.auth.AuthResponse;
 import com.quickbooks.dto.auth.SubscriberLoginRequest;
 import com.quickbooks.entity.Admin;
 import com.quickbooks.entity.Subscriber;
+import com.quickbooks.entity.SubscriberUser;
+import com.quickbooks.entity.enums.ActorType;
 import com.quickbooks.entity.enums.SubscriptionStatus;
 import com.quickbooks.repository.AdminRepository;
 import com.quickbooks.repository.SubscriberRepository;
+import com.quickbooks.repository.SubscriberUserRepository;
 import com.quickbooks.security.JwtService;
 import com.quickbooks.security.UserPrincipal;
 import com.quickbooks.security.UserRole;
@@ -21,17 +24,20 @@ public class AuthService {
 
     private final AdminRepository adminRepository;
     private final SubscriberRepository subscriberRepository;
+    private final SubscriberUserRepository subscriberUserRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final SubscriberSubscriptionService subscriberSubscriptionService;
 
     public AuthService(AdminRepository adminRepository,
                        SubscriberRepository subscriberRepository,
+                       SubscriberUserRepository subscriberUserRepository,
                        PasswordEncoder passwordEncoder,
                        JwtService jwtService,
                        SubscriberSubscriptionService subscriberSubscriptionService) {
         this.adminRepository = adminRepository;
         this.subscriberRepository = subscriberRepository;
+        this.subscriberUserRepository = subscriberUserRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
         this.subscriberSubscriptionService = subscriberSubscriptionService;
@@ -45,9 +51,8 @@ public class AuthService {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid credentials");
         }
 
-        UserPrincipal principal = new UserPrincipal(admin.getId(), admin.getEmail(), UserRole.ADMIN);
-        AuthResponse response = new AuthResponse(jwtService.generateToken(principal), UserRole.ADMIN.name(), admin.getId());
-        return response;
+        UserPrincipal principal = UserPrincipal.admin(admin.getId(), admin.getEmail());
+        return new AuthResponse(jwtService.generateToken(principal), UserRole.ADMIN.name(), admin.getId());
     }
 
     public AuthResponse subscriberLogin(SubscriberLoginRequest request) {
@@ -58,14 +63,11 @@ public class AuthService {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Account is inactive. Contact admin.");
         }
 
-        if (!passwordEncoder.matches(request.getLoginPin(), subscriber.getLoginPinHash())) {
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid credentials");
-        }
+        UserPrincipal principal = resolveSubscriberPrincipal(subscriber, request.getLoginPin());
 
         subscriberSubscriptionService.syncSubscriptionStatus(subscriber.getId());
         subscriber = subscriberRepository.findById(subscriber.getId()).orElseThrow();
 
-        UserPrincipal principal = new UserPrincipal(subscriber.getId(), subscriber.getPhone(), UserRole.SUBSCRIBER);
         AuthResponse response = new AuthResponse(
                 jwtService.generateToken(principal),
                 UserRole.SUBSCRIBER.name(),
@@ -76,6 +78,36 @@ public class AuthService {
                 subscriber.getSubscriptionStatus() == SubscriptionStatus.NONE
                         || subscriber.getSubscriptionStatus() == SubscriptionStatus.EXPIRED
         );
+        response.setUserName(principal.getActorName());
+        response.setUserType(principal.getActorType().name());
+        response.setCanChangePin(principal.getActorType() == ActorType.OWNER);
+        if (principal.getActorType() == ActorType.STAFF) {
+            response.setStaffUserId(principal.getActorId());
+        }
         return response;
+    }
+
+    private UserPrincipal resolveSubscriberPrincipal(Subscriber subscriber, String loginPin) {
+        if (passwordEncoder.matches(loginPin, subscriber.getLoginPinHash())) {
+            return UserPrincipal.owner(
+                    subscriber.getId(),
+                    subscriber.getPhone(),
+                    subscriber.getOwnerName(),
+                    subscriber.getLoginPin()
+            );
+        }
+
+        SubscriberUser staffUser = subscriberUserRepository.findBySubscriberIdAndActiveTrue(subscriber.getId()).stream()
+                .filter(user -> passwordEncoder.matches(loginPin, user.getLoginPinHash()))
+                .findFirst()
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid credentials"));
+
+        return UserPrincipal.staff(
+                subscriber.getId(),
+                subscriber.getPhone(),
+                staffUser.getId(),
+                staffUser.getName(),
+                staffUser.getLoginPin()
+        );
     }
 }

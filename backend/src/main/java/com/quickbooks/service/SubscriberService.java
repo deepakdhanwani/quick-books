@@ -13,8 +13,10 @@ import com.quickbooks.dto.subscriber.UpdateSubscriberRequest;
 import com.quickbooks.util.PinValidator;
 import com.quickbooks.entity.BusinessType;
 import com.quickbooks.entity.Subscriber;
+import com.quickbooks.entity.enums.ActorType;
 import com.quickbooks.entity.enums.SubscriptionRecordStatus;
 import com.quickbooks.entity.enums.SubscriptionStatus;
+import com.quickbooks.security.UserPrincipal;
 import com.quickbooks.repository.SubscriberRepository;
 import com.quickbooks.repository.SubscriberSubscriptionRepository;
 import com.quickbooks.util.PinGenerator;
@@ -81,9 +83,21 @@ public class SubscriberService {
 
     @Transactional
     public SubscriberAccountProfileResponse getAccountProfile(Long id) {
+        return getAccountProfile(id, null);
+    }
+
+    @Transactional
+    public SubscriberAccountProfileResponse getAccountProfile(Long id, UserPrincipal principal) {
         subscriberSubscriptionService.syncSubscriptionStatus(id);
         Subscriber subscriber = getById(id);
         SubscriberAccountProfileResponse response = SubscriberAccountProfileResponse.from(subscriber);
+
+        if (principal != null && principal.getActorType() != null) {
+            response.setLoggedInUserName(principal.getActorName());
+            response.setUserType(principal.getActorType().name());
+            response.setCanChangePin(principal.getActorType() == ActorType.OWNER);
+            response.setOwner(principal.getActorType() == ActorType.OWNER);
+        }
 
         if (subscriber.getSubscriptionStatus() == SubscriptionStatus.ACTIVE) {
             subscriberSubscriptionRepository
@@ -201,7 +215,8 @@ public class SubscriberService {
     }
 
     @Transactional
-    public void changeLoginPin(Long subscriberId, ChangeSubscriberPinRequest request) {
+    public void changeLoginPin(Long subscriberId, ChangeSubscriberPinRequest request, UserPrincipal principal) {
+        AuditLogService.requireOwner(principal);
         Subscriber subscriber = getById(subscriberId);
         PinValidator.validateChangeRequest(request.getCurrentPin(), request.getNewPin(), request.getConfirmNewPin());
 
