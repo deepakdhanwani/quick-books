@@ -8,6 +8,7 @@ import com.quickbooks.dto.subscriber.SubscriberDetailResponse;
 import com.quickbooks.dto.subscriber.SubscriberOptionResponse;
 import com.quickbooks.dto.subscriber.SubscriberResponse;
 import com.quickbooks.dto.subscriber.SubscriberSubscriptionInfo;
+import com.quickbooks.dto.subscriber.UpdateSubscriberAccountSettingsRequest;
 import com.quickbooks.dto.subscriber.UpdateSubscriberRequest;
 import com.quickbooks.util.PinValidator;
 import com.quickbooks.entity.BusinessType;
@@ -27,6 +28,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 @Service
@@ -34,17 +36,20 @@ public class SubscriberService {
 
     private final SubscriberRepository subscriberRepository;
     private final SubscriberSubscriptionRepository subscriberSubscriptionRepository;
+    private final SubscriberSubscriptionService subscriberSubscriptionService;
     private final BusinessTypeService businessTypeService;
     private final PasswordEncoder passwordEncoder;
     private final PinGenerator pinGenerator;
 
     public SubscriberService(SubscriberRepository subscriberRepository,
                              SubscriberSubscriptionRepository subscriberSubscriptionRepository,
+                             SubscriberSubscriptionService subscriberSubscriptionService,
                              BusinessTypeService businessTypeService,
                              PasswordEncoder passwordEncoder,
                              PinGenerator pinGenerator) {
         this.subscriberRepository = subscriberRepository;
         this.subscriberSubscriptionRepository = subscriberSubscriptionRepository;
+        this.subscriberSubscriptionService = subscriberSubscriptionService;
         this.businessTypeService = businessTypeService;
         this.passwordEncoder = passwordEncoder;
         this.pinGenerator = pinGenerator;
@@ -74,8 +79,9 @@ public class SubscriberService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Subscriber not found"));
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     public SubscriberAccountProfileResponse getAccountProfile(Long id) {
+        subscriberSubscriptionService.syncSubscriptionStatus(id);
         Subscriber subscriber = getById(id);
         SubscriberAccountProfileResponse response = SubscriberAccountProfileResponse.from(subscriber);
 
@@ -175,6 +181,26 @@ public class SubscriberService {
     }
 
     @Transactional
+    public SubscriberAccountProfileResponse updateAccountSettings(Long subscriberId,
+                                                                  UpdateSubscriberAccountSettingsRequest request) {
+        Subscriber subscriber = getById(subscriberId);
+
+        if (request.getDefaultTaxPercent() != null) {
+            BigDecimal taxPercent = request.getDefaultTaxPercent().setScale(2, java.math.RoundingMode.HALF_UP);
+            if (taxPercent.compareTo(BigDecimal.ZERO) < 0 || taxPercent.compareTo(BigDecimal.valueOf(100)) > 0) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Default tax percent must be between 0 and 100");
+            }
+            subscriber.setDefaultTaxPercent(taxPercent);
+        } else {
+            subscriber.setDefaultTaxPercent(null);
+        }
+
+        subscriber.setGstNumber(normalizeOptional(request.getGstNumber()));
+        subscriberRepository.save(subscriber);
+        return getAccountProfile(subscriberId);
+    }
+
+    @Transactional
     public void changeLoginPin(Long subscriberId, ChangeSubscriberPinRequest request) {
         Subscriber subscriber = getById(subscriberId);
         PinValidator.validateChangeRequest(request.getCurrentPin(), request.getNewPin(), request.getConfirmNewPin());
@@ -185,6 +211,14 @@ public class SubscriberService {
 
         applyLoginPin(subscriber, request.getNewPin());
         subscriberRepository.save(subscriber);
+    }
+
+    private String normalizeOptional(String value) {
+        if (value == null) {
+            return null;
+        }
+        String trimmed = value.trim();
+        return trimmed.isEmpty() ? null : trimmed;
     }
 
     private void applyLoginPin(Subscriber subscriber, String loginPin) {

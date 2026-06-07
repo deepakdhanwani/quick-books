@@ -3,6 +3,7 @@ package com.quickbooks.dto.subscriber;
 import com.quickbooks.entity.Subscriber;
 import com.quickbooks.entity.enums.SubscriptionStatus;
 
+import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 
 public class SubscriberAccountProfileResponse {
@@ -14,6 +15,8 @@ public class SubscriberAccountProfileResponse {
     private String businessTypeName;
     private SubscriptionStatus subscriptionStatus;
     private boolean active;
+    private BigDecimal defaultTaxPercent;
+    private String gstNumber;
     private OffsetDateTime createdAt;
     private SubscriberSubscriptionInfo currentSubscription;
 
@@ -28,6 +31,8 @@ public class SubscriberAccountProfileResponse {
         }
         response.setSubscriptionStatus(subscriber.getSubscriptionStatus());
         response.setActive(subscriber.isActive());
+        response.setDefaultTaxPercent(subscriber.getDefaultTaxPercent());
+        response.setGstNumber(subscriber.getGstNumber());
         response.setCreatedAt(subscriber.getCreatedAt());
         return response;
     }
@@ -46,6 +51,10 @@ public class SubscriberAccountProfileResponse {
     public void setSubscriptionStatus(SubscriptionStatus subscriptionStatus) { this.subscriptionStatus = subscriptionStatus; }
     public boolean isActive() { return active; }
     public void setActive(boolean active) { this.active = active; }
+    public BigDecimal getDefaultTaxPercent() { return defaultTaxPercent; }
+    public void setDefaultTaxPercent(BigDecimal defaultTaxPercent) { this.defaultTaxPercent = defaultTaxPercent; }
+    public String getGstNumber() { return gstNumber; }
+    public void setGstNumber(String gstNumber) { this.gstNumber = gstNumber; }
     public OffsetDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(OffsetDateTime createdAt) { this.createdAt = createdAt; }
     public SubscriberSubscriptionInfo getCurrentSubscription() { return currentSubscription; }

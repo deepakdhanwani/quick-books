@@ -24,8 +24,26 @@ public class Sale {
     @JoinColumn(name = "customer_id", nullable = false)
     private Customer customer;
 
+    @Column(name = "invoice_number")
+    private String invoiceNumber;
+
+    @Column(name = "invoice_details", columnDefinition = "TEXT")
+    private String invoiceDetails;
+
     @Column(nullable = false)
     private LocalDate date;
+
+    @Column(name = "gross_amount")
+    private BigDecimal grossAmount;
+
+    @Column(name = "discount_amount")
+    private BigDecimal discountAmount = BigDecimal.ZERO;
+
+    @Column(name = "tax_percent")
+    private BigDecimal taxPercent;
+
+    @Column(name = "tax_amount")
+    private BigDecimal taxAmount = BigDecimal.ZERO;
 
     @Column(name = "total_amount", nullable = false)
     private BigDecimal totalAmount;
@@ -55,8 +73,20 @@ public class Sale {
     public void setSubscriber(Subscriber subscriber) { this.subscriber = subscriber; }
     public Customer getCustomer() { return customer; }
     public void setCustomer(Customer customer) { this.customer = customer; }
+    public String getInvoiceNumber() { return invoiceNumber; }
+    public void setInvoiceNumber(String invoiceNumber) { this.invoiceNumber = invoiceNumber; }
+    public String getInvoiceDetails() { return invoiceDetails; }
+    public void setInvoiceDetails(String invoiceDetails) { this.invoiceDetails = invoiceDetails; }
     public LocalDate getDate() { return date; }
     public void setDate(LocalDate date) { this.date = date; }
+    public BigDecimal getGrossAmount() { return grossAmount; }
+    public void setGrossAmount(BigDecimal grossAmount) { this.grossAmount = grossAmount; }
+    public BigDecimal getDiscountAmount() { return discountAmount; }
+    public void setDiscountAmount(BigDecimal discountAmount) { this.discountAmount = discountAmount; }
+    public BigDecimal getTaxPercent() { return taxPercent; }
+    public void setTaxPercent(BigDecimal taxPercent) { this.taxPercent = taxPercent; }
+    public BigDecimal getTaxAmount() { return taxAmount; }
+    public void setTaxAmount(BigDecimal taxAmount) { this.taxAmount = taxAmount; }
     public BigDecimal getTotalAmount() { return totalAmount; }
     public void setTotalAmount(BigDecimal totalAmount) { this.totalAmount = totalAmount; }
     public BigDecimal getPaidAmount() { return paidAmount; }

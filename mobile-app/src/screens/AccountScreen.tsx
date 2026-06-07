@@ -1,16 +1,21 @@
 import { Ionicons } from '@expo/vector-icons';
+import { useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Button } from '../components/Button';
 import { Card } from '../components/Card';
+import { Input } from '../components/Input';
 import { RefreshableScrollView } from '../components/RefreshableScrollView';
-import { SubscriberAccountProfile } from '../services/api';
+import { api, SubscriberAccountProfile } from '../services/api';
 import { colors } from '../theme/colors';
 
 type AccountScreenProps = {
+  token: string;
   profile: SubscriberAccountProfile | null;
   loading: boolean;
   error: string;
   refreshing: boolean;
   onRefresh: () => void | Promise<void>;
+  onSettingsSaved: (profile: SubscriberAccountProfile) => void;
   onChangePin: () => void;
   onSubscription: () => void;
 };
@@ -32,15 +37,86 @@ function formatDate(value?: string) {
   return new Date(value).toLocaleDateString();
 }
 
+function formatTaxPercent(value?: number) {
+  if (value == null) return '—';
+  return `${value}%`;
+}
+
 export function AccountScreen({
+  token,
   profile,
   loading,
   error,
   refreshing,
   onRefresh,
+  onSettingsSaved,
   onChangePin,
   onSubscription,
 }: AccountScreenProps) {
+  const [gstNumber, setGstNumber] = useState('');
+  const [defaultTaxPercent, setDefaultTaxPercent] = useState('');
+  const [editingSettings, setEditingSettings] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [settingsError, setSettingsError] = useState('');
+  const [settingsSuccess, setSettingsSuccess] = useState('');
+
+  const syncFormFromProfile = () => {
+    setGstNumber(profile?.gstNumber ?? '');
+    setDefaultTaxPercent(
+      profile?.defaultTaxPercent != null ? String(profile.defaultTaxPercent) : '',
+    );
+  };
+
+  useEffect(() => {
+    if (!editingSettings) {
+      syncFormFromProfile();
+    }
+  }, [profile?.gstNumber, profile?.defaultTaxPercent, editingSettings]);
+
+  const handleStartEdit = () => {
+    syncFormFromProfile();
+    setSettingsError('');
+    setSettingsSuccess('');
+    setEditingSettings(true);
+  };
+
+  const handleCancelEdit = () => {
+    syncFormFromProfile();
+    setSettingsError('');
+    setEditingSettings(false);
+  };
+
+  const handleSaveSettings = async () => {
+    const taxValue = defaultTaxPercent.trim();
+    let parsedTax: number | null = null;
+
+    if (taxValue) {
+      parsedTax = Number(taxValue);
+      if (Number.isNaN(parsedTax) || parsedTax < 0 || parsedTax > 100) {
+        setSettingsError('Default tax percent must be between 0 and 100');
+        setSettingsSuccess('');
+        return;
+      }
+    }
+
+    setSaving(true);
+    setSettingsError('');
+    setSettingsSuccess('');
+    try {
+      const updated = await api.updateAccountSettings(token, {
+        gstNumber: gstNumber.trim() || null,
+        defaultTaxPercent: parsedTax,
+      });
+      onSettingsSaved(updated);
+      setEditingSettings(false);
+      setSettingsSuccess('Sales settings saved');
+    } catch (err) {
+      setSettingsError(err instanceof Error ? err.message : 'Could not save settings');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
     <RefreshableScrollView
       style={styles.container}
@@ -48,35 +124,89 @@ export function AccountScreen({
       refreshing={refreshing}
       onRefresh={onRefresh}
     >
-      {loading && !profile ? (
-        <View style={styles.loading}>
-          <ActivityIndicator color={colors.primary} size="large" />
-        </View>
-      ) : (
-        <>
       {error ? <Text style={styles.error}>{error}</Text> : null}
 
       <Card>
         <Text style={styles.sectionTitle}>Account Details</Text>
-        <DetailRow label="Business" value={profile?.businessName ?? '—'} />
-        <DetailRow label="Owner" value={profile?.ownerName ?? '—'} />
-        <DetailRow label="Mobile" value={profile?.phone ?? '—'} />
-        <DetailRow label="Business Type" value={profile?.businessTypeName ?? '—'} />
-        <DetailRow label="Member Since" value={formatDate(profile?.createdAt)} />
-        <DetailRow
-          label="Subscription"
-          value={formatSubscriptionStatus(profile?.subscriptionStatus)}
-          valueColor={statusColor(profile?.subscriptionStatus)}
-        />
-        {profile?.currentSubscription ? (
+        {loading && !profile ? (
+          <View style={styles.sectionLoading}>
+            <ActivityIndicator color={colors.primary} />
+          </View>
+        ) : (
           <>
-            <DetailRow label="Current Plan" value={profile.currentSubscription.planName} />
+            <DetailRow label="Business" value={profile?.businessName ?? '—'} />
+            <DetailRow label="Owner" value={profile?.ownerName ?? '—'} />
+            <DetailRow label="Mobile" value={profile?.phone ?? '—'} />
+            <DetailRow label="Business Type" value={profile?.businessTypeName ?? '—'} />
+            <DetailRow label="Member Since" value={formatDate(profile?.createdAt)} />
             <DetailRow
-              label="Valid Until"
-              value={formatDate(profile.currentSubscription.endDate)}
+              label="Subscription"
+              value={formatSubscriptionStatus(profile?.subscriptionStatus)}
+              valueColor={statusColor(profile?.subscriptionStatus)}
             />
+            {profile?.currentSubscription ? (
+              <>
+                <DetailRow label="Current Plan" value={profile.currentSubscription.planName} />
+                <DetailRow
+                  label="Next Renewal Date"
+                  value={formatDate(profile.currentSubscription.endDate)}
+                />
+              </>
+            ) : null}
           </>
-        ) : null}
+        )}
+      </Card>
+
+      <Card style={styles.settingsCard}>
+        <View style={styles.settingsHeader}>
+          <Text style={styles.sectionTitle}>Sales Settings</Text>
+          {!editingSettings ? (
+            <Pressable style={styles.editButton} onPress={handleStartEdit}>
+              <Ionicons name="create-outline" size={16} color={colors.primary} />
+              <Text style={styles.editButtonText}>Edit</Text>
+            </Pressable>
+          ) : null}
+        </View>
+
+        {editingSettings ? (
+          <>
+            <Text style={styles.settingsHint}>
+              Default tax percent is pre-filled when you create a new sale.
+            </Text>
+            <Input
+              label="GST Number"
+              value={gstNumber}
+              onChangeText={setGstNumber}
+              autoCapitalize="characters"
+              placeholder="e.g. 22AAAAA0000A1Z5"
+            />
+            <Input
+              label="Default Tax %"
+              value={defaultTaxPercent}
+              onChangeText={setDefaultTaxPercent}
+              keyboardType="decimal-pad"
+              placeholder="e.g. 18"
+            />
+            {settingsError ? <Text style={styles.error}>{settingsError}</Text> : null}
+            <View style={styles.settingsActions}>
+              <View style={styles.settingsActionButton}>
+                <Button title="Cancel" variant="secondary" onPress={handleCancelEdit} />
+              </View>
+              <View style={styles.settingsActionButton}>
+                <Button title="Save" onPress={handleSaveSettings} loading={saving} />
+              </View>
+            </View>
+          </>
+        ) : (
+          <>
+            <DetailRow label="GST Number" value={profile?.gstNumber?.trim() || '—'} />
+            <DetailRow
+              label="Default Tax %"
+              value={formatTaxPercent(profile?.defaultTaxPercent)}
+            />
+            {settingsSuccess ? <Text style={styles.success}>{settingsSuccess}</Text> : null}
+          </>
+        )}
       </Card>
 
       <Text style={styles.actionsTitle}>Account Actions</Text>
@@ -102,8 +232,6 @@ export function AccountScreen({
         </View>
         <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
       </Pressable>
-        </>
-      )}
     </RefreshableScrollView>
   );
 }
@@ -133,16 +261,52 @@ const styles = StyleSheet.create({
     padding: 20,
     paddingBottom: 32,
   },
-  loading: {
+  sectionLoading: {
     alignItems: 'center',
     justifyContent: 'center',
-    minHeight: 240,
+    paddingVertical: 24,
   },
   sectionTitle: {
     color: colors.text,
     fontSize: 16,
     fontWeight: '700',
+  },
+  settingsCard: {
+    marginTop: 16,
+  },
+  settingsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     marginBottom: 12,
+  },
+  editButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+  },
+  editButtonText: {
+    color: colors.primary,
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  settingsActions: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 4,
+  },
+  settingsActionButton: {
+    flex: 1,
+  },
+  settingsHint: {
+    color: colors.textSecondary,
+    fontSize: 13,
+    marginBottom: 12,
+    lineHeight: 18,
   },
   detailRow: {
     paddingVertical: 10,
@@ -204,6 +368,10 @@ const styles = StyleSheet.create({
   },
   error: {
     color: colors.error,
+    marginBottom: 12,
+  },
+  success: {
+    color: colors.success,
     marginBottom: 12,
   },
 });

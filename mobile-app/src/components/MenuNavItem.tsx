@@ -18,7 +18,7 @@ export function MenuNavItem({ item, active, onPress }: MenuNavItemProps) {
       accessibilityState={{ selected: active }}
     >
       <View style={[styles.iconWrap, active && styles.iconWrapActive]}>
-        <Ionicons name={item.icon} size={20} color={active ? colors.primary : colors.textSecondary} />
+        <Ionicons name={item.icon} size={17} color={active ? colors.primary : colors.textSecondary} />
       </View>
       <Text style={[styles.label, active && styles.labelActive]}>{item.label}</Text>
     </Pressable>
@@ -29,29 +29,29 @@ const styles = StyleSheet.create({
   item: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 12,
-    marginBottom: 4,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    borderRadius: 10,
+    marginBottom: 2,
   },
   itemActive: {
     backgroundColor: 'rgba(59, 130, 246, 0.12)',
   },
   iconWrap: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
+    width: 30,
+    height: 30,
+    borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: colors.surfaceElevated,
-    marginRight: 12,
+    marginRight: 10,
   },
   iconWrapActive: {
     backgroundColor: 'rgba(59, 130, 246, 0.2)',
   },
   label: {
     color: colors.textSecondary,
-    fontSize: 15,
+    fontSize: 13,
     fontWeight: '500',
   },
   labelActive: {

@@ -55,10 +55,10 @@ export function DrawerLayout({
         statusBarTranslucent
       >
         <View style={styles.modalRoot}>
-          <View style={[styles.drawer, { paddingTop: topInset + 16, paddingBottom: 24 }]}>
+          <View style={[styles.drawer, { paddingTop: topInset + 12, paddingBottom: 16 }]}>
             <View style={styles.brandBlock}>
               <View style={styles.brandIcon}>
-                <Ionicons name="book-outline" size={22} color={colors.primary} />
+                <Ionicons name="book-outline" size={18} color={colors.primary} />
               </View>
               <View style={styles.brandText}>
                 <Text style={styles.brandTitle}>Quick Books</Text>
@@ -73,7 +73,7 @@ export function DrawerLayout({
                 accessibilityRole="button"
                 hitSlop={8}
               >
-                <Ionicons name="close" size={22} color={colors.textSecondary} />
+                <Ionicons name="close" size={18} color={colors.textSecondary} />
               </Pressable>
             </View>
 
@@ -89,7 +89,7 @@ export function DrawerLayout({
             </ScrollView>
 
             <Pressable style={styles.signOutButton} onPress={onSignOut} accessibilityRole="button">
-              <Ionicons name="log-out-outline" size={20} color={colors.error} />
+              <Ionicons name="log-out-outline" size={17} color={colors.error} />
               <Text style={styles.signOutText}>Sign Out</Text>
             </Pressable>
           </View>
@@ -129,35 +129,35 @@ const styles = StyleSheet.create({
   brandBlock: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 8,
-    marginBottom: 20,
+    paddingHorizontal: 6,
+    marginBottom: 12,
   },
   brandIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
+    width: 36,
+    height: 36,
+    borderRadius: 10,
     backgroundColor: 'rgba(59, 130, 246, 0.15)',
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 12,
+    marginRight: 10,
   },
   brandText: {
     flex: 1,
   },
   brandTitle: {
     color: colors.text,
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '700',
   },
   brandSubtitle: {
     color: colors.textSecondary,
-    fontSize: 13,
-    marginTop: 2,
+    fontSize: 12,
+    marginTop: 1,
   },
   closeButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
+    width: 32,
+    height: 32,
+    borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: colors.surfaceElevated,
@@ -168,18 +168,18 @@ const styles = StyleSheet.create({
   signOutButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    borderRadius: 12,
+    gap: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 10,
     borderWidth: 1,
     borderColor: 'rgba(239, 68, 68, 0.25)',
     backgroundColor: 'rgba(239, 68, 68, 0.08)',
-    marginTop: 8,
+    marginTop: 6,
   },
   signOutText: {
     color: colors.error,
-    fontSize: 15,
+    fontSize: 13,
     fontWeight: '600',
   },
 });

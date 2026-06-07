@@ -2,6 +2,7 @@ package com.quickbooks.entity;
 
 import com.quickbooks.entity.enums.SubscriptionStatus;
 import jakarta.persistence.*;
+import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 
 @Entity
@@ -35,6 +36,12 @@ public class Subscriber {
     @Column(name = "subscription_status", nullable = false)
     private SubscriptionStatus subscriptionStatus = SubscriptionStatus.NONE;
 
+    @Column(name = "default_tax_percent")
+    private BigDecimal defaultTaxPercent;
+
+    @Column(name = "gst_number")
+    private String gstNumber;
+
     @Column(name = "is_active", nullable = false)
     private boolean active = true;
 
@@ -57,6 +64,10 @@ public class Subscriber {
     public void setBusinessType(BusinessType businessType) { this.businessType = businessType; }
     public SubscriptionStatus getSubscriptionStatus() { return subscriptionStatus; }
     public void setSubscriptionStatus(SubscriptionStatus subscriptionStatus) { this.subscriptionStatus = subscriptionStatus; }
+    public BigDecimal getDefaultTaxPercent() { return defaultTaxPercent; }
+    public void setDefaultTaxPercent(BigDecimal defaultTaxPercent) { this.defaultTaxPercent = defaultTaxPercent; }
+    public String getGstNumber() { return gstNumber; }
+    public void setGstNumber(String gstNumber) { this.gstNumber = gstNumber; }
     public boolean isActive() { return active; }
     public void setActive(boolean active) { this.active = active; }
     public OffsetDateTime getCreatedAt() { return createdAt; }

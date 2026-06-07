@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Alert, StyleSheet, View } from 'react-native';
 import { AppHeader } from '../components/AppHeader';
 import { DrawerLayout } from '../components/DrawerLayout';
 import { AccountScreen } from '../screens/AccountScreen';
@@ -11,9 +11,16 @@ import { DashboardScreen } from '../screens/DashboardScreen';
 import { PlaceholderScreen } from '../screens/PlaceholderScreen';
 import { SettingsScreen } from '../screens/SettingsScreen';
 import { SubscriptionScreen } from '../screens/SubscriptionScreen';
+import { ReceivePaymentScreen } from '../screens/ReceivePaymentScreen';
+import { SaleDetailScreen } from '../screens/SaleDetailScreen';
+import { SaleFormScreen } from '../screens/SaleFormScreen';
+import { SalesScreen } from '../screens/SalesScreen';
 import { VendorDetailScreen } from '../screens/VendorDetailScreen';
 import { VendorFormScreen } from '../screens/VendorFormScreen';
 import { VendorsScreen } from '../screens/VendorsScreen';
+import { ProductDetailScreen } from '../screens/ProductDetailScreen';
+import { ProductFormScreen } from '../screens/ProductFormScreen';
+import { ProductsScreen } from '../screens/ProductsScreen';
 import { api, SubscriberAccountProfile, SubscriberAuthResponse } from '../services/api';
 import { colors } from '../theme/colors';
 import { DrawerRoute, PLACEHOLDER_TITLES, StackRoute } from './types';
@@ -21,9 +28,10 @@ import { DrawerRoute, PLACEHOLDER_TITLES, StackRoute } from './types';
 type AppShellProps = {
   auth: SubscriberAuthResponse;
   onLogout: () => void;
+  onSubscriptionChanged: (auth: SubscriberAuthResponse) => void | Promise<void>;
 };
 
-export function AppShell({ auth, onLogout }: AppShellProps) {
+export function AppShell({ auth, onLogout, onSubscriptionChanged }: AppShellProps) {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [drawerRoute, setDrawerRoute] = useState<DrawerRoute>('dashboard');
   const [stackRoute, setStackRoute] = useState<StackRoute | null>(null);
@@ -31,11 +39,17 @@ export function AppShell({ auth, onLogout }: AppShellProps) {
   const [editingCustomerId, setEditingCustomerId] = useState<number | undefined>(undefined);
   const [selectedVendorId, setSelectedVendorId] = useState<number | undefined>(undefined);
   const [editingVendorId, setEditingVendorId] = useState<number | undefined>(undefined);
+  const [selectedProductId, setSelectedProductId] = useState<number | undefined>(undefined);
+  const [editingProductId, setEditingProductId] = useState<number | undefined>(undefined);
+  const [selectedSaleId, setSelectedSaleId] = useState<number | undefined>(undefined);
 
   const [profile, setProfile] = useState<SubscriberAccountProfile | null>(null);
   const [profileLoading, setProfileLoading] = useState(true);
   const [profileError, setProfileError] = useState('');
   const [refreshing, setRefreshing] = useState(false);
+
+  const hasActiveSubscription = profile?.subscriptionStatus === 'ACTIVE';
+  const requiresSubscription = profile != null && !hasActiveSubscription;
 
   const loadProfile = useCallback(
     async (isPullRefresh = false) => {
@@ -46,6 +60,11 @@ export function AppShell({ auth, onLogout }: AppShellProps) {
       try {
         const data = await api.getAccountProfile(auth.token);
         setProfile(data);
+        await onSubscriptionChanged({
+          ...auth,
+          subscriptionStatus: data.subscriptionStatus,
+          requiresSubscription: data.subscriptionStatus !== 'ACTIVE',
+        });
       } catch (err) {
         setProfileError(err instanceof Error ? err.message : 'Could not load account details');
       } finally {
@@ -54,7 +73,7 @@ export function AppShell({ auth, onLogout }: AppShellProps) {
         }
       }
     },
-    [auth.token],
+    [auth, onSubscriptionChanged],
   );
 
   const handleRefresh = useCallback(async () => {
@@ -67,19 +86,39 @@ export function AppShell({ auth, onLogout }: AppShellProps) {
     loadProfile();
   }, [loadProfile]);
 
+  const promptMembershipRequired = () => {
+    Alert.alert(
+      'Membership Required',
+      'Please select a membership plan before using this feature.',
+    );
+  };
+
   const openDrawer = () => setDrawerOpen(true);
   const closeDrawer = () => setDrawerOpen(false);
 
   const navigateDrawer = (route: DrawerRoute) => {
+    if (requiresSubscription) {
+      promptMembershipRequired();
+      return;
+    }
+
     setDrawerRoute(route);
     setStackRoute(null);
     setSelectedCustomerId(undefined);
     setEditingCustomerId(undefined);
     setSelectedVendorId(undefined);
     setEditingVendorId(undefined);
+    setSelectedProductId(undefined);
+    setEditingProductId(undefined);
+    setSelectedSaleId(undefined);
   };
 
   const openStack = (route: StackRoute) => {
+    if (requiresSubscription) {
+      promptMembershipRequired();
+      return;
+    }
+
     setStackRoute(route);
     closeDrawer();
   };
@@ -97,20 +136,42 @@ export function AppShell({ auth, onLogout }: AppShellProps) {
       return;
     }
 
+    if (stackRoute === 'product-form' && selectedProductId != null) {
+      setStackRoute('product-detail');
+      setEditingProductId(undefined);
+      return;
+    }
+
+    if (stackRoute === 'receive-payment' && selectedSaleId != null) {
+      setStackRoute('sale-detail');
+      return;
+    }
+
     setStackRoute(null);
     setSelectedCustomerId(undefined);
     setEditingCustomerId(undefined);
     setSelectedVendorId(undefined);
     setEditingVendorId(undefined);
+    setSelectedProductId(undefined);
+    setEditingProductId(undefined);
+    setSelectedSaleId(undefined);
   };
 
   const openCreateCustomer = () => {
+    if (requiresSubscription) {
+      promptMembershipRequired();
+      return;
+    }
     setSelectedCustomerId(undefined);
     setEditingCustomerId(undefined);
     openStack('customer-form');
   };
 
   const openCustomerDetail = (customerId: number) => {
+    if (requiresSubscription) {
+      promptMembershipRequired();
+      return;
+    }
     setSelectedCustomerId(customerId);
     setEditingCustomerId(undefined);
     openStack('customer-detail');
@@ -123,12 +184,20 @@ export function AppShell({ auth, onLogout }: AppShellProps) {
   };
 
   const openCreateVendor = () => {
+    if (requiresSubscription) {
+      promptMembershipRequired();
+      return;
+    }
     setSelectedVendorId(undefined);
     setEditingVendorId(undefined);
     openStack('vendor-form');
   };
 
   const openVendorDetail = (vendorId: number) => {
+    if (requiresSubscription) {
+      promptMembershipRequired();
+      return;
+    }
     setSelectedVendorId(vendorId);
     setEditingVendorId(undefined);
     openStack('vendor-detail');
@@ -140,7 +209,62 @@ export function AppShell({ auth, onLogout }: AppShellProps) {
     openStack('vendor-form');
   };
 
+  const openCreateProduct = () => {
+    if (requiresSubscription) {
+      promptMembershipRequired();
+      return;
+    }
+    setSelectedProductId(undefined);
+    setEditingProductId(undefined);
+    openStack('product-form');
+  };
+
+  const openProductDetail = (productId: number) => {
+    if (requiresSubscription) {
+      promptMembershipRequired();
+      return;
+    }
+    setSelectedProductId(productId);
+    setEditingProductId(undefined);
+    openStack('product-detail');
+  };
+
+  const openEditProduct = (productId: number) => {
+    setSelectedProductId(productId);
+    setEditingProductId(productId);
+    openStack('product-form');
+  };
+
+  const openCreateSale = () => {
+    if (requiresSubscription) {
+      promptMembershipRequired();
+      return;
+    }
+    setSelectedSaleId(undefined);
+    openStack('sale-form');
+  };
+
+  const openSaleDetail = (saleId: number) => {
+    if (requiresSubscription) {
+      promptMembershipRequired();
+      return;
+    }
+    setSelectedSaleId(saleId);
+    openStack('sale-detail');
+  };
+
+  const openReceivePayment = (saleId: number) => {
+    setSelectedSaleId(saleId);
+    openStack('receive-payment');
+  };
+
+  const handleSubscribed = async () => {
+    await loadProfile(true);
+  };
+
   const headerTitle = () => {
+    if (requiresSubscription) return 'Membership Plan';
+
     if (stackRoute === 'account') return 'My Account';
     if (stackRoute === 'change-pin') return 'Change Login PIN';
     if (stackRoute === 'subscription') return 'Subscription';
@@ -152,15 +276,23 @@ export function AppShell({ auth, onLogout }: AppShellProps) {
     if (stackRoute === 'vendor-form') {
       return editingVendorId == null ? 'Add Vendor' : 'Edit Vendor';
     }
+    if (stackRoute === 'sale-detail') return 'Sale';
+    if (stackRoute === 'sale-form') return 'New Sale';
+    if (stackRoute === 'receive-payment') return 'Receive Payment';
 
     if (drawerRoute === 'dashboard') return 'Dashboard';
     if (drawerRoute === 'settings') return 'Settings';
     if (drawerRoute === 'customers') return 'Customers';
     if (drawerRoute === 'vendors') return 'Vendors';
+    if (drawerRoute === 'products') return 'Products';
+    if (drawerRoute === 'sales') return 'Sales';
     return PLACEHOLDER_TITLES[drawerRoute as keyof typeof PLACEHOLDER_TITLES] ?? 'Quick Books';
   };
 
   const headerSubtitle = () => {
+    if (requiresSubscription) {
+      return 'Select a plan to unlock the app';
+    }
     if (drawerRoute === 'dashboard' && profile?.businessName) {
       return profile.businessName;
     }
@@ -168,6 +300,19 @@ export function AppShell({ auth, onLogout }: AppShellProps) {
   };
 
   const renderContent = () => {
+    if (requiresSubscription) {
+      return (
+        <SubscriptionScreen
+          token={auth.token}
+          status={profile?.subscriptionStatus === 'EXPIRED' ? 'EXPIRED' : 'NONE'}
+          locked
+          refreshing={refreshing}
+          onRefresh={handleRefresh}
+          onSubscribed={handleSubscribed}
+        />
+      );
+    }
+
     if (stackRoute === 'change-pin') {
       return (
         <ChangePinScreen
@@ -181,20 +326,27 @@ export function AppShell({ auth, onLogout }: AppShellProps) {
     }
 
     if (stackRoute === 'subscription') {
-      const status = profile?.subscriptionStatus === 'EXPIRED' ? 'EXPIRED' : 'NONE';
       return (
-        <SubscriptionScreen status={status} refreshing={refreshing} onRefresh={handleRefresh} />
+        <SubscriptionScreen
+          token={auth.token}
+          status={profile?.subscriptionStatus ?? 'NONE'}
+          refreshing={refreshing}
+          onRefresh={handleRefresh}
+          onSubscribed={handleSubscribed}
+        />
       );
     }
 
     if (stackRoute === 'account') {
       return (
         <AccountScreen
+          token={auth.token}
           profile={profile}
           loading={profileLoading}
           error={profileError}
           refreshing={refreshing}
           onRefresh={handleRefresh}
+          onSettingsSaved={setProfile}
           onChangePin={() => openStack('change-pin')}
           onSubscription={() => openStack('subscription')}
         />
@@ -243,6 +395,51 @@ export function AppShell({ auth, onLogout }: AppShellProps) {
       );
     }
 
+    if (stackRoute === 'product-detail' && selectedProductId != null) {
+      return (
+        <ProductDetailScreen
+          token={auth.token}
+          productId={selectedProductId}
+          onEdit={() => openEditProduct(selectedProductId)}
+          onDeleted={closeStack}
+        />
+      );
+    }
+
+    if (stackRoute === 'product-form') {
+      return (
+        <ProductFormScreen
+          token={auth.token}
+          productId={editingProductId}
+          onSaved={closeStack}
+        />
+      );
+    }
+
+    if (stackRoute === 'sale-detail' && selectedSaleId != null) {
+      return (
+        <SaleDetailScreen
+          token={auth.token}
+          saleId={selectedSaleId}
+          onReceivePayment={() => openReceivePayment(selectedSaleId)}
+        />
+      );
+    }
+
+    if (stackRoute === 'sale-form') {
+      return <SaleFormScreen token={auth.token} onSaved={closeStack} />;
+    }
+
+    if (stackRoute === 'receive-payment' && selectedSaleId != null) {
+      return (
+        <ReceivePaymentScreen
+          token={auth.token}
+          saleId={selectedSaleId}
+          onSaved={closeStack}
+        />
+      );
+    }
+
     if (drawerRoute === 'dashboard') {
       return (
         <DashboardScreen profile={profile} refreshing={refreshing} onRefresh={handleRefresh} />
@@ -265,6 +462,26 @@ export function AppShell({ auth, onLogout }: AppShellProps) {
           token={auth.token}
           onAddVendor={openCreateVendor}
           onOpenVendor={openVendorDetail}
+        />
+      );
+    }
+
+    if (drawerRoute === 'products') {
+      return (
+        <ProductsScreen
+          token={auth.token}
+          onAddProduct={openCreateProduct}
+          onOpenProduct={openProductDetail}
+        />
+      );
+    }
+
+    if (drawerRoute === 'sales') {
+      return (
+        <SalesScreen
+          token={auth.token}
+          onAddSale={openCreateSale}
+          onOpenSale={openSaleDetail}
         />
       );
     }
@@ -305,8 +522,8 @@ export function AppShell({ auth, onLogout }: AppShellProps) {
         <AppHeader
           title={headerTitle()}
           subtitle={headerSubtitle()}
-          onMenuPress={stackRoute ? undefined : openDrawer}
-          onBackPress={stackRoute ? closeStack : undefined}
+          onMenuPress={openDrawer}
+          onBackPress={!requiresSubscription && stackRoute ? closeStack : undefined}
         />
         <View style={styles.body}>{renderContent()}</View>
       </View>

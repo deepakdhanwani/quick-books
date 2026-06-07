@@ -1,5 +1,6 @@
 package com.quickbooks.entity;
 
+import com.quickbooks.entity.enums.PaymentMode;
 import com.quickbooks.entity.enums.PaymentType;
 import com.quickbooks.entity.enums.ReferenceType;
 import jakarta.persistence.*;
@@ -36,6 +37,22 @@ public class Payment {
     @Column(name = "reference_id", nullable = false)
     private Long referenceId;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "payment_mode")
+    private PaymentMode paymentMode;
+
+    @Column(name = "payment_details", columnDefinition = "TEXT")
+    private String paymentDetails;
+
+    @Column(name = "proof_file_name")
+    private String proofFileName;
+
+    @Column(name = "proof_file_path")
+    private String proofFilePath;
+
+    @Column(name = "proof_content_type")
+    private String proofContentType;
+
     @Column(columnDefinition = "TEXT")
     private String notes;
 
@@ -56,6 +73,16 @@ public class Payment {
     public void setReferenceType(ReferenceType referenceType) { this.referenceType = referenceType; }
     public Long getReferenceId() { return referenceId; }
     public void setReferenceId(Long referenceId) { this.referenceId = referenceId; }
+    public PaymentMode getPaymentMode() { return paymentMode; }
+    public void setPaymentMode(PaymentMode paymentMode) { this.paymentMode = paymentMode; }
+    public String getPaymentDetails() { return paymentDetails; }
+    public void setPaymentDetails(String paymentDetails) { this.paymentDetails = paymentDetails; }
+    public String getProofFileName() { return proofFileName; }
+    public void setProofFileName(String proofFileName) { this.proofFileName = proofFileName; }
+    public String getProofFilePath() { return proofFilePath; }
+    public void setProofFilePath(String proofFilePath) { this.proofFilePath = proofFilePath; }
+    public String getProofContentType() { return proofContentType; }
+    public void setProofContentType(String proofContentType) { this.proofContentType = proofContentType; }
     public String getNotes() { return notes; }
     public void setNotes(String notes) { this.notes = notes; }
     public OffsetDateTime getCreatedAt() { return createdAt; }

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { AppShell } from './src/navigation/AppShell';
@@ -18,8 +18,14 @@ export default function App() {
       const storedAuth = await loadAuthSession();
       if (storedAuth) {
         try {
-          await api.getAccountProfile(storedAuth.token);
-          setAuth(storedAuth);
+          const profile = await api.getAccountProfile(storedAuth.token);
+          const refreshedAuth: SubscriberAuthResponse = {
+            ...storedAuth,
+            subscriptionStatus: profile.subscriptionStatus,
+            requiresSubscription: profile.subscriptionStatus !== 'ACTIVE',
+          };
+          await saveAuthSession(refreshedAuth);
+          setAuth(refreshedAuth);
         } catch {
           await clearAuthSession();
         }
@@ -41,6 +47,11 @@ export default function App() {
     setAuth(null);
   };
 
+  const handleSubscriptionChanged = useCallback(async (nextAuth: SubscriberAuthResponse) => {
+    setAuth(nextAuth);
+    await saveAuthSession(nextAuth);
+  }, []);
+
   if (!ready) {
     return (
       <View style={styles.loading}>
@@ -52,7 +63,15 @@ export default function App() {
   return (
     <View style={styles.container}>
       <StatusBar style="light" />
-      {auth ? <AppShell auth={auth} onLogout={handleLogout} /> : <LoginScreen onLogin={handleLogin} />}
+      {auth ? (
+        <AppShell
+          auth={auth}
+          onLogout={handleLogout}
+          onSubscriptionChanged={handleSubscriptionChanged}
+        />
+      ) : (
+        <LoginScreen onLogin={handleLogin} />
+      )}
     </View>
   );
 }

@@ -10,10 +10,12 @@ public class AppProperties {
     private final Jwt jwt = new Jwt();
     private final Admin admin = new Admin();
     private final Cors cors = new Cors();
+    private final Storage storage = new Storage();
 
     public Jwt getJwt() { return jwt; }
     public Admin getAdmin() { return admin; }
     public Cors getCors() { return cors; }
+    public Storage getStorage() { return storage; }
 
     public static class Jwt {
         private String secret;
@@ -46,5 +48,12 @@ public class AppProperties {
 
         public String getAllowedOrigins() { return allowedOrigins; }
         public void setAllowedOrigins(String allowedOrigins) { this.allowedOrigins = allowedOrigins; }
+    }
+
+    public static class Storage {
+        private String uploadDir = "uploads";
+
+        public String getUploadDir() { return uploadDir; }
+        public void setUploadDir(String uploadDir) { this.uploadDir = uploadDir; }
     }
 }

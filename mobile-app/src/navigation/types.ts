@@ -7,6 +7,7 @@ export type DrawerRoute =
   | 'dashboard'
   | 'customers'
   | 'vendors'
+  | 'products'
   | 'sales'
   | 'purchases'
   | 'pending-payments'
@@ -20,7 +21,12 @@ export type StackRoute =
   | 'customer-detail'
   | 'customer-form'
   | 'vendor-detail'
-  | 'vendor-form';
+  | 'vendor-form'
+  | 'product-detail'
+  | 'product-form'
+  | 'sale-detail'
+  | 'sale-form'
+  | 'receive-payment';
 
 export type AppRoute = DrawerRoute | StackRoute;
 
@@ -34,6 +40,7 @@ export const DRAWER_NAV_ITEMS: DrawerNavItem[] = [
   { id: 'dashboard', label: 'Dashboard', icon: 'grid-outline' },
   { id: 'customers', label: 'Customers', icon: 'people-outline' },
   { id: 'vendors', label: 'Vendors', icon: 'storefront-outline' },
+  { id: 'products', label: 'Products', icon: 'cube-outline' },
   { id: 'sales', label: 'Sales', icon: 'cart-outline' },
   { id: 'purchases', label: 'Purchases', icon: 'bag-handle-outline' },
   { id: 'pending-payments', label: 'Pending Payments', icon: 'time-outline' },
@@ -41,8 +48,7 @@ export const DRAWER_NAV_ITEMS: DrawerNavItem[] = [
   { id: 'settings', label: 'Settings', icon: 'settings-outline' },
 ];
 
-export const PLACEHOLDER_TITLES: Record<Exclude<DrawerRoute, 'dashboard' | 'settings' | 'customers' | 'vendors'>, string> = {
-  sales: 'Sales',
+export const PLACEHOLDER_TITLES: Record<Exclude<DrawerRoute, 'dashboard' | 'settings' | 'customers' | 'vendors' | 'products' | 'sales'>, string> = {
   purchases: 'Purchases',
   'pending-payments': 'Pending Payments',
   reports: 'Reports',

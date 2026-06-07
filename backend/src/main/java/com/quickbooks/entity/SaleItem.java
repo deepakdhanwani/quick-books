@@ -15,6 +15,10 @@ public class SaleItem {
     @JoinColumn(name = "sale_id", nullable = false)
     private Sale sale;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "product_id")
+    private Product product;
+
     @Column(nullable = false, length = 500)
     private String description;
 
@@ -31,6 +35,8 @@ public class SaleItem {
     public void setId(Long id) { this.id = id; }
     public Sale getSale() { return sale; }
     public void setSale(Sale sale) { this.sale = sale; }
+    public Product getProduct() { return product; }
+    public void setProduct(Product product) { this.product = product; }
     public String getDescription() { return description; }
     public void setDescription(String description) { this.description = description; }
     public BigDecimal getQuantity() { return quantity; }

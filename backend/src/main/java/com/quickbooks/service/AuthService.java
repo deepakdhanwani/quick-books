@@ -23,15 +23,18 @@ public class AuthService {
     private final SubscriberRepository subscriberRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
+    private final SubscriberSubscriptionService subscriberSubscriptionService;
 
     public AuthService(AdminRepository adminRepository,
                        SubscriberRepository subscriberRepository,
                        PasswordEncoder passwordEncoder,
-                       JwtService jwtService) {
+                       JwtService jwtService,
+                       SubscriberSubscriptionService subscriberSubscriptionService) {
         this.adminRepository = adminRepository;
         this.subscriberRepository = subscriberRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
+        this.subscriberSubscriptionService = subscriberSubscriptionService;
     }
 
     public AuthResponse adminLogin(AdminLoginRequest request) {
@@ -58,6 +61,9 @@ public class AuthService {
         if (!passwordEncoder.matches(request.getLoginPin(), subscriber.getLoginPinHash())) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid credentials");
         }
+
+        subscriberSubscriptionService.syncSubscriptionStatus(subscriber.getId());
+        subscriber = subscriberRepository.findById(subscriber.getId()).orElseThrow();
 
         UserPrincipal principal = new UserPrincipal(subscriber.getId(), subscriber.getPhone(), UserRole.SUBSCRIBER);
         AuthResponse response = new AuthResponse(
