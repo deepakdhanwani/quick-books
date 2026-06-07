@@ -1,53 +1,42 @@
-package com.quickbooks.entity;
+package com.quickbooks.dto.customer;
 
+import com.quickbooks.entity.Customer;
 import com.quickbooks.entity.enums.CustomerType;
-import jakarta.persistence.*;
+
 import java.time.OffsetDateTime;
 
-@Entity
-@Table(name = "customers")
-public class Customer {
+public class CustomerResponse {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "subscriber_id", nullable = false)
-    private Subscriber subscriber;
-
-    @Column(nullable = false)
     private String name;
-
     private String phone;
     private String email;
-
-    @Column(columnDefinition = "TEXT")
     private String address;
-
-    @Enumerated(EnumType.STRING)
-    @Column(name = "customer_type")
     private CustomerType customerType;
-
-    @Column(name = "business_name")
     private String businessName;
-
-    @Column(name = "gst_number")
     private String gstNumber;
-
-    @Column(name = "business_details", columnDefinition = "TEXT")
     private String businessDetails;
+    private boolean active;
+    private OffsetDateTime createdAt;
 
-    @Column(nullable = false)
-    private boolean active = true;
-
-    @Column(name = "created_at", nullable = false)
-    private OffsetDateTime createdAt = OffsetDateTime.now();
+    public static CustomerResponse from(Customer customer) {
+        CustomerResponse response = new CustomerResponse();
+        response.setId(customer.getId());
+        response.setName(customer.getName());
+        response.setPhone(customer.getPhone());
+        response.setEmail(customer.getEmail());
+        response.setAddress(customer.getAddress());
+        response.setCustomerType(customer.getCustomerType());
+        response.setBusinessName(customer.getBusinessName());
+        response.setGstNumber(customer.getGstNumber());
+        response.setBusinessDetails(customer.getBusinessDetails());
+        response.setActive(customer.isActive());
+        response.setCreatedAt(customer.getCreatedAt());
+        return response;
+    }
 
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
-    public Subscriber getSubscriber() { return subscriber; }
-    public void setSubscriber(Subscriber subscriber) { this.subscriber = subscriber; }
     public String getName() { return name; }
     public void setName(String name) { this.name = name; }
     public String getPhone() { return phone; }

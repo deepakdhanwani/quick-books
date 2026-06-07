@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
+import { RefreshableScrollView } from '../components/RefreshableScrollView';
 import { Input } from '../components/Input';
 import { api } from '../services/api';
 import { colors } from '../theme/colors';
@@ -9,9 +10,18 @@ import { colors } from '../theme/colors';
 type ChangePinScreenProps = {
   token: string;
   onBack: () => void;
+  embedded?: boolean;
+  refreshing?: boolean;
+  onRefresh?: () => void | Promise<void>;
 };
 
-export function ChangePinScreen({ token, onBack }: ChangePinScreenProps) {
+export function ChangePinScreen({
+  token,
+  onBack,
+  embedded,
+  refreshing = false,
+  onRefresh = async () => {},
+}: ChangePinScreenProps) {
   const [currentPin, setCurrentPin] = useState('');
   const [newPin, setNewPin] = useState('');
   const [confirmNewPin, setConfirmNewPin] = useState('');
@@ -37,8 +47,13 @@ export function ChangePinScreen({ token, onBack }: ChangePinScreenProps) {
   };
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <Text style={styles.title}>Change Login PIN</Text>
+    <RefreshableScrollView
+      style={styles.container}
+      contentContainerStyle={styles.content}
+      refreshing={refreshing}
+      onRefresh={onRefresh}
+    >
+      {embedded ? null : <Text style={styles.title}>Change Login PIN</Text>}
       <Card>
         <Text style={styles.hint}>
           Your login PIN works like a password. Choose a new 6 to 8 digit PIN that only you know.
@@ -48,6 +63,7 @@ export function ChangePinScreen({ token, onBack }: ChangePinScreenProps) {
           value={currentPin}
           onChangeText={setCurrentPin}
           secureTextEntry
+          enableVisibilityToggle
           keyboardType="number-pad"
         />
         <Input
@@ -55,6 +71,7 @@ export function ChangePinScreen({ token, onBack }: ChangePinScreenProps) {
           value={newPin}
           onChangeText={setNewPin}
           secureTextEntry
+          enableVisibilityToggle
           keyboardType="number-pad"
         />
         <Input
@@ -62,16 +79,17 @@ export function ChangePinScreen({ token, onBack }: ChangePinScreenProps) {
           value={confirmNewPin}
           onChangeText={setConfirmNewPin}
           secureTextEntry
+          enableVisibilityToggle
           keyboardType="number-pad"
         />
         {error ? <Text style={styles.error}>{error}</Text> : null}
         {success ? <Text style={styles.success}>{success}</Text> : null}
         <View style={styles.actions}>
           <Button title="Update PIN" onPress={handleSubmit} loading={loading} />
-          <Button title="Back" onPress={onBack} variant="secondary" />
+          {embedded ? null : <Button title="Back" onPress={onBack} variant="secondary" />}
         </View>
       </Card>
-    </ScrollView>
+    </RefreshableScrollView>
   );
 }
 

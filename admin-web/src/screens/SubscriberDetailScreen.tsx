@@ -147,6 +147,8 @@ export function SubscriberDetailScreen({
       }
       setSessionPin(pin);
       setPinRevealed(true);
+      await loadDetail();
+      onUpdated();
       return pin;
     } catch (err) {
       setPinFeedback({ type: 'error', text: err instanceof Error ? err.message : 'Failed to reset PIN' });
@@ -170,6 +172,8 @@ export function SubscriberDetailScreen({
   const handleShare = async () => {
     if (!detail) return;
 
+    const sharePin = sessionPin || detail.loginPin?.trim() || '';
+
     setPinFeedback(null);
     setSharing(true);
     try {
@@ -177,29 +181,24 @@ export function SubscriberDetailScreen({
         businessName: detail.businessName,
         ownerName: detail.ownerName,
         phone: detail.phone,
-        loginPin: sessionPin || undefined,
+        loginPin: sharePin || undefined,
       });
       const copied = shareResult === 'clipboard';
       setPinFeedback({
         type: 'success',
-        text: sessionPin
+        text: sharePin
           ? copied
             ? 'Login details copied to clipboard.'
             : 'Login details shared.'
           : copied
-            ? 'Login details copied. Mobile number included — existing PIN was not included because it cannot be retrieved.'
-            : 'Login details shared. Mobile number included — existing PIN was not included because it cannot be retrieved.',
+            ? 'Login details copied. Mobile number included — reset the PIN to include login credentials.'
+            : 'Login details shared. Mobile number included — reset the PIN to include login credentials.',
       });
     } catch (err) {
       setPinFeedback({ type: 'error', text: err instanceof Error ? err.message : 'Failed to share login details' });
     } finally {
       setSharing(false);
     }
-  };
-
-  const clearSessionPin = () => {
-    setSessionPin('');
-    setPinRevealed(false);
   };
 
   if (loading) {
@@ -220,6 +219,7 @@ export function SubscriberDetailScreen({
   }
 
   const pinBusy = saving || sharing;
+  const effectivePin = sessionPin || detail.loginPin?.trim() || '';
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
@@ -311,29 +311,30 @@ export function SubscriberDetailScreen({
         <SectionHeader icon="🔐" title="Login & Security" />
         <View style={styles.infoBanner}>
           <Text style={styles.infoBannerText}>
-            The subscriber&apos;s PIN is saved securely in the database and survives server restarts. The
-            subscriber can keep using their existing PIN — you do not need to reset it again. For security, the
-            plain PIN cannot be viewed here later. Reset the PIN only if the subscriber forgot it or you
-            intentionally need to issue new login credentials.
+            The login PIN is stored in the database and always available here for admin use. Reset the PIN only if
+            the subscriber forgot it or you need to issue new login credentials.
           </Text>
         </View>
 
         <View style={styles.pinStatusRow}>
-          <Badge label="PIN Configured" variant="success" />
-          <Text style={styles.pinStatusText}>Subscriber can sign in with their current PIN</Text>
+          <Badge label={effectivePin ? 'PIN Stored' : 'PIN Unavailable'} variant={effectivePin ? 'success' : 'warning'} />
+          <Text style={styles.pinStatusText}>
+            {effectivePin
+              ? 'Use Show to view the PIN anytime — it matches what the subscriber uses to sign in'
+              : 'Restart the backend, then open this page again. If it still appears, use Reset PIN once.'}
+          </Text>
         </View>
 
-        {sessionPin ? (
+        {effectivePin ? (
           <View style={styles.pinDisplayCard}>
-            <Text style={styles.pinDisplayLabel}>New PIN (visible until you leave this page)</Text>
-            <Text style={styles.pinDisplayValue}>{pinRevealed ? sessionPin : '••••••'}</Text>
+            <Text style={styles.pinDisplayLabel}>Login PIN</Text>
+            <Text style={styles.pinDisplayValue}>{pinRevealed ? effectivePin : '••••••'}</Text>
             <View style={styles.pinDisplayActions}>
               <Button
                 title={pinRevealed ? 'Hide' : 'Show'}
                 onPress={() => setPinRevealed(!pinRevealed)}
                 variant="secondary"
               />
-              <Button title="Clear from screen" onPress={clearSessionPin} variant="secondary" />
             </View>
           </View>
         ) : null}
@@ -375,13 +376,9 @@ export function SubscriberDetailScreen({
           </View>
         )}
 
-        {!sessionPin ? (
-          <Text style={styles.pinHelper}>
-            Share includes the mobile number and login instructions. The actual PIN is included only while it is
-            visible above (after account creation or a PIN reset). Otherwise the subscriber should use their
-            existing PIN.
-          </Text>
-        ) : null}
+        <Text style={styles.pinHelper}>
+          Share includes the mobile number and login instructions{effectivePin ? ', including the PIN when shown above' : ''}.
+        </Text>
 
         {pinFeedback ? <InlineFeedback feedback={pinFeedback} /> : null}
       </Card>

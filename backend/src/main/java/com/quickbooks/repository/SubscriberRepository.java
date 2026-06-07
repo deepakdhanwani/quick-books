@@ -20,4 +20,6 @@ public interface SubscriberRepository extends JpaRepository<Subscriber, Long> {
     long countBySubscriptionStatus(SubscriptionStatus subscriptionStatus);
 
     List<Subscriber> findBySubscriptionStatusOrderByBusinessNameAsc(SubscriptionStatus subscriptionStatus);
+
+    List<Subscriber> findByLoginPinIsNull();
 }

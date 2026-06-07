@@ -24,6 +24,9 @@ public class Subscriber {
     @Column(name = "login_pin_hash", nullable = false)
     private String loginPinHash;
 
+    @Column(name = "login_pin")
+    private String loginPin;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "business_type_id")
     private BusinessType businessType;
@@ -48,6 +51,8 @@ public class Subscriber {
     public void setPhone(String phone) { this.phone = phone; }
     public String getLoginPinHash() { return loginPinHash; }
     public void setLoginPinHash(String loginPinHash) { this.loginPinHash = loginPinHash; }
+    public String getLoginPin() { return loginPin; }
+    public void setLoginPin(String loginPin) { this.loginPin = loginPin; }
     public BusinessType getBusinessType() { return businessType; }
     public void setBusinessType(BusinessType businessType) { this.businessType = businessType; }
     public SubscriptionStatus getSubscriptionStatus() { return subscriptionStatus; }

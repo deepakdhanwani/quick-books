@@ -10,5 +10,11 @@
     <include file="db/changelog/changes/003-subscriber-active.xml"/>
     <include file="db/changelog/changes/004-plan-duration-values.xml"/>
     <include file="db/changelog/changes/005-discount-plans.xml"/>
+    <include file="db/changelog/changes/006-subscriber-login-pin.xml"/>
+    <include file="db/changelog/changes/007-customer-active.xml"/>
+    <include file="db/changelog/changes/008-customer-type-business.xml"/>
+    <include file="db/changelog/changes/009-vendor-active.xml"/>
+    <include file="db/changelog/changes/010-vendor-type-business.xml"/>
+    <include file="db/changelog/changes/011-vendor-contact-person.xml"/>
 
 </databaseChangeLog>

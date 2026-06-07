@@ -1,10 +1,12 @@
 package com.quickbooks.controller.subscriber;
 
 import com.quickbooks.dto.subscriber.ChangeSubscriberPinRequest;
+import com.quickbooks.dto.subscriber.SubscriberAccountProfileResponse;
 import com.quickbooks.security.UserPrincipal;
 import com.quickbooks.service.SubscriberService;
 import jakarta.validation.Valid;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -20,6 +22,11 @@ public class SubscriberAccountController {
 
     public SubscriberAccountController(SubscriberService subscriberService) {
         this.subscriberService = subscriberService;
+    }
+
+    @GetMapping("/profile")
+    public SubscriberAccountProfileResponse profile(@AuthenticationPrincipal UserPrincipal principal) {
+        return subscriberService.getAccountProfile(principal.getId());
     }
 
     @PostMapping("/change-pin")

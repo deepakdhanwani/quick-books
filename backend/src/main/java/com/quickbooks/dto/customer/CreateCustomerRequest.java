@@ -1,53 +1,22 @@
-package com.quickbooks.entity;
+package com.quickbooks.dto.customer;
 
 import com.quickbooks.entity.enums.CustomerType;
-import jakarta.persistence.*;
-import java.time.OffsetDateTime;
+import jakarta.validation.constraints.NotBlank;
 
-@Entity
-@Table(name = "customers")
-public class Customer {
+public class CreateCustomerRequest {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
-
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "subscriber_id", nullable = false)
-    private Subscriber subscriber;
-
-    @Column(nullable = false)
+    @NotBlank
     private String name;
 
     private String phone;
     private String email;
-
-    @Column(columnDefinition = "TEXT")
     private String address;
-
-    @Enumerated(EnumType.STRING)
-    @Column(name = "customer_type")
+    private Boolean active;
     private CustomerType customerType;
-
-    @Column(name = "business_name")
     private String businessName;
-
-    @Column(name = "gst_number")
     private String gstNumber;
-
-    @Column(name = "business_details", columnDefinition = "TEXT")
     private String businessDetails;
 
-    @Column(nullable = false)
-    private boolean active = true;
-
-    @Column(name = "created_at", nullable = false)
-    private OffsetDateTime createdAt = OffsetDateTime.now();
-
-    public Long getId() { return id; }
-    public void setId(Long id) { this.id = id; }
-    public Subscriber getSubscriber() { return subscriber; }
-    public void setSubscriber(Subscriber subscriber) { this.subscriber = subscriber; }
     public String getName() { return name; }
     public void setName(String name) { this.name = name; }
     public String getPhone() { return phone; }
@@ -56,6 +25,8 @@ public class Customer {
     public void setEmail(String email) { this.email = email; }
     public String getAddress() { return address; }
     public void setAddress(String address) { this.address = address; }
+    public Boolean getActive() { return active; }
+    public void setActive(Boolean active) { this.active = active; }
     public CustomerType getCustomerType() { return customerType; }
     public void setCustomerType(CustomerType customerType) { this.customerType = customerType; }
     public String getBusinessName() { return businessName; }
@@ -64,8 +35,4 @@ public class Customer {
     public void setGstNumber(String gstNumber) { this.gstNumber = gstNumber; }
     public String getBusinessDetails() { return businessDetails; }
     public void setBusinessDetails(String businessDetails) { this.businessDetails = businessDetails; }
-    public boolean isActive() { return active; }
-    public void setActive(boolean active) { this.active = active; }
-    public OffsetDateTime getCreatedAt() { return createdAt; }
-    public void setCreatedAt(OffsetDateTime createdAt) { this.createdAt = createdAt; }
 }

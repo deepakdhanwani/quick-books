@@ -3,6 +3,7 @@ package com.quickbooks.service;
 import com.quickbooks.dto.common.PageResponse;
 import com.quickbooks.dto.subscriber.ChangeSubscriberPinRequest;
 import com.quickbooks.dto.subscriber.CreateSubscriberRequest;
+import com.quickbooks.dto.subscriber.SubscriberAccountProfileResponse;
 import com.quickbooks.dto.subscriber.SubscriberDetailResponse;
 import com.quickbooks.dto.subscriber.SubscriberOptionResponse;
 import com.quickbooks.dto.subscriber.SubscriberResponse;
@@ -74,6 +75,23 @@ public class SubscriberService {
     }
 
     @Transactional(readOnly = true)
+    public SubscriberAccountProfileResponse getAccountProfile(Long id) {
+        Subscriber subscriber = getById(id);
+        SubscriberAccountProfileResponse response = SubscriberAccountProfileResponse.from(subscriber);
+
+        if (subscriber.getSubscriptionStatus() == SubscriptionStatus.ACTIVE) {
+            subscriberSubscriptionRepository
+                    .findFirstBySubscriberIdAndStatusOrderByEndDateDesc(id, SubscriptionRecordStatus.ACTIVE)
+                    .ifPresent(sub -> response.setCurrentSubscription(SubscriberSubscriptionInfo.from(sub)));
+        } else if (subscriber.getSubscriptionStatus() == SubscriptionStatus.EXPIRED) {
+            subscriberSubscriptionRepository.findFirstBySubscriber_IdOrderByEndDateDesc(id)
+                    .ifPresent(sub -> response.setCurrentSubscription(SubscriberSubscriptionInfo.from(sub)));
+        }
+
+        return response;
+    }
+
+    @Transactional(readOnly = true)
     public SubscriberDetailResponse getDetail(Long id) {
         Subscriber subscriber = getById(id);
         SubscriberDetailResponse response = SubscriberDetailResponse.from(subscriber);
@@ -112,7 +130,7 @@ public class SubscriberService {
         subscriber.setOwnerName(request.getOwnerName());
         subscriber.setPhone(request.getPhone());
         subscriber.setBusinessType(businessType);
-        subscriber.setLoginPinHash(passwordEncoder.encode(loginPin));
+        applyLoginPin(subscriber, loginPin);
         subscriber.setSubscriptionStatus(SubscriptionStatus.NONE);
         subscriber.setActive(true);
 
@@ -148,7 +166,7 @@ public class SubscriberService {
     public SubscriberResponse resetLoginPin(Long id) {
         Subscriber subscriber = getById(id);
         String loginPin = pinGenerator.generatePin();
-        subscriber.setLoginPinHash(passwordEncoder.encode(loginPin));
+        applyLoginPin(subscriber, loginPin);
 
         Subscriber saved = subscriberRepository.save(subscriber);
         SubscriberResponse response = SubscriberResponse.from(saved);
@@ -165,7 +183,15 @@ public class SubscriberService {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Current PIN is incorrect");
         }
 
-        subscriber.setLoginPinHash(passwordEncoder.encode(request.getNewPin()));
+        applyLoginPin(subscriber, request.getNewPin());
         subscriberRepository.save(subscriber);
+    }
+
+    private void applyLoginPin(Subscriber subscriber, String loginPin) {
+        if (loginPin == null || loginPin.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Login PIN must not be empty");
+        }
+        subscriber.setLoginPin(loginPin);
+        subscriber.setLoginPinHash(passwordEncoder.encode(loginPin));
     }
 }

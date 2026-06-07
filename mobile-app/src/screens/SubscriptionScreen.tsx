@@ -1,49 +1,46 @@
-import { useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text } from 'react-native';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
-import { ChangePinScreen } from './ChangePinScreen';
+import { RefreshableScrollView } from '../components/RefreshableScrollView';
 import { colors } from '../theme/colors';
 
 type SubscriptionScreenProps = {
-  token: string;
   status: 'NONE' | 'EXPIRED';
-  onLogout: () => void;
+  refreshing: boolean;
+  onRefresh: () => void | Promise<void>;
 };
 
-export function SubscriptionScreen({ token, status, onLogout }: SubscriptionScreenProps) {
-  const [showChangePin, setShowChangePin] = useState(false);
-
-  if (showChangePin) {
-    return <ChangePinScreen token={token} onBack={() => setShowChangePin(false)} />;
-  }
+export function SubscriptionScreen({ status, refreshing, onRefresh }: SubscriptionScreenProps) {
   const title = status === 'NONE' ? 'Choose a Subscription Plan' : 'Renew Your Subscription';
   const message =
     status === 'NONE'
-      ? 'Select a plan to start using Quick Books features.'
-      : 'Your subscription has expired. Renew to regain access.';
+      ? 'Select a plan when you are ready. Subscription is optional and can be managed anytime.'
+      : 'Your subscription has expired. Renew when you are ready.';
 
   return (
-    <View style={styles.container}>
+    <RefreshableScrollView
+      style={styles.container}
+      contentContainerStyle={styles.content}
+      refreshing={refreshing}
+      onRefresh={onRefresh}
+    >
       <Card>
         <Text style={styles.title}>{title}</Text>
         <Text style={styles.text}>{message}</Text>
         <Text style={styles.hint}>Plan selection will be implemented in the next phase.</Text>
-        <View style={styles.actions}>
-          <Button title="Change Login PIN" onPress={() => setShowChangePin(true)} variant="secondary" />
-          <Button title="Sign Out" onPress={onLogout} variant="secondary" />
-        </View>
+        <Button title="Browse Plans" onPress={() => {}} />
       </Card>
-    </View>
+    </RefreshableScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
-    justifyContent: 'center',
-    padding: 24,
+  },
+  content: {
+    padding: 20,
+    flexGrow: 1,
   },
   title: {
     color: colors.text,
@@ -54,12 +51,10 @@ const styles = StyleSheet.create({
   text: {
     color: colors.textSecondary,
     marginBottom: 12,
+    lineHeight: 22,
   },
   hint: {
     color: colors.warning,
-    marginBottom: 24,
-  },
-  actions: {
-    gap: 12,
+    marginBottom: 20,
   },
 });

@@ -1,39 +1,58 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, View } from 'react-native';
-import { DashboardScreen } from './src/screens/DashboardScreen';
+import { ActivityIndicator, StyleSheet, View } from 'react-native';
+import { AppShell } from './src/navigation/AppShell';
 import { LoginScreen } from './src/screens/LoginScreen';
-import { SubscriptionScreen } from './src/screens/SubscriptionScreen';
-import { SubscriberAuthResponse } from './src/services/api';
+import { api, initApiBaseUrl, SubscriberAuthResponse } from './src/services/api';
+import { clearAuthSession, loadAuthSession, saveAuthSession } from './src/services/authStorage';
 import { colors } from './src/theme/colors';
 
 export default function App() {
   const [auth, setAuth] = useState<SubscriberAuthResponse | null>(null);
+  const [ready, setReady] = useState(false);
 
-  const handleLogout = () => setAuth(null);
+  useEffect(() => {
+    const bootstrap = async () => {
+      await initApiBaseUrl();
 
-  const renderScreen = () => {
-    if (!auth) {
-      return <LoginScreen onLogin={setAuth} />;
-    }
+      const storedAuth = await loadAuthSession();
+      if (storedAuth) {
+        try {
+          await api.getAccountProfile(storedAuth.token);
+          setAuth(storedAuth);
+        } catch {
+          await clearAuthSession();
+        }
+      }
 
-    if (auth.requiresSubscription) {
-      return (
-        <SubscriptionScreen
-          token={auth.token}
-          status={auth.subscriptionStatus === 'EXPIRED' ? 'EXPIRED' : 'NONE'}
-          onLogout={handleLogout}
-        />
-      );
-    }
+      setReady(true);
+    };
 
-    return <DashboardScreen token={auth.token} onLogout={handleLogout} />;
+    bootstrap();
+  }, []);
+
+  const handleLogin = async (response: SubscriberAuthResponse) => {
+    await saveAuthSession(response);
+    setAuth(response);
   };
+
+  const handleLogout = async () => {
+    await clearAuthSession();
+    setAuth(null);
+  };
+
+  if (!ready) {
+    return (
+      <View style={styles.loading}>
+        <ActivityIndicator color={colors.primary} size="large" />
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
       <StatusBar style="light" />
-      {renderScreen()}
+      {auth ? <AppShell auth={auth} onLogout={handleLogout} /> : <LoginScreen onLogin={handleLogin} />}
     </View>
   );
 }
@@ -42,5 +61,11 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
+  },
+  loading: {
+    flex: 1,
+    backgroundColor: colors.background,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });
