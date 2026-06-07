@@ -1,4 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
+import { useAppTheme } from '../theme/AppThemeContext';
+import type { AppTheme } from '../theme/types';
+import { useThemedStyles } from '../theme/useThemedStyles';
 import { useEffect, useState } from 'react';
 import { Modal, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import {
@@ -10,8 +13,6 @@ import {
   toIsoDate,
   validateRangeDates,
 } from '../utils/dateListFilter';
-import { colors } from '../theme/colors';
-
 const FILTER_OPTIONS: { value: DateFilterMode; label: string }[] = [
   { value: 'today', label: 'Today' },
   { value: 'week', label: 'This week' },
@@ -26,6 +27,9 @@ type TransactionDateFilterProps = {
 };
 
 export function TransactionDateFilter({ value, onApply, onClear }: TransactionDateFilterProps) {
+  const theme = useAppTheme();
+  const styles = useThemedStyles(createStyles);
+
   const [visible, setVisible] = useState(false);
   const [draftMode, setDraftMode] = useState<DateFilterMode>(value.mode === 'none' ? 'today' : value.mode);
   const [draftFromDate, setDraftFromDate] = useState(value.fromDate ?? toIsoDate(new Date()));
@@ -80,7 +84,7 @@ export function TransactionDateFilter({ value, onApply, onClear }: TransactionDa
         onPress={() => setVisible(true)}
         accessibilityLabel="Filter by date"
       >
-        <Ionicons name="filter-outline" size={20} color={active ? colors.primary : colors.text} />
+        <Ionicons name="filter-outline" size={20} color={active ? theme.colors.primary : theme.colors.text} />
       </Pressable>
 
       <Modal visible={visible} transparent animationType="fade" onRequestClose={close}>
@@ -119,7 +123,7 @@ export function TransactionDateFilter({ value, onApply, onClear }: TransactionDa
                     value={draftFromDate}
                     onChangeText={setDraftFromDate}
                     placeholder="YYYY-MM-DD"
-                    placeholderTextColor={colors.textSecondary}
+                    placeholderTextColor={theme.colors.textSecondary}
                     autoCapitalize="none"
                     autoCorrect={false}
                   />
@@ -131,7 +135,7 @@ export function TransactionDateFilter({ value, onApply, onClear }: TransactionDa
                     value={draftToDate}
                     onChangeText={setDraftToDate}
                     placeholder="YYYY-MM-DD"
-                    placeholderTextColor={colors.textSecondary}
+                    placeholderTextColor={theme.colors.textSecondary}
                     autoCapitalize="none"
                     autoCorrect={false}
                   />
@@ -157,6 +161,8 @@ export function TransactionDateFilter({ value, onApply, onClear }: TransactionDa
 }
 
 export function TransactionDateFilterSummary({ value }: { value: AppliedDateFilter }) {
+  const styles = useThemedStyles(createStyles);
+
   if (!isDateFilterActive(value)) {
     return null;
   }
@@ -164,19 +170,20 @@ export function TransactionDateFilterSummary({ value }: { value: AppliedDateFilt
   return <Text style={styles.summary}>Date: {getDateFilterLabel(value)}</Text>;
 }
 
-const styles = StyleSheet.create({
+function createStyles(theme: AppTheme) {
+  return {
   filterButton: {
     width: 44,
     height: 44,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surfaceElevated,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surfaceElevated,
     alignItems: 'center',
     justifyContent: 'center',
   },
   filterButtonActive: {
-    borderColor: colors.primary,
+    borderColor: theme.colors.primary,
     backgroundColor: 'rgba(59, 130, 246, 0.15)',
   },
   overlay: {
@@ -186,22 +193,22 @@ const styles = StyleSheet.create({
     padding: 24,
   },
   card: {
-    backgroundColor: colors.surface,
+    backgroundColor: theme.colors.surface,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: theme.colors.border,
     padding: 20,
     gap: 14,
   },
   title: {
-    color: colors.text,
-    fontSize: 18,
+    color: theme.colors.text,
+    fontSize: theme.scaleFont(18),
     fontWeight: '700',
   },
   subtitle: {
-    color: colors.textSecondary,
-    fontSize: 13,
-    lineHeight: 18,
+    color: theme.colors.textSecondary,
+    fontSize: theme.scaleFont(13),
+    lineHeight: theme.scaleFont(18),
   },
   options: {
     gap: 8,
@@ -214,11 +221,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surfaceElevated,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surfaceElevated,
   },
   optionActive: {
-    borderColor: colors.primary,
+    borderColor: theme.colors.primary,
     backgroundColor: 'rgba(59, 130, 246, 0.12)',
   },
   radio: {
@@ -226,26 +233,26 @@ const styles = StyleSheet.create({
     height: 18,
     borderRadius: 9,
     borderWidth: 2,
-    borderColor: colors.border,
+    borderColor: theme.colors.border,
     alignItems: 'center',
     justifyContent: 'center',
   },
   radioActive: {
-    borderColor: colors.primary,
+    borderColor: theme.colors.primary,
   },
   radioDot: {
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: colors.primary,
+    backgroundColor: theme.colors.primary,
   },
   optionText: {
-    color: colors.textSecondary,
-    fontSize: 15,
+    color: theme.colors.textSecondary,
+    fontSize: theme.scaleFont(15),
     fontWeight: '600',
   },
   optionTextActive: {
-    color: colors.text,
+    color: theme.colors.text,
   },
   rangeFields: {
     gap: 10,
@@ -254,23 +261,23 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   rangeLabel: {
-    color: colors.textSecondary,
-    fontSize: 12,
+    color: theme.colors.textSecondary,
+    fontSize: theme.scaleFont(12),
     fontWeight: '600',
   },
   rangeInput: {
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: theme.colors.border,
     borderRadius: 10,
-    backgroundColor: colors.surfaceElevated,
-    color: colors.text,
-    fontSize: 15,
+    backgroundColor: theme.colors.surfaceElevated,
+    color: theme.colors.text,
+    fontSize: theme.scaleFont(15),
     paddingHorizontal: 12,
     paddingVertical: 10,
   },
   error: {
-    color: colors.error,
-    fontSize: 13,
+    color: theme.colors.error,
+    fontSize: theme.scaleFont(13),
   },
   actions: {
     flexDirection: 'row',
@@ -285,26 +292,28 @@ const styles = StyleSheet.create({
   },
   clearButton: {
     borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surfaceElevated,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surfaceElevated,
   },
   clearButtonText: {
-    color: colors.text,
-    fontSize: 15,
+    color: theme.colors.text,
+    fontSize: theme.scaleFont(15),
     fontWeight: '600',
   },
   applyButton: {
-    backgroundColor: colors.primary,
+    backgroundColor: theme.colors.primary,
   },
   applyButtonText: {
-    color: colors.text,
-    fontSize: 15,
+    color: theme.colors.onPrimary,
+    fontSize: theme.scaleFont(15),
     fontWeight: '700',
   },
   summary: {
     marginTop: 8,
-    color: colors.textSecondary,
-    fontSize: 12,
+    color: theme.colors.textSecondary,
+    fontSize: theme.scaleFont(12),
     fontWeight: '600',
   },
-});
+
+  };
+}

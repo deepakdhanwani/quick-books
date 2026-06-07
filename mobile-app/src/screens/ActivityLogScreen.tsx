@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useState } from 'react';
+import { useAppTheme } from '../theme/AppThemeContext';
+import type { AppTheme } from '../theme/types';
+import { useThemedStyles } from '../theme/useThemedStyles';
 import { ActivityIndicator, FlatList, StyleSheet, Text, View } from 'react-native';
 import { Card } from '../components/Card';
 import { api, AuditLogEntry } from '../services/api';
-import { colors } from '../theme/colors';
-
 type ActivityLogScreenProps = {
   token: string;
   refreshing: boolean;
@@ -21,6 +22,9 @@ function formatEntityType(entityType: string) {
 }
 
 export function ActivityLogScreen({ token, refreshing, onRefresh }: ActivityLogScreenProps) {
+  const theme = useAppTheme();
+  const styles = useThemedStyles(createStyles);
+
   const [logs, setLogs] = useState<AuditLogEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -49,7 +53,7 @@ export function ActivityLogScreen({ token, refreshing, onRefresh }: ActivityLogS
   if (loading && logs.length === 0) {
     return (
       <View style={styles.loading}>
-        <ActivityIndicator color={colors.primary} size="large" />
+        <ActivityIndicator color={theme.colors.primary} size="large" />
       </View>
     );
   }
@@ -84,15 +88,18 @@ export function ActivityLogScreen({ token, refreshing, onRefresh }: ActivityLogS
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(theme: AppTheme) {
+  return {
   container: { flex: 1 },
   content: { padding: 20, gap: 10 },
   loading: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   logCard: { marginBottom: 0 },
-  logTitle: { color: colors.text, fontWeight: '700', fontSize: 14 },
-  logDetails: { color: colors.textSecondary, fontSize: 13, marginTop: 4 },
-  logMeta: { color: colors.primary, fontSize: 12, marginTop: 8, fontWeight: '600' },
-  logTime: { color: colors.textSecondary, fontSize: 11, marginTop: 4 },
-  error: { color: colors.error, marginBottom: 12 },
-  empty: { color: colors.textSecondary, fontSize: 14 },
-});
+  logTitle: { color: theme.colors.text, fontWeight: '700', fontSize: theme.scaleFont(14) },
+  logDetails: { color: theme.colors.textSecondary, fontSize: theme.scaleFont(13), marginTop: 4 },
+  logMeta: { color: theme.colors.primary, fontSize: theme.scaleFont(12), marginTop: 8, fontWeight: '600' },
+  logTime: { color: theme.colors.textSecondary, fontSize: theme.scaleFont(11), marginTop: 4 },
+  error: { color: theme.colors.error, marginBottom: 12 },
+  empty: { color: theme.colors.textSecondary, fontSize: theme.scaleFont(14) },
+
+  };
+}

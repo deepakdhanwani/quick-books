@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useAppTheme } from '../theme/AppThemeContext';
+import type { AppTheme } from '../theme/types';
+import { useThemedStyles } from '../theme/useThemedStyles';
 import { ActivityIndicator, StyleSheet, Switch, Text, View } from 'react-native';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
 import { Input } from '../components/Input';
 import { RefreshableScrollView } from '../components/RefreshableScrollView';
 import { api } from '../services/api';
-import { colors } from '../theme/colors';
 import { calculateProductNet } from '../utils/productAmounts';
 import { formatCurrency, parseAmount } from '../utils/saleAmounts';
 
@@ -16,6 +18,9 @@ type ProductFormScreenProps = {
 };
 
 export function ProductFormScreen({ token, productId, onSaved }: ProductFormScreenProps) {
+  const theme = useAppTheme();
+  const styles = useThemedStyles(createStyles);
+
   const isEditing = productId != null;
 
   const [name, setName] = useState('');
@@ -103,7 +108,7 @@ export function ProductFormScreen({ token, productId, onSaved }: ProductFormScre
   if (loading) {
     return (
       <View style={styles.loading}>
-        <ActivityIndicator color={colors.primary} size="large" />
+        <ActivityIndicator color={theme.colors.primary} size="large" />
       </View>
     );
   }
@@ -138,8 +143,8 @@ export function ProductFormScreen({ token, productId, onSaved }: ProductFormScre
           <Switch
             value={active}
             onValueChange={setActive}
-            trackColor={{ false: colors.border, true: colors.primary }}
-            thumbColor={colors.text}
+            trackColor={{ false: theme.colors.border, true: theme.colors.primary }}
+            thumbColor={theme.colors.text}
           />
         </View>
 
@@ -150,7 +155,8 @@ export function ProductFormScreen({ token, productId, onSaved }: ProductFormScre
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(theme: AppTheme) {
+  return {
   container: { flex: 1 },
   content: { padding: 20, paddingBottom: 32 },
   loading: { flex: 1, alignItems: 'center', justifyContent: 'center' },
@@ -162,11 +168,11 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     backgroundColor: 'rgba(59, 130, 246, 0.1)',
     borderWidth: 1,
-    borderColor: colors.primary,
+    borderColor: theme.colors.primary,
     marginBottom: 16,
   },
-  netLabel: { color: colors.text, fontSize: 15, fontWeight: '600' },
-  netValue: { color: colors.primary, fontSize: 20, fontWeight: '700' },
+  netLabel: { color: theme.colors.text, fontSize: theme.scaleFont(15), fontWeight: '600' },
+  netValue: { color: theme.colors.primary, fontSize: theme.scaleFont(20), fontWeight: '700' },
   activeRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -174,9 +180,11 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     marginBottom: 16,
     borderTopWidth: 1,
-    borderTopColor: colors.border,
+    borderTopColor: theme.colors.border,
   },
-  activeLabel: { color: colors.text, fontSize: 15, fontWeight: '600' },
-  activeHint: { color: colors.textSecondary, fontSize: 12, marginTop: 2 },
-  error: { color: colors.error, marginBottom: 12 },
-});
+  activeLabel: { color: theme.colors.text, fontSize: theme.scaleFont(15), fontWeight: '600' },
+  activeHint: { color: theme.colors.textSecondary, fontSize: theme.scaleFont(12), marginTop: 2 },
+  error: { color: theme.colors.error, marginBottom: 12 },
+
+  };
+}

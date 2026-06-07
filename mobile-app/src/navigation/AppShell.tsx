@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import type { AppTheme } from '../theme/types';
+import { useThemedStyles } from '../theme/useThemedStyles';
 import { StyleSheet, View } from 'react-native';
 import { appAlert } from '../utils/appAlert';
 import { AppHeader } from '../components/AppHeader';
@@ -30,8 +32,11 @@ import { TeamUsersScreen } from '../screens/TeamUsersScreen';
 import { TeamUserFormScreen } from '../screens/TeamUserFormScreen';
 import { TeamUserDetailScreen } from '../screens/TeamUserDetailScreen';
 import { ActivityLogScreen } from '../screens/ActivityLogScreen';
+import { PreferencesScreen } from '../screens/PreferencesScreen';
 import { api, SubscriberAccountProfile, SubscriberAuthResponse } from '../services/api';
-import { colors } from '../theme/colors';
+import { saveCachedPreferences } from '../services/preferenceStorage';
+import { useUserPreferences } from '../theme/AppThemeContext';
+import { toUserPreferences } from '../utils/userPreferences';
 import { DrawerRoute, PLACEHOLDER_TITLES, StackRoute } from './types';
 
 type AppShellProps = {
@@ -41,6 +46,9 @@ type AppShellProps = {
 };
 
 export function AppShell({ auth, onLogout, onSubscriptionChanged }: AppShellProps) {
+  const styles = useThemedStyles(createStyles);
+  const { setPreferences } = useUserPreferences();
+
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [drawerRoute, setDrawerRoute] = useState<DrawerRoute>('dashboard');
   const [stackRoute, setStackRoute] = useState<StackRoute | null>(null);
@@ -80,6 +88,9 @@ export function AppShell({ auth, onLogout, onSubscriptionChanged }: AppShellProp
           return;
         }
         setProfile(data);
+        const nextPreferences = toUserPreferences(data);
+        setPreferences(nextPreferences);
+        await saveCachedPreferences(nextPreferences);
         await onSubscriptionChanged({
           ...auth,
           subscriptionStatus: data.subscriptionStatus,
@@ -96,7 +107,7 @@ export function AppShell({ auth, onLogout, onSubscriptionChanged }: AppShellProp
         }
       }
     },
-    [auth, onSubscriptionChanged],
+    [auth, onSubscriptionChanged, setPreferences],
   );
 
   const handleRefresh = useCallback(async () => {
@@ -428,6 +439,7 @@ export function AppShell({ auth, onLogout, onSubscriptionChanged }: AppShellProp
     if (stackRoute === 'team-user-form') return 'Add Team User';
     if (stackRoute === 'team-user-detail') return 'Team User';
     if (stackRoute === 'activity-log') return 'Activity Log';
+    if (stackRoute === 'preferences') return 'Appearance';
 
     if (drawerRoute === 'dashboard') return 'Dashboard';
     if (drawerRoute === 'settings') return 'Settings';
@@ -530,6 +542,16 @@ export function AppShell({ auth, onLogout, onSubscriptionChanged }: AppShellProp
     if (stackRoute === 'activity-log') {
       return (
         <ActivityLogScreen
+          token={auth.token}
+          refreshing={refreshing}
+          onRefresh={handleRefresh}
+        />
+      );
+    }
+
+    if (stackRoute === 'preferences') {
+      return (
+        <PreferencesScreen
           token={auth.token}
           refreshing={refreshing}
           onRefresh={handleRefresh}
@@ -747,6 +769,7 @@ export function AppShell({ auth, onLogout, onSubscriptionChanged }: AppShellProp
           refreshing={refreshing}
           onRefresh={handleRefresh}
           onOpenAccount={() => openStack('account')}
+          onOpenPreferences={() => openStack('preferences')}
           onManageTeam={openTeamUsers}
           onActivityLog={openActivityLog}
           isOwner={isOwner}
@@ -787,12 +810,15 @@ export function AppShell({ auth, onLogout, onSubscriptionChanged }: AppShellProp
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(theme: AppTheme) {
+  return {
   shell: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: theme.colors.background,
   },
   body: {
     flex: 1,
   },
-});
+
+  };
+}

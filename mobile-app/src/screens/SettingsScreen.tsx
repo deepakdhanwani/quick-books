@@ -1,16 +1,18 @@
 import { Ionicons } from '@expo/vector-icons';
+import { useAppTheme } from '../theme/AppThemeContext';
+import type { AppTheme } from '../theme/types';
+import { useThemedStyles } from '../theme/useThemedStyles';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Card } from '../components/Card';
 import { RefreshableScrollView } from '../components/RefreshableScrollView';
 import { SubscriberAccountProfile } from '../services/api';
-import { colors } from '../theme/colors';
-
 type SettingsScreenProps = {
   profile: SubscriberAccountProfile | null;
   loading: boolean;
   refreshing: boolean;
   onRefresh: () => void | Promise<void>;
   onOpenAccount: () => void;
+  onOpenPreferences: () => void;
   onManageTeam: () => void;
   onActivityLog: () => void;
   isOwner: boolean;
@@ -22,10 +24,14 @@ export function SettingsScreen({
   refreshing,
   onRefresh,
   onOpenAccount,
+  onOpenPreferences,
   onManageTeam,
   onActivityLog,
   isOwner,
 }: SettingsScreenProps) {
+  const theme = useAppTheme();
+  const styles = useThemedStyles(createStyles);
+
   const displayName = profile?.loggedInUserName ?? profile?.ownerName ?? 'Account';
   const roleLabel = profile?.userType === 'STAFF' ? 'Team user' : 'Owner';
 
@@ -38,7 +44,7 @@ export function SettingsScreen({
     >
       {loading && !profile ? (
         <View style={styles.loading}>
-          <ActivityIndicator color={colors.primary} size="large" />
+          <ActivityIndicator color={theme.colors.primary} size="large" />
         </View>
       ) : (
         <>
@@ -56,39 +62,50 @@ export function SettingsScreen({
 
           <Text style={styles.sectionTitle}>Preferences</Text>
 
+          <Pressable style={styles.menuRow} onPress={onOpenPreferences}>
+            <View style={styles.menuIcon}>
+              <Ionicons name="color-palette-outline" size={22} color={theme.colors.primary} />
+            </View>
+            <View style={styles.menuText}>
+              <Text style={styles.menuLabel}>Appearance</Text>
+              <Text style={styles.menuHint}>Theme and font size</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={theme.colors.textSecondary} />
+          </Pressable>
+
           <Pressable style={styles.menuRow} onPress={onOpenAccount}>
             <View style={styles.menuIcon}>
-              <Ionicons name="person-circle-outline" size={22} color={colors.primary} />
+              <Ionicons name="person-circle-outline" size={22} color={theme.colors.primary} />
             </View>
             <View style={styles.menuText}>
               <Text style={styles.menuLabel}>My Account</Text>
               <Text style={styles.menuHint}>Profile, PIN, and subscription</Text>
             </View>
-            <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
+            <Ionicons name="chevron-forward" size={18} color={theme.colors.textSecondary} />
           </Pressable>
 
           {isOwner ? (
             <>
               <Pressable style={styles.menuRow} onPress={onManageTeam}>
                 <View style={styles.menuIcon}>
-                  <Ionicons name="people-outline" size={22} color={colors.primary} />
+                  <Ionicons name="people-outline" size={22} color={theme.colors.primary} />
                 </View>
                 <View style={styles.menuText}>
                   <Text style={styles.menuLabel}>Team Users</Text>
                   <Text style={styles.menuHint}>Create staff users and assign PINs</Text>
                 </View>
-                <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
+                <Ionicons name="chevron-forward" size={18} color={theme.colors.textSecondary} />
               </Pressable>
 
               <Pressable style={styles.menuRow} onPress={onActivityLog}>
                 <View style={styles.menuIcon}>
-                  <Ionicons name="list-outline" size={22} color={colors.primary} />
+                  <Ionicons name="list-outline" size={22} color={theme.colors.primary} />
                 </View>
                 <View style={styles.menuText}>
                   <Text style={styles.menuLabel}>Activity Log</Text>
                   <Text style={styles.menuHint}>Who created, edited, or deleted records</Text>
                 </View>
-                <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
+                <Ionicons name="chevron-forward" size={18} color={theme.colors.textSecondary} />
               </Pressable>
             </>
           ) : null}
@@ -98,7 +115,8 @@ export function SettingsScreen({
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(theme: AppTheme) {
+  return {
   container: {
     flex: 1,
   },
@@ -127,37 +145,37 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   avatarText: {
-    color: colors.primary,
-    fontSize: 22,
+    color: theme.colors.primary,
+    fontSize: theme.scaleFont(22),
     fontWeight: '700',
   },
   profileInfo: {
     flex: 1,
   },
   ownerName: {
-    color: colors.text,
-    fontSize: 18,
+    color: theme.colors.text,
+    fontSize: theme.scaleFont(18),
     fontWeight: '700',
   },
   businessName: {
-    color: colors.textSecondary,
-    fontSize: 14,
+    color: theme.colors.textSecondary,
+    fontSize: theme.scaleFont(14),
     marginTop: 2,
   },
   phone: {
-    color: colors.textSecondary,
-    fontSize: 13,
+    color: theme.colors.textSecondary,
+    fontSize: theme.scaleFont(13),
     marginTop: 2,
   },
   role: {
-    color: colors.primary,
-    fontSize: 12,
+    color: theme.colors.primary,
+    fontSize: theme.scaleFont(12),
     fontWeight: '600',
     marginTop: 6,
   },
   sectionTitle: {
-    color: colors.textSecondary,
-    fontSize: 12,
+    color: theme.colors.textSecondary,
+    fontSize: theme.scaleFont(12),
     fontWeight: '700',
     textTransform: 'uppercase',
     letterSpacing: 0.8,
@@ -166,12 +184,12 @@ const styles = StyleSheet.create({
   menuRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.surface,
+    backgroundColor: theme.colors.surface,
     borderRadius: 12,
     padding: 14,
     marginBottom: 10,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: theme.colors.border,
   },
   menuIcon: {
     width: 40,
@@ -186,13 +204,15 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   menuLabel: {
-    color: colors.text,
-    fontSize: 15,
+    color: theme.colors.text,
+    fontSize: theme.scaleFont(15),
     fontWeight: '600',
   },
   menuHint: {
-    color: colors.textSecondary,
-    fontSize: 12,
+    color: theme.colors.textSecondary,
+    fontSize: theme.scaleFont(12),
     marginTop: 2,
   },
-});
+
+  };
+}

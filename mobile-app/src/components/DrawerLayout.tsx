@@ -1,4 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
+import { useAppTheme } from '../theme/AppThemeContext';
+import type { AppTheme } from '../theme/types';
+import { useThemedStyles } from '../theme/useThemedStyles';
 import { ReactNode } from 'react';
 import {
   Modal,
@@ -10,7 +13,6 @@ import {
   Text,
   View,
 } from 'react-native';
-import { colors } from '../theme/colors';
 import { DRAWER_NAV_ITEMS, DrawerRoute } from '../navigation/types';
 import { MenuNavItem } from './MenuNavItem';
 import { SubscriberAccountProfile } from '../services/api';
@@ -36,6 +38,9 @@ export function DrawerLayout({
   onSignOut,
   children,
 }: DrawerLayoutProps) {
+  const theme = useAppTheme();
+  const styles = useThemedStyles(createStyles);
+
   const topInset = Platform.OS === 'android' ? (StatusBar.currentHeight ?? 0) : 44;
 
   const handleNavigate = (route: DrawerRoute) => {
@@ -63,7 +68,7 @@ export function DrawerLayout({
           <View style={[styles.drawer, { paddingTop: topInset + 12, paddingBottom: 16 }]}>
             <View style={styles.brandBlock}>
               <View style={styles.brandIcon}>
-                <Ionicons name="book-outline" size={18} color={colors.primary} />
+                <Ionicons name="book-outline" size={18} color={theme.colors.primary} />
               </View>
               <View style={styles.brandText}>
                 <Text style={styles.brandTitle}>Quick Books</Text>
@@ -78,7 +83,7 @@ export function DrawerLayout({
                 accessibilityRole="button"
                 hitSlop={8}
               >
-                <Ionicons name="close" size={18} color={colors.textSecondary} />
+                <Ionicons name="close" size={18} color={theme.colors.textSecondary} />
               </Pressable>
             </View>
 
@@ -99,7 +104,7 @@ export function DrawerLayout({
               accessibilityRole="button"
               accessibilityLabel="Sign out"
             >
-              <Ionicons name="log-out-outline" size={17} color={colors.error} />
+              <Ionicons name="log-out-outline" size={17} color={theme.colors.error} />
               <Text style={styles.signOutText}>Sign Out</Text>
             </Pressable>
           </View>
@@ -116,10 +121,11 @@ export function DrawerLayout({
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(theme: AppTheme) {
+  return {
   root: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: theme.colors.background,
   },
   modalRoot: {
     flex: 1,
@@ -127,9 +133,9 @@ const styles = StyleSheet.create({
   },
   drawer: {
     width: DRAWER_WIDTH,
-    backgroundColor: colors.surface,
+    backgroundColor: theme.colors.surface,
     borderRightWidth: 1,
-    borderRightColor: colors.border,
+    borderRightColor: theme.colors.border,
     paddingHorizontal: 12,
   },
   backdrop: {
@@ -155,13 +161,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   brandTitle: {
-    color: colors.text,
-    fontSize: 16,
+    color: theme.colors.text,
+    fontSize: theme.scaleFont(16),
     fontWeight: '700',
   },
   brandSubtitle: {
-    color: colors.textSecondary,
-    fontSize: 12,
+    color: theme.colors.textSecondary,
+    fontSize: theme.scaleFont(12),
     marginTop: 1,
   },
   closeButton: {
@@ -170,7 +176,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.surfaceElevated,
+    backgroundColor: theme.colors.surfaceElevated,
   },
   menuScroll: {
     flex: 1,
@@ -188,8 +194,10 @@ const styles = StyleSheet.create({
     marginTop: 6,
   },
   signOutText: {
-    color: colors.error,
-    fontSize: 13,
+    color: theme.colors.error,
+    fontSize: theme.scaleFont(13),
     fontWeight: '600',
   },
-});
+
+  };
+}

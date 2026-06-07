@@ -1,6 +1,7 @@
 import { Pressable, StyleSheet, Text, ActivityIndicator } from 'react-native';
-import { colors } from '../theme/colors';
-
+import { useAppTheme } from '../theme/AppThemeContext';
+import type { AppTheme } from '../theme/types';
+import { useThemedStyles } from '../theme/useThemedStyles';
 type ButtonProps = {
   title: string;
   onPress: () => void;
@@ -9,6 +10,9 @@ type ButtonProps = {
 };
 
 export function Button({ title, onPress, loading, variant = 'primary' }: ButtonProps) {
+  const theme = useAppTheme();
+  const styles = useThemedStyles(createStyles);
+
   return (
     <Pressable
       style={[styles.button, variant === 'secondary' && styles.secondary]}
@@ -16,28 +20,34 @@ export function Button({ title, onPress, loading, variant = 'primary' }: ButtonP
       disabled={loading}
     >
       {loading ? (
-        <ActivityIndicator color={colors.text} />
+        <ActivityIndicator color={variant === 'secondary' ? theme.colors.text : theme.colors.onPrimary} />
       ) : (
-        <Text style={styles.text}>{title}</Text>
+        <Text style={[styles.text, variant === 'secondary' && styles.secondaryText]}>{title}</Text>
       )}
     </Pressable>
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(theme: AppTheme) {
+  return {
   button: {
-    backgroundColor: colors.primary,
+    backgroundColor: theme.colors.primary,
     paddingVertical: 14,
     paddingHorizontal: 24,
     borderRadius: 10,
     alignItems: 'center',
   },
   secondary: {
-    backgroundColor: colors.surfaceElevated,
+    backgroundColor: theme.colors.surfaceElevated,
   },
   text: {
-    color: colors.text,
-    fontSize: 16,
+    color: theme.colors.onPrimary,
+    fontSize: theme.scaleFont(16),
     fontWeight: '600',
   },
-});
+  secondaryText: {
+    color: theme.colors.text,
+  },
+
+  };
+}

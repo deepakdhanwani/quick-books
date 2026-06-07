@@ -5,7 +5,9 @@ import { Card } from '../components/Card';
 import { RefreshableScrollView } from '../components/RefreshableScrollView';
 import { Input } from '../components/Input';
 import { api } from '../services/api';
-import { colors } from '../theme/colors';
+import { useAppTheme } from '../theme/AppThemeContext';
+import type { AppTheme } from '../theme/types';
+import { useThemedStyles } from '../theme/useThemedStyles';
 
 type ChangePinScreenProps = {
   token: string;
@@ -22,6 +24,7 @@ export function ChangePinScreen({
   refreshing = false,
   onRefresh = async () => {},
 }: ChangePinScreenProps) {
+  const styles = useThemedStyles(createStyles);
   const [currentPin, setCurrentPin] = useState('');
   const [newPin, setNewPin] = useState('');
   const [confirmNewPin, setConfirmNewPin] = useState('');
@@ -93,12 +96,24 @@ export function ChangePinScreen({
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background },
-  content: { padding: 24, paddingBottom: 32 },
-  title: { color: colors.text, fontSize: 28, fontWeight: '700', marginBottom: 24 },
-  hint: { color: colors.textSecondary, marginBottom: 16, lineHeight: 22 },
-  actions: { gap: 12, marginTop: 8 },
-  error: { color: colors.error, marginBottom: 12 },
-  success: { color: colors.success, marginBottom: 12 },
-});
+function createStyles(theme: AppTheme) {
+  return {
+    container: { flex: 1, backgroundColor: theme.colors.background },
+    content: { padding: 24, paddingBottom: 32 },
+    title: {
+      color: theme.colors.text,
+      fontSize: theme.scaleFont(28),
+      fontWeight: '700',
+      marginBottom: 24,
+    },
+    hint: {
+      color: theme.colors.textSecondary,
+      marginBottom: 16,
+      lineHeight: theme.scaleFont(22),
+      fontSize: theme.scaleFont(14),
+    },
+    actions: { gap: 12, marginTop: 8 },
+    error: { color: theme.colors.error, marginBottom: 12, fontSize: theme.scaleFont(14) },
+    success: { color: theme.colors.success, marginBottom: 12, fontSize: theme.scaleFont(14) },
+  };
+}

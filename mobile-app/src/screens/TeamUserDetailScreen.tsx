@@ -1,4 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
+import { useAppTheme } from '../theme/AppThemeContext';
+import type { AppTheme } from '../theme/types';
+import { useThemedStyles } from '../theme/useThemedStyles';
 import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Button } from '../components/Button';
@@ -6,7 +9,6 @@ import { Card } from '../components/Card';
 import { Input } from '../components/Input';
 import { RefreshableScrollView } from '../components/RefreshableScrollView';
 import { api, TeamUser } from '../services/api';
-import { colors } from '../theme/colors';
 import { appAlert } from '../utils/appAlert';
 
 type TeamUserDetailScreenProps = {
@@ -24,6 +26,9 @@ export function TeamUserDetailScreen({
   refreshing,
   onRefresh,
 }: TeamUserDetailScreenProps) {
+  const theme = useAppTheme();
+  const styles = useThemedStyles(createStyles);
+
   const [user, setUser] = useState<TeamUser | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -138,7 +143,7 @@ export function TeamUserDetailScreen({
   if (loading && !user) {
     return (
       <View style={styles.loading}>
-        <ActivityIndicator color={colors.primary} size="large" />
+        <ActivityIndicator color={theme.colors.primary} size="large" />
       </View>
     );
   }
@@ -183,7 +188,7 @@ export function TeamUserDetailScreen({
           <Ionicons
             name={user?.active ? 'pause-circle-outline' : 'play-circle-outline'}
             size={22}
-            color={colors.primary}
+            color={theme.colors.primary}
           />
         </Pressable>
       </Card>
@@ -193,16 +198,19 @@ export function TeamUserDetailScreen({
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(theme: AppTheme) {
+  return {
   container: { flex: 1 },
   content: { padding: 20, gap: 16 },
   loading: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   sectionCard: { marginTop: 0 },
-  sectionTitle: { color: colors.text, fontWeight: '700', fontSize: 15, marginBottom: 12 },
+  sectionTitle: { color: theme.colors.text, fontWeight: '700', fontSize: theme.scaleFont(15), marginBottom: 12 },
   pinRow: { marginBottom: 16 },
-  pinLabel: { color: colors.textSecondary, fontSize: 12, marginBottom: 4 },
-  pinValue: { color: colors.text, fontSize: 16, fontWeight: '600' },
+  pinLabel: { color: theme.colors.textSecondary, fontSize: theme.scaleFont(12), marginBottom: 4 },
+  pinValue: { color: theme.colors.text, fontSize: theme.scaleFont(16), fontWeight: '600' },
   toggleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  toggleLabel: { color: colors.text, fontSize: 15, fontWeight: '600' },
-  error: { color: colors.error, marginBottom: 8 },
-});
+  toggleLabel: { color: theme.colors.text, fontSize: theme.scaleFont(15), fontWeight: '600' },
+  error: { color: theme.colors.error, marginBottom: 8 },
+
+  };
+}

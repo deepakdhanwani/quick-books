@@ -1,5 +1,7 @@
 package com.quickbooks.entity;
 
+import com.quickbooks.entity.enums.AppFontSize;
+import com.quickbooks.entity.enums.AppTheme;
 import jakarta.persistence.*;
 import java.time.OffsetDateTime;
 
@@ -27,6 +29,14 @@ public class SubscriberUser {
     @Column(name = "is_active", nullable = false)
     private boolean active = true;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "theme_mode", nullable = false)
+    private AppTheme themeMode = AppTheme.DARK;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "font_size", nullable = false)
+    private AppFontSize fontSize = AppFontSize.SMALL;
+
     @Column(name = "created_at", nullable = false)
     private OffsetDateTime createdAt = OffsetDateTime.now();
 
@@ -41,5 +51,9 @@ public class SubscriberUser {
     public void setLoginPin(String loginPin) { this.loginPin = loginPin; }
     public boolean isActive() { return active; }
     public void setActive(boolean active) { this.active = active; }
+    public AppTheme getThemeMode() { return themeMode; }
+    public void setThemeMode(AppTheme themeMode) { this.themeMode = themeMode; }
+    public AppFontSize getFontSize() { return fontSize; }
+    public void setFontSize(AppFontSize fontSize) { this.fontSize = fontSize; }
     public OffsetDateTime getCreatedAt() { return createdAt; }
 }

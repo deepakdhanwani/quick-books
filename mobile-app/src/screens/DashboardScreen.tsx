@@ -1,11 +1,12 @@
 import { Ionicons } from '@expo/vector-icons';
+import { useAppTheme } from '../theme/AppThemeContext';
+import type { AppTheme } from '../theme/types';
+import { useThemedStyles } from '../theme/useThemedStyles';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Card } from '../components/Card';
 import { RefreshableScrollView } from '../components/RefreshableScrollView';
 import { StatCard } from '../components/StatCard';
 import { SubscriberAccountProfile } from '../services/api';
-import { colors } from '../theme/colors';
-
 type DashboardScreenProps = {
   profile: SubscriberAccountProfile | null;
   refreshing: boolean;
@@ -19,6 +20,9 @@ const QUICK_ACTIONS = [
 ];
 
 export function DashboardScreen({ profile, refreshing, onRefresh }: DashboardScreenProps) {
+  const theme = useAppTheme();
+  const styles = useThemedStyles(createStyles);
+
   const greetingName = profile?.ownerName?.split(' ')[0] ?? 'there';
   const subscriptionLabel =
     profile?.subscriptionStatus === 'ACTIVE'
@@ -29,10 +33,10 @@ export function DashboardScreen({ profile, refreshing, onRefresh }: DashboardScr
 
   const subscriptionColor =
     profile?.subscriptionStatus === 'ACTIVE'
-      ? colors.success
+      ? theme.colors.success
       : profile?.subscriptionStatus === 'EXPIRED'
-        ? colors.error
-        : colors.warning;
+        ? theme.colors.error
+        : theme.colors.warning;
 
   return (
     <RefreshableScrollView
@@ -55,11 +59,11 @@ export function DashboardScreen({ profile, refreshing, onRefresh }: DashboardScr
       </View>
 
       <View style={styles.statsRow}>
-        <StatCard label="Today's Sales" value="₹0" icon="trending-up-outline" accent={colors.success} />
+        <StatCard label="Today's Sales" value="₹0" icon="trending-up-outline" accent={theme.colors.success} />
         <View style={styles.statGap} />
-        <StatCard label="Purchases" value="₹0" icon="bag-handle-outline" accent={colors.primary} />
+        <StatCard label="Purchases" value="₹0" icon="bag-handle-outline" accent={theme.colors.primary} />
         <View style={styles.statGap} />
-        <StatCard label="Pending" value="₹0" icon="time-outline" accent={colors.warning} />
+        <StatCard label="Pending" value="₹0" icon="time-outline" accent={theme.colors.warning} />
       </View>
 
       <Text style={styles.sectionTitle}>Quick Actions</Text>
@@ -67,7 +71,7 @@ export function DashboardScreen({ profile, refreshing, onRefresh }: DashboardScr
         {QUICK_ACTIONS.map((action) => (
           <Pressable key={action.label} style={styles.actionCard}>
             <View style={styles.actionIcon}>
-              <Ionicons name={action.icon} size={22} color={colors.primary} />
+              <Ionicons name={action.icon} size={22} color={theme.colors.primary} />
             </View>
             <Text style={styles.actionLabel}>{action.label}</Text>
           </Pressable>
@@ -84,7 +88,7 @@ export function DashboardScreen({ profile, refreshing, onRefresh }: DashboardScr
       </Card>
 
       <Card style={styles.tipCard}>
-        <Ionicons name="sparkles-outline" size={20} color={colors.primary} />
+        <Ionicons name="sparkles-outline" size={20} color={theme.colors.primary} />
         <View style={styles.tipText}>
           <Text style={styles.tipTitle}>Getting started</Text>
           <Text style={styles.tipBody}>
@@ -105,16 +109,20 @@ function OverviewItem({
   label: string;
   value: string;
 }) {
+  const theme = useAppTheme();
+  const styles = useThemedStyles(createStyles);
+
   return (
     <View style={styles.overviewItem}>
-      <Ionicons name={icon} size={18} color={colors.textSecondary} />
+      <Ionicons name={icon} size={18} color={theme.colors.textSecondary} />
       <Text style={styles.overviewValue}>{value}</Text>
       <Text style={styles.overviewLabel}>{label}</Text>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(theme: AppTheme) {
+  return {
   container: {
     flex: 1,
   },
@@ -130,18 +138,18 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   greeting: {
-    color: colors.textSecondary,
-    fontSize: 14,
+    color: theme.colors.textSecondary,
+    fontSize: theme.scaleFont(14),
   },
   name: {
-    color: colors.text,
-    fontSize: 28,
+    color: theme.colors.text,
+    fontSize: theme.scaleFont(28),
     fontWeight: '700',
     marginTop: 4,
   },
   business: {
-    color: colors.textSecondary,
-    fontSize: 14,
+    color: theme.colors.textSecondary,
+    fontSize: theme.scaleFont(14),
     marginTop: 4,
   },
   statusPill: {
@@ -151,7 +159,7 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     paddingHorizontal: 10,
     paddingVertical: 6,
-    backgroundColor: colors.surface,
+    backgroundColor: theme.colors.surface,
   },
   statusDot: {
     width: 8,
@@ -160,7 +168,7 @@ const styles = StyleSheet.create({
     marginRight: 6,
   },
   statusText: {
-    fontSize: 12,
+    fontSize: theme.scaleFont(12),
     fontWeight: '600',
   },
   statsRow: {
@@ -171,8 +179,8 @@ const styles = StyleSheet.create({
     width: 10,
   },
   sectionTitle: {
-    color: colors.text,
-    fontSize: 16,
+    color: theme.colors.text,
+    fontSize: theme.scaleFont(16),
     fontWeight: '700',
     marginBottom: 12,
   },
@@ -183,10 +191,10 @@ const styles = StyleSheet.create({
   },
   actionCard: {
     flex: 1,
-    backgroundColor: colors.surface,
+    backgroundColor: theme.colors.surface,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: theme.colors.border,
     padding: 14,
     alignItems: 'center',
   },
@@ -200,8 +208,8 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   actionLabel: {
-    color: colors.text,
-    fontSize: 12,
+    color: theme.colors.text,
+    fontSize: theme.scaleFont(12),
     fontWeight: '600',
     textAlign: 'center',
   },
@@ -214,14 +222,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   overviewValue: {
-    color: colors.text,
-    fontSize: 20,
+    color: theme.colors.text,
+    fontSize: theme.scaleFont(20),
     fontWeight: '700',
     marginTop: 8,
   },
   overviewLabel: {
-    color: colors.textSecondary,
-    fontSize: 12,
+    color: theme.colors.textSecondary,
+    fontSize: theme.scaleFont(12),
     marginTop: 4,
   },
   tipCard: {
@@ -236,14 +244,16 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   tipTitle: {
-    color: colors.text,
-    fontSize: 14,
+    color: theme.colors.text,
+    fontSize: theme.scaleFont(14),
     fontWeight: '600',
     marginBottom: 4,
   },
   tipBody: {
-    color: colors.textSecondary,
-    fontSize: 13,
-    lineHeight: 19,
+    color: theme.colors.textSecondary,
+    fontSize: theme.scaleFont(13),
+    lineHeight: theme.scaleFont(19),
   },
-});
+
+  };
+}

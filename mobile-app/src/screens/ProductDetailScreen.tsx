@@ -1,4 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
+import { useAppTheme } from '../theme/AppThemeContext';
+import type { AppTheme } from '../theme/types';
+import { useThemedStyles } from '../theme/useThemedStyles';
 import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -13,7 +16,6 @@ import { Card } from '../components/Card';
 import { RefreshableScrollView } from '../components/RefreshableScrollView';
 import { api, Product } from '../services/api';
 import { appAlert } from '../utils/appAlert';
-import { colors } from '../theme/colors';
 import { formatCurrency } from '../utils/saleAmounts';
 
 type ProductDetailScreenProps = {
@@ -29,6 +31,9 @@ export function ProductDetailScreen({
   onEdit,
   onDeleted,
 }: ProductDetailScreenProps) {
+  const theme = useAppTheme();
+  const styles = useThemedStyles(createStyles);
+
   const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -97,7 +102,7 @@ export function ProductDetailScreen({
   if (loading && !product) {
     return (
       <View style={styles.loading}>
-        <ActivityIndicator color={colors.primary} size="large" />
+        <ActivityIndicator color={theme.colors.primary} size="large" />
       </View>
     );
   }
@@ -110,7 +115,7 @@ export function ProductDetailScreen({
     );
   }
 
-  const accentColor = product.active ? colors.success : colors.textSecondary;
+  const accentColor = product.active ? theme.colors.success : theme.colors.textSecondary;
 
   return (
     <RefreshableScrollView
@@ -154,15 +159,15 @@ export function ProductDetailScreen({
             value={product.active}
             onValueChange={handleToggleActive}
             disabled={togglingActive}
-            trackColor={{ false: colors.border, true: colors.primary }}
-            thumbColor={colors.text}
+            trackColor={{ false: theme.colors.border, true: theme.colors.primary }}
+            thumbColor={theme.colors.text}
           />
         </View>
       </Card>
 
       <Button title="Edit Product" onPress={onEdit} />
       <Pressable style={styles.deleteButton} onPress={handleDelete}>
-        <Ionicons name="trash-outline" size={18} color={colors.error} />
+        <Ionicons name="trash-outline" size={18} color={theme.colors.error} />
         <Text style={styles.deleteText}>Delete Product</Text>
       </Pressable>
     </RefreshableScrollView>
@@ -173,25 +178,30 @@ function DetailRow({
   icon,
   label,
   value,
-  valueColor = colors.text,
+  valueColor,
 }: {
   icon: keyof typeof Ionicons.glyphMap;
   label: string;
   value: string;
   valueColor?: string;
 }) {
+  const theme = useAppTheme();
+  const styles = useThemedStyles(createStyles);
+  const resolvedValueColor = valueColor ?? theme.colors.text;
+
   return (
     <View style={styles.detailRow}>
-      <Ionicons name={icon} size={16} color={colors.textSecondary} />
+      <Ionicons name={icon} size={16} color={theme.colors.textSecondary} />
       <View style={styles.detailContent}>
         <Text style={styles.detailLabel}>{label}</Text>
-        <Text style={[styles.detailValue, { color: valueColor }]}>{value}</Text>
+        <Text style={[styles.detailValue, { color: resolvedValueColor }]}>{value}</Text>
       </View>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(theme: AppTheme) {
+  return {
   container: { flex: 1 },
   content: { padding: 20, paddingBottom: 32, gap: 12 },
   loading: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 20 },
@@ -203,34 +213,34 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  avatarText: { fontSize: 22, fontWeight: '700' },
+  avatarText: { fontSize: theme.scaleFont(22), fontWeight: '700' },
   headerText: { flex: 1 },
-  name: { color: colors.text, fontSize: 20, fontWeight: '700' },
-  subtitle: { color: colors.textSecondary, fontSize: 14, marginTop: 4 },
+  name: { color: theme.colors.text, fontSize: theme.scaleFont(20), fontWeight: '700' },
+  subtitle: { color: theme.colors.textSecondary, fontSize: theme.scaleFont(14), marginTop: 4 },
   detailRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: 10,
     paddingVertical: 10,
     borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    borderBottomColor: theme.colors.border,
   },
   detailContent: { flex: 1 },
   detailLabel: {
-    color: colors.textSecondary,
-    fontSize: 12,
+    color: theme.colors.textSecondary,
+    fontSize: theme.scaleFont(12),
     textTransform: 'uppercase',
     letterSpacing: 0.4,
     marginBottom: 4,
   },
-  detailValue: { color: colors.text, fontSize: 15, fontWeight: '500' },
+  detailValue: { color: theme.colors.text, fontSize: theme.scaleFont(15), fontWeight: '500' },
   activeRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingTop: 14,
   },
-  activeLabel: { color: colors.text, fontSize: 15, fontWeight: '600' },
+  activeLabel: { color: theme.colors.text, fontSize: theme.scaleFont(15), fontWeight: '600' },
   deleteButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -238,6 +248,8 @@ const styles = StyleSheet.create({
     gap: 8,
     paddingVertical: 14,
   },
-  deleteText: { color: colors.error, fontSize: 15, fontWeight: '600' },
-  error: { color: colors.error, marginBottom: 12 },
-});
+  deleteText: { color: theme.colors.error, fontSize: theme.scaleFont(15), fontWeight: '600' },
+  error: { color: theme.colors.error, marginBottom: 12 },
+
+  };
+}

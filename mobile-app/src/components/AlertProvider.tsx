@@ -1,8 +1,8 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react';
+import type { AppTheme } from '../theme/types';
+import { useThemedStyles } from '../theme/useThemedStyles';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { registerAlertHandler, type AlertButton, type AlertOptions } from '../utils/appAlert';
-import { colors } from '../theme/colors';
-
 type AlertContextValue = {
   showAlert: (options: AlertOptions) => void;
 };
@@ -10,6 +10,8 @@ type AlertContextValue = {
 const AlertContext = createContext<AlertContextValue | null>(null);
 
 export function AlertProvider({ children }: { children: ReactNode }) {
+  const styles = useThemedStyles(createStyles);
+
   const [visible, setVisible] = useState(false);
   const [options, setOptions] = useState<AlertOptions | null>(null);
 
@@ -88,7 +90,8 @@ export function useAlert() {
   return context;
 }
 
-const styles = StyleSheet.create({
+function createStyles(theme: AppTheme) {
+  return {
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.65)',
@@ -99,24 +102,24 @@ const styles = StyleSheet.create({
   card: {
     width: '100%',
     maxWidth: 360,
-    backgroundColor: colors.surface,
+    backgroundColor: theme.colors.surface,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: theme.colors.border,
     paddingHorizontal: 20,
     paddingTop: 20,
     paddingBottom: 16,
   },
   title: {
-    color: colors.text,
-    fontSize: 18,
+    color: theme.colors.text,
+    fontSize: theme.scaleFont(18),
     fontWeight: '700',
     marginBottom: 8,
   },
   message: {
-    color: colors.textSecondary,
-    fontSize: 14,
-    lineHeight: 20,
+    color: theme.colors.textSecondary,
+    fontSize: theme.scaleFont(14),
+    lineHeight: theme.scaleFont(20),
     marginBottom: 18,
   },
   actions: {
@@ -138,29 +141,31 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   actionPrimary: {
-    backgroundColor: colors.primary,
+    backgroundColor: theme.colors.primary,
   },
   actionCancel: {
-    backgroundColor: colors.surfaceElevated,
+    backgroundColor: theme.colors.surfaceElevated,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: theme.colors.border,
   },
   actionDestructive: {
     backgroundColor: 'rgba(239, 68, 68, 0.15)',
     borderWidth: 1,
-    borderColor: colors.error,
+    borderColor: theme.colors.error,
   },
   actionText: {
-    fontSize: 14,
+    fontSize: theme.scaleFont(14),
     fontWeight: '600',
   },
   actionTextPrimary: {
-    color: colors.text,
+    color: theme.colors.onPrimary,
   },
   actionTextCancel: {
-    color: colors.textSecondary,
+    color: theme.colors.textSecondary,
   },
   actionTextDestructive: {
-    color: colors.error,
+    color: theme.colors.error,
   },
-});
+
+  };
+}

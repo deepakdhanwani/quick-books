@@ -1,9 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
+import { useAppTheme } from '../theme/AppThemeContext';
+import type { AppTheme } from '../theme/types';
+import { useThemedStyles } from '../theme/useThemedStyles';
 import { StyleSheet, Text, View } from 'react-native';
 import { Card } from '../components/Card';
 import { RefreshableScrollView } from '../components/RefreshableScrollView';
-import { colors } from '../theme/colors';
-
 type PlaceholderScreenProps = {
   title: string;
   description: string;
@@ -17,6 +18,9 @@ export function PlaceholderScreen({
   refreshing,
   onRefresh,
 }: PlaceholderScreenProps) {
+  const theme = useAppTheme();
+  const styles = useThemedStyles(createStyles);
+
   return (
     <RefreshableScrollView
       style={styles.container}
@@ -26,7 +30,7 @@ export function PlaceholderScreen({
     >
       <Card style={styles.card}>
         <View style={styles.iconWrap}>
-          <Ionicons name="construct-outline" size={32} color={colors.primary} />
+          <Ionicons name="construct-outline" size={32} color={theme.colors.primary} />
         </View>
         <Text style={styles.title}>{title}</Text>
         <Text style={styles.text}>{description}</Text>
@@ -36,7 +40,8 @@ export function PlaceholderScreen({
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(theme: AppTheme) {
+  return {
   container: {
     flex: 1,
   },
@@ -58,20 +63,22 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   title: {
-    color: colors.text,
-    fontSize: 22,
+    color: theme.colors.text,
+    fontSize: theme.scaleFont(22),
     fontWeight: '700',
     marginBottom: 8,
   },
   text: {
-    color: colors.textSecondary,
+    color: theme.colors.textSecondary,
     textAlign: 'center',
-    lineHeight: 22,
+    lineHeight: theme.scaleFont(22),
     marginBottom: 12,
   },
   hint: {
-    color: colors.warning,
-    fontSize: 13,
+    color: theme.colors.warning,
+    fontSize: theme.scaleFont(13),
     textAlign: 'center',
   },
-});
+
+  };
+}

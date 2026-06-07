@@ -1,4 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
+import { useAppTheme } from '../theme/AppThemeContext';
+import type { AppTheme } from '../theme/types';
+import { useThemedStyles } from '../theme/useThemedStyles';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Button } from '../components/Button';
@@ -6,8 +9,6 @@ import { Card } from '../components/Card';
 import { Input } from '../components/Input';
 import { RefreshableScrollView } from '../components/RefreshableScrollView';
 import { api, SubscriberAccountProfile } from '../services/api';
-import { colors } from '../theme/colors';
-
 type AccountScreenProps = {
   token: string;
   profile: SubscriberAccountProfile | null;
@@ -29,7 +30,7 @@ function formatSubscriptionStatus(status?: SubscriberAccountProfile['subscriptio
   return 'No plan';
 }
 
-function statusColor(status?: SubscriberAccountProfile['subscriptionStatus']) {
+function statusColor(status: SubscriberAccountProfile['subscriptionStatus'] | undefined, colors: AppTheme["colors"]) {
   if (status === 'ACTIVE') return colors.success;
   if (status === 'EXPIRED') return colors.error;
   return colors.warning;
@@ -59,6 +60,9 @@ export function AccountScreen({
   onActivityLog,
   isOwner,
 }: AccountScreenProps) {
+  const theme = useAppTheme();
+  const styles = useThemedStyles(createStyles);
+
   const canChangePin = profile?.canChangePin ?? isOwner;
   const [gstNumber, setGstNumber] = useState('');
   const [defaultTaxPercent, setDefaultTaxPercent] = useState('');
@@ -137,7 +141,7 @@ export function AccountScreen({
         <Text style={styles.sectionTitle}>Account Details</Text>
         {loading && !profile ? (
           <View style={styles.sectionLoading}>
-            <ActivityIndicator color={colors.primary} />
+            <ActivityIndicator color={theme.colors.primary} />
           </View>
         ) : (
           <>
@@ -150,7 +154,7 @@ export function AccountScreen({
             <DetailRow
               label="Subscription"
               value={formatSubscriptionStatus(profile?.subscriptionStatus)}
-              valueColor={statusColor(profile?.subscriptionStatus)}
+              valueColor={statusColor(profile?.subscriptionStatus, theme.colors)}
             />
             {profile?.currentSubscription ? (
               <>
@@ -171,7 +175,7 @@ export function AccountScreen({
           <Text style={styles.sectionTitle}>Sales Settings</Text>
           {!editingSettings ? (
             <Pressable style={styles.editButton} onPress={handleStartEdit}>
-              <Ionicons name="create-outline" size={16} color={colors.primary} />
+              <Ionicons name="create-outline" size={16} color={theme.colors.primary} />
               <Text style={styles.editButtonText}>Edit</Text>
             </Pressable>
           ) : null}
@@ -224,13 +228,13 @@ export function AccountScreen({
       {canChangePin ? (
         <Pressable style={styles.actionRow} onPress={onChangePin}>
           <View style={styles.actionIcon}>
-            <Ionicons name="key-outline" size={20} color={colors.primary} />
+            <Ionicons name="key-outline" size={20} color={theme.colors.primary} />
           </View>
           <View style={styles.actionText}>
             <Text style={styles.actionLabel}>Change Login PIN</Text>
             <Text style={styles.actionHint}>Update your secure sign-in PIN</Text>
           </View>
-          <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
+          <Ionicons name="chevron-forward" size={18} color={theme.colors.textSecondary} />
         </Pressable>
       ) : (
         <Card>
@@ -244,35 +248,35 @@ export function AccountScreen({
         <>
           <Pressable style={styles.actionRow} onPress={onManageTeam}>
             <View style={styles.actionIcon}>
-              <Ionicons name="people-outline" size={20} color={colors.primary} />
+              <Ionicons name="people-outline" size={20} color={theme.colors.primary} />
             </View>
             <View style={styles.actionText}>
               <Text style={styles.actionLabel}>Team Users</Text>
               <Text style={styles.actionHint}>Create users and assign PINs</Text>
             </View>
-            <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
+            <Ionicons name="chevron-forward" size={18} color={theme.colors.textSecondary} />
           </Pressable>
 
           <Pressable style={styles.actionRow} onPress={onActivityLog}>
             <View style={styles.actionIcon}>
-              <Ionicons name="list-outline" size={20} color={colors.primary} />
+              <Ionicons name="list-outline" size={20} color={theme.colors.primary} />
             </View>
             <View style={styles.actionText}>
               <Text style={styles.actionLabel}>Activity Log</Text>
               <Text style={styles.actionHint}>View create, edit, and delete history</Text>
             </View>
-            <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
+            <Ionicons name="chevron-forward" size={18} color={theme.colors.textSecondary} />
           </Pressable>
 
           <Pressable style={styles.actionRow} onPress={onSubscription}>
             <View style={styles.actionIcon}>
-              <Ionicons name="card-outline" size={20} color={colors.primary} />
+              <Ionicons name="card-outline" size={20} color={theme.colors.primary} />
             </View>
             <View style={styles.actionText}>
               <Text style={styles.actionLabel}>Subscription Plans</Text>
               <Text style={styles.actionHint}>View or manage your subscription</Text>
             </View>
-            <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
+            <Ionicons name="chevron-forward" size={18} color={theme.colors.textSecondary} />
           </Pressable>
         </>
       ) : null}
@@ -283,21 +287,26 @@ export function AccountScreen({
 function DetailRow({
   label,
   value,
-  valueColor = colors.text,
+  valueColor,
 }: {
   label: string;
   value: string;
   valueColor?: string;
 }) {
+  const theme = useAppTheme();
+  const styles = useThemedStyles(createStyles);
+  const resolvedValueColor = valueColor ?? theme.colors.text;
+
   return (
     <View style={styles.detailRow}>
       <Text style={styles.detailLabel}>{label}</Text>
-      <Text style={[styles.detailValue, { color: valueColor }]}>{value}</Text>
+      <Text style={[styles.detailValue, { color: resolvedValueColor }]}>{value}</Text>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(theme: AppTheme) {
+  return {
   container: {
     flex: 1,
   },
@@ -311,8 +320,8 @@ const styles = StyleSheet.create({
     paddingVertical: 24,
   },
   sectionTitle: {
-    color: colors.text,
-    fontSize: 16,
+    color: theme.colors.text,
+    fontSize: theme.scaleFont(16),
     fontWeight: '700',
   },
   settingsCard: {
@@ -334,8 +343,8 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(59, 130, 246, 0.1)',
   },
   editButtonText: {
-    color: colors.primary,
-    fontSize: 13,
+    color: theme.colors.primary,
+    fontSize: theme.scaleFont(13),
     fontWeight: '600',
   },
   settingsActions: {
@@ -347,31 +356,31 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   settingsHint: {
-    color: colors.textSecondary,
-    fontSize: 13,
+    color: theme.colors.textSecondary,
+    fontSize: theme.scaleFont(13),
     marginBottom: 12,
-    lineHeight: 18,
+    lineHeight: theme.scaleFont(18),
   },
   detailRow: {
     paddingVertical: 10,
     borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    borderBottomColor: theme.colors.border,
   },
   detailLabel: {
-    color: colors.textSecondary,
-    fontSize: 12,
+    color: theme.colors.textSecondary,
+    fontSize: theme.scaleFont(12),
     marginBottom: 4,
     textTransform: 'uppercase',
     letterSpacing: 0.4,
   },
   detailValue: {
-    color: colors.text,
-    fontSize: 15,
+    color: theme.colors.text,
+    fontSize: theme.scaleFont(15),
     fontWeight: '500',
   },
   actionsTitle: {
-    color: colors.textSecondary,
-    fontSize: 12,
+    color: theme.colors.textSecondary,
+    fontSize: theme.scaleFont(12),
     textTransform: 'uppercase',
     letterSpacing: 0.5,
     marginTop: 24,
@@ -381,10 +390,10 @@ const styles = StyleSheet.create({
   actionRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.surface,
+    backgroundColor: theme.colors.surface,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: theme.colors.border,
     padding: 16,
     marginBottom: 10,
   },
@@ -392,7 +401,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 10,
-    backgroundColor: colors.surfaceElevated,
+    backgroundColor: theme.colors.surfaceElevated,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
@@ -401,26 +410,28 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   actionLabel: {
-    color: colors.text,
-    fontSize: 15,
+    color: theme.colors.text,
+    fontSize: theme.scaleFont(15),
     fontWeight: '600',
   },
   actionHint: {
-    color: colors.textSecondary,
-    fontSize: 12,
+    color: theme.colors.textSecondary,
+    fontSize: theme.scaleFont(12),
     marginTop: 2,
   },
   error: {
-    color: colors.error,
+    color: theme.colors.error,
     marginBottom: 12,
   },
   success: {
-    color: colors.success,
+    color: theme.colors.success,
     marginBottom: 12,
   },
   staffPinNote: {
-    color: colors.textSecondary,
-    fontSize: 13,
-    lineHeight: 18,
+    color: theme.colors.textSecondary,
+    fontSize: theme.scaleFont(13),
+    lineHeight: theme.scaleFont(18),
   },
-});
+
+  };
+}

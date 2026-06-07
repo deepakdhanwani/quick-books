@@ -1,9 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
+import { useAppTheme } from '../theme/AppThemeContext';
+import type { AppTheme } from '../theme/types';
+import { useThemedStyles } from '../theme/useThemedStyles';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { api, Customer } from '../services/api';
-import { colors } from '../theme/colors';
-
 type CustomerAutocompleteProps = {
   token: string;
   value: Customer | null;
@@ -12,6 +13,9 @@ type CustomerAutocompleteProps = {
 };
 
 export function CustomerAutocomplete({ token, value, onChange, error }: CustomerAutocompleteProps) {
+  const theme = useAppTheme();
+  const styles = useThemedStyles(createStyles);
+
   const [query, setQuery] = useState(value?.name ?? '');
   const [results, setResults] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(false);
@@ -59,7 +63,7 @@ export function CustomerAutocomplete({ token, value, onChange, error }: Customer
     <View style={styles.wrapper}>
       <Text style={styles.label}>Customer *</Text>
       <View style={[styles.inputRow, error ? styles.inputRowError : null]}>
-        <Ionicons name="search-outline" size={18} color={colors.textSecondary} />
+        <Ionicons name="search-outline" size={18} color={theme.colors.textSecondary} />
         <TextInput
           style={styles.input}
           value={query}
@@ -70,11 +74,11 @@ export function CustomerAutocomplete({ token, value, onChange, error }: Customer
           }}
           onFocus={() => setOpen(true)}
           placeholder="Search customer by name or phone"
-          placeholderTextColor={colors.textSecondary}
+          placeholderTextColor={theme.colors.textSecondary}
         />
         {value ? (
           <Pressable onPress={handleClear} hitSlop={8}>
-            <Ionicons name="close-circle" size={18} color={colors.textSecondary} />
+            <Ionicons name="close-circle" size={18} color={theme.colors.textSecondary} />
           </Pressable>
         ) : null}
       </View>
@@ -83,7 +87,7 @@ export function CustomerAutocomplete({ token, value, onChange, error }: Customer
         <View style={styles.dropdown}>
           {loading ? (
             <View style={styles.dropdownLoading}>
-              <ActivityIndicator color={colors.primary} size="small" />
+              <ActivityIndicator color={theme.colors.primary} size="small" />
             </View>
           ) : results.length === 0 ? (
             <Text style={styles.emptyText}>No active customers found</Text>
@@ -109,13 +113,14 @@ export function CustomerAutocomplete({ token, value, onChange, error }: Customer
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(theme: AppTheme) {
+  return {
   wrapper: {
     marginBottom: 16,
   },
   label: {
-    color: colors.text,
-    fontSize: 14,
+    color: theme.colors.text,
+    fontSize: theme.scaleFont(14),
     fontWeight: '600',
     marginBottom: 8,
   },
@@ -124,27 +129,27 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: theme.colors.border,
     borderRadius: 10,
-    backgroundColor: colors.surfaceElevated,
+    backgroundColor: theme.colors.surfaceElevated,
     paddingHorizontal: 12,
     minHeight: 48,
   },
   inputRowError: {
-    borderColor: colors.error,
+    borderColor: theme.colors.error,
   },
   input: {
     flex: 1,
-    color: colors.text,
-    fontSize: 16,
+    color: theme.colors.text,
+    fontSize: theme.scaleFont(16),
     paddingVertical: 12,
   },
   dropdown: {
     marginTop: 8,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: theme.colors.border,
     borderRadius: 10,
-    backgroundColor: colors.surface,
+    backgroundColor: theme.colors.surface,
     overflow: 'hidden',
   },
   dropdownLoading: {
@@ -152,7 +157,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   emptyText: {
-    color: colors.textSecondary,
+    color: theme.colors.textSecondary,
     padding: 14,
     textAlign: 'center',
   },
@@ -160,21 +165,23 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    borderBottomColor: theme.colors.border,
   },
   optionName: {
-    color: colors.text,
-    fontSize: 15,
+    color: theme.colors.text,
+    fontSize: theme.scaleFont(15),
     fontWeight: '600',
   },
   optionMeta: {
-    color: colors.textSecondary,
-    fontSize: 12,
+    color: theme.colors.textSecondary,
+    fontSize: theme.scaleFont(12),
     marginTop: 2,
   },
   error: {
-    color: colors.error,
-    fontSize: 12,
+    color: theme.colors.error,
+    fontSize: theme.scaleFont(12),
     marginTop: 6,
   },
-});
+
+  };
+}

@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useState } from 'react';
+import { useAppTheme } from '../theme/AppThemeContext';
+import type { AppTheme } from '../theme/types';
+import { useThemedStyles } from '../theme/useThemedStyles';
 import { ActivityIndicator, StyleSheet, Switch, Text, View } from 'react-native';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
 import { Input } from '../components/Input';
 import { RefreshableScrollView } from '../components/RefreshableScrollView';
 import { api } from '../services/api';
-import { colors } from '../theme/colors';
-
 type VendorFormScreenProps = {
   token: string;
   vendorId?: number;
@@ -14,6 +15,9 @@ type VendorFormScreenProps = {
 };
 
 export function VendorFormScreen({ token, vendorId, onSaved }: VendorFormScreenProps) {
+  const theme = useAppTheme();
+  const styles = useThemedStyles(createStyles);
+
   const isEditing = vendorId != null;
 
   const [businessName, setBusinessName] = useState('');
@@ -110,7 +114,7 @@ export function VendorFormScreen({ token, vendorId, onSaved }: VendorFormScreenP
   if (loading) {
     return (
       <View style={styles.loading}>
-        <ActivityIndicator color={colors.primary} size="large" />
+        <ActivityIndicator color={theme.colors.primary} size="large" />
       </View>
     );
   }
@@ -191,8 +195,8 @@ export function VendorFormScreen({ token, vendorId, onSaved }: VendorFormScreenP
             <Switch
               value={active}
               onValueChange={setActive}
-              trackColor={{ false: colors.border, true: 'rgba(34, 197, 94, 0.35)' }}
-              thumbColor={active ? colors.success : colors.textSecondary}
+              trackColor={{ false: theme.colors.border, true: 'rgba(34, 197, 94, 0.35)' }}
+              thumbColor={active ? theme.colors.success : theme.colors.textSecondary}
             />
           </View>
         </View>
@@ -208,7 +212,8 @@ export function VendorFormScreen({ token, vendorId, onSaved }: VendorFormScreenP
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(theme: AppTheme) {
+  return {
   container: {
     flex: 1,
   },
@@ -225,20 +230,20 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     padding: 14,
     borderRadius: 12,
-    backgroundColor: colors.surfaceElevated,
+    backgroundColor: theme.colors.surfaceElevated,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: theme.colors.border,
   },
   sectionLabel: {
-    color: colors.text,
-    fontSize: 15,
+    color: theme.colors.text,
+    fontSize: theme.scaleFont(15),
     fontWeight: '600',
     marginBottom: 4,
   },
   sectionHint: {
-    color: colors.textSecondary,
-    fontSize: 12,
-    lineHeight: 17,
+    color: theme.colors.textSecondary,
+    fontSize: theme.scaleFont(12),
+    lineHeight: theme.scaleFont(17),
     marginBottom: 12,
   },
   multilineInput: {
@@ -249,20 +254,20 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     padding: 14,
     borderRadius: 12,
-    backgroundColor: colors.surfaceElevated,
+    backgroundColor: theme.colors.surfaceElevated,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: theme.colors.border,
   },
   activeLabel: {
-    color: colors.text,
-    fontSize: 15,
+    color: theme.colors.text,
+    fontSize: theme.scaleFont(15),
     fontWeight: '600',
     marginBottom: 4,
   },
   activeHint: {
-    color: colors.textSecondary,
-    fontSize: 12,
-    lineHeight: 17,
+    color: theme.colors.textSecondary,
+    fontSize: theme.scaleFont(12),
+    lineHeight: theme.scaleFont(17),
     marginBottom: 12,
   },
   activeSwitchRow: {
@@ -271,12 +276,14 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   activeValue: {
-    color: colors.text,
-    fontSize: 14,
+    color: theme.colors.text,
+    fontSize: theme.scaleFont(14),
     fontWeight: '500',
   },
   error: {
-    color: colors.error,
+    color: theme.colors.error,
     marginBottom: 12,
   },
-});
+
+  };
+}

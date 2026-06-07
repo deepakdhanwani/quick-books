@@ -1,4 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
+import { useAppTheme } from '../theme/AppThemeContext';
+import type { AppTheme } from '../theme/types';
+import { useThemedStyles } from '../theme/useThemedStyles';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
@@ -14,13 +17,14 @@ import {
   SubscriberAuthResponse,
 } from '../services/api';
 import { getDetectedDevServerHost } from '../services/apiDiscovery';
-import { colors } from '../theme/colors';
-
 type LoginScreenProps = {
   onLogin: (response: SubscriberAuthResponse) => void;
 };
 
 export function LoginScreen({ onLogin }: LoginScreenProps) {
+  const theme = useAppTheme();
+  const styles = useThemedStyles(createStyles);
+
   const [phone, setPhone] = useState('');
   const [loginPin, setLoginPin] = useState('');
   const [loading, setLoading] = useState(false);
@@ -98,7 +102,7 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
   if (!configReady) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator color={colors.primary} size="large" />
+        <ActivityIndicator color={theme.colors.primary} size="large" />
         <Text style={styles.loadingText}>Detecting backend connection...</Text>
       </View>
     );
@@ -133,7 +137,7 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
         <Text style={styles.debugLabel}>Health check</Text>
         <View style={styles.connectionRow}>
           {checkingConnection ? (
-            <ActivityIndicator color={colors.primary} size="small" />
+            <ActivityIndicator color={theme.colors.primary} size="small" />
           ) : (
             <Text style={[styles.connectionStatus, connectionOk ? styles.connectionOk : styles.connectionError]}>
               {connectionOk ? 'Connected' : 'Not reachable'} — {connectionMessage}
@@ -171,33 +175,34 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(theme: AppTheme) {
+  return {
   scrollContent: {
     flexGrow: 1,
-    backgroundColor: colors.background,
+    backgroundColor: theme.colors.background,
     justifyContent: 'center',
     padding: 24,
   },
   loadingContainer: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: theme.colors.background,
     justifyContent: 'center',
     alignItems: 'center',
     gap: 12,
   },
   loadingText: {
-    color: colors.textSecondary,
-    fontSize: 14,
+    color: theme.colors.textSecondary,
+    fontSize: theme.scaleFont(14),
   },
   title: {
-    color: colors.text,
-    fontSize: 32,
+    color: theme.colors.text,
+    fontSize: theme.scaleFont(32),
     fontWeight: '700',
     textAlign: 'center',
   },
   subtitle: {
-    color: colors.textSecondary,
-    fontSize: 16,
+    color: theme.colors.textSecondary,
+    fontSize: theme.scaleFont(16),
     textAlign: 'center',
     marginBottom: 24,
     marginTop: 8,
@@ -206,28 +211,28 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   debugTitle: {
-    color: colors.text,
-    fontSize: 15,
+    color: theme.colors.text,
+    fontSize: theme.scaleFont(15),
     fontWeight: '600',
     marginBottom: 4,
   },
   debugLabel: {
-    color: colors.textSecondary,
-    fontSize: 12,
+    color: theme.colors.textSecondary,
+    fontSize: theme.scaleFont(12),
     textTransform: 'uppercase',
     letterSpacing: 0.4,
     marginBottom: 4,
     marginTop: 8,
   },
   debugValue: {
-    color: colors.primary,
-    fontSize: 14,
+    color: theme.colors.primary,
+    fontSize: theme.scaleFont(14),
     fontWeight: '500',
   },
   debugMeta: {
-    color: colors.textSecondary,
-    fontSize: 13,
-    lineHeight: 18,
+    color: theme.colors.textSecondary,
+    fontSize: theme.scaleFont(13),
+    lineHeight: theme.scaleFont(18),
   },
   connectionRow: {
     minHeight: 24,
@@ -235,23 +240,25 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   connectionStatus: {
-    fontSize: 14,
+    fontSize: theme.scaleFont(14),
   },
   connectionOk: {
-    color: colors.success,
+    color: theme.colors.success,
   },
   connectionError: {
-    color: colors.error,
+    color: theme.colors.error,
   },
   debugHint: {
-    color: colors.textSecondary,
-    fontSize: 12,
-    lineHeight: 18,
+    color: theme.colors.textSecondary,
+    fontSize: theme.scaleFont(12),
+    lineHeight: theme.scaleFont(18),
     marginTop: 10,
     marginBottom: 12,
   },
   error: {
-    color: colors.error,
+    color: theme.colors.error,
     marginBottom: 12,
   },
-});
+
+  };
+}

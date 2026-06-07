@@ -1,4 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
+import { useAppTheme } from '../theme/AppThemeContext';
+import type { AppTheme } from '../theme/types';
+import { useThemedStyles } from '../theme/useThemedStyles';
 import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -16,7 +19,6 @@ import {
   SubscriberSubscriptionInfo,
   SubscriptionPlanOption,
 } from '../services/api';
-import { colors } from '../theme/colors';
 import { formatCurrency, formatDate, getPlanDurationLabel } from '../utils/planDuration';
 
 type SubscriptionScreenProps = {
@@ -36,6 +38,9 @@ export function SubscriptionScreen({
   onRefresh,
   onSubscribed,
 }: SubscriptionScreenProps) {
+  const theme = useAppTheme();
+  const styles = useThemedStyles(createStyles);
+
   const [plans, setPlans] = useState<SubscriptionPlanOption[]>([]);
   const [currentSubscription, setCurrentSubscription] = useState<SubscriberSubscriptionInfo | null>(null);
   const [loading, setLoading] = useState(true);
@@ -116,7 +121,7 @@ export function SubscriptionScreen({
   if (loading) {
     return (
       <View style={styles.loading}>
-        <ActivityIndicator color={colors.primary} size="large" />
+        <ActivityIndicator color={theme.colors.primary} size="large" />
       </View>
     );
   }
@@ -130,7 +135,7 @@ export function SubscriptionScreen({
     >
       <Card style={styles.headerCard}>
         <View style={styles.headerIcon}>
-          <Ionicons name="card-outline" size={28} color={colors.primary} />
+          <Ionicons name="card-outline" size={28} color={theme.colors.primary} />
         </View>
         <Text style={styles.title}>{title}</Text>
         <Text style={styles.message}>{message}</Text>
@@ -182,7 +187,7 @@ export function SubscriptionScreen({
                     <BreakdownRow
                       label={plan.discountName ? `Discount (${plan.discountName})` : 'Discount'}
                       value={`-${formatCurrency(plan.discountAmount)}`}
-                      valueColor={colors.success}
+                      valueColor={theme.colors.success}
                     />
                   ) : null}
                   {plan.taxAmount > 0 ? (
@@ -216,6 +221,8 @@ function DetailRow({
   value: string;
   highlight?: boolean;
 }) {
+  const styles = useThemedStyles(createStyles);
+
   return (
     <View style={styles.detailRow}>
       <Text style={styles.detailLabel}>{label}</Text>
@@ -235,6 +242,8 @@ function BreakdownRow({
   valueColor?: string;
   bold?: boolean;
 }) {
+  const styles = useThemedStyles(createStyles);
+
   return (
     <View style={styles.breakdownRow}>
       <Text style={[styles.breakdownLabel, bold && styles.breakdownBold]}>{label}</Text>
@@ -251,7 +260,8 @@ function BreakdownRow({
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(theme: AppTheme) {
+  return {
   container: {
     flex: 1,
   },
@@ -279,20 +289,20 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   title: {
-    color: colors.text,
-    fontSize: 22,
+    color: theme.colors.text,
+    fontSize: theme.scaleFont(22),
     fontWeight: '700',
     textAlign: 'center',
     marginBottom: 8,
   },
   message: {
-    color: colors.textSecondary,
+    color: theme.colors.textSecondary,
     textAlign: 'center',
-    lineHeight: 22,
+    lineHeight: theme.scaleFont(22),
   },
   sectionTitle: {
-    color: colors.text,
-    fontSize: 16,
+    color: theme.colors.text,
+    fontSize: theme.scaleFont(16),
     fontWeight: '700',
     marginBottom: 12,
   },
@@ -305,23 +315,23 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 10,
     borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    borderBottomColor: theme.colors.border,
     gap: 12,
   },
   detailLabel: {
-    color: colors.textSecondary,
-    fontSize: 14,
+    color: theme.colors.textSecondary,
+    fontSize: theme.scaleFont(14),
   },
   detailValue: {
-    color: colors.text,
-    fontSize: 14,
+    color: theme.colors.text,
+    fontSize: theme.scaleFont(14),
     fontWeight: '600',
     textAlign: 'right',
     flexShrink: 1,
   },
   detailValueHighlight: {
-    color: colors.primary,
-    fontSize: 15,
+    color: theme.colors.primary,
+    fontSize: theme.scaleFont(15),
   },
   planCard: {
     marginBottom: 14,
@@ -337,33 +347,33 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   planName: {
-    color: colors.text,
-    fontSize: 18,
+    color: theme.colors.text,
+    fontSize: theme.scaleFont(18),
     fontWeight: '700',
   },
   planDuration: {
-    color: colors.primary,
-    fontSize: 13,
+    color: theme.colors.primary,
+    fontSize: theme.scaleFont(13),
     fontWeight: '600',
     marginTop: 4,
   },
   planPrice: {
-    color: colors.text,
-    fontSize: 20,
+    color: theme.colors.text,
+    fontSize: theme.scaleFont(20),
     fontWeight: '700',
   },
   planDescription: {
-    color: colors.textSecondary,
-    lineHeight: 20,
+    color: theme.colors.textSecondary,
+    lineHeight: theme.scaleFont(20),
     marginBottom: 12,
   },
   breakdown: {
     marginBottom: 14,
     padding: 12,
     borderRadius: 10,
-    backgroundColor: colors.surfaceElevated,
+    backgroundColor: theme.colors.surfaceElevated,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: theme.colors.border,
   },
   breakdownRow: {
     flexDirection: 'row',
@@ -371,26 +381,28 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   breakdownLabel: {
-    color: colors.textSecondary,
-    fontSize: 13,
+    color: theme.colors.textSecondary,
+    fontSize: theme.scaleFont(13),
   },
   breakdownValue: {
-    color: colors.text,
-    fontSize: 13,
+    color: theme.colors.text,
+    fontSize: theme.scaleFont(13),
     fontWeight: '600',
   },
   breakdownBold: {
-    color: colors.text,
+    color: theme.colors.text,
     fontWeight: '700',
   },
   emptyText: {
-    color: colors.textSecondary,
+    color: theme.colors.textSecondary,
     textAlign: 'center',
-    lineHeight: 20,
+    lineHeight: theme.scaleFont(20),
   },
   error: {
-    color: colors.error,
+    color: theme.colors.error,
     marginTop: 12,
     textAlign: 'center',
   },
-});
+
+  };
+}

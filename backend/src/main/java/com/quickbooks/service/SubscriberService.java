@@ -13,12 +13,14 @@ import com.quickbooks.dto.subscriber.UpdateSubscriberRequest;
 import com.quickbooks.util.PinValidator;
 import com.quickbooks.entity.BusinessType;
 import com.quickbooks.entity.Subscriber;
+import com.quickbooks.entity.SubscriberUser;
 import com.quickbooks.entity.enums.ActorType;
 import com.quickbooks.entity.enums.SubscriptionRecordStatus;
 import com.quickbooks.entity.enums.SubscriptionStatus;
 import com.quickbooks.security.UserPrincipal;
 import com.quickbooks.repository.SubscriberRepository;
 import com.quickbooks.repository.SubscriberSubscriptionRepository;
+import com.quickbooks.repository.SubscriberUserRepository;
 import com.quickbooks.util.PinGenerator;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -37,6 +39,7 @@ import java.util.List;
 public class SubscriberService {
 
     private final SubscriberRepository subscriberRepository;
+    private final SubscriberUserRepository subscriberUserRepository;
     private final SubscriberSubscriptionRepository subscriberSubscriptionRepository;
     private final SubscriberSubscriptionService subscriberSubscriptionService;
     private final BusinessTypeService businessTypeService;
@@ -44,12 +47,14 @@ public class SubscriberService {
     private final PinGenerator pinGenerator;
 
     public SubscriberService(SubscriberRepository subscriberRepository,
+                             SubscriberUserRepository subscriberUserRepository,
                              SubscriberSubscriptionRepository subscriberSubscriptionRepository,
                              SubscriberSubscriptionService subscriberSubscriptionService,
                              BusinessTypeService businessTypeService,
                              PasswordEncoder passwordEncoder,
                              PinGenerator pinGenerator) {
         this.subscriberRepository = subscriberRepository;
+        this.subscriberUserRepository = subscriberUserRepository;
         this.subscriberSubscriptionRepository = subscriberSubscriptionRepository;
         this.subscriberSubscriptionService = subscriberSubscriptionService;
         this.businessTypeService = businessTypeService;
@@ -97,6 +102,20 @@ public class SubscriberService {
             response.setUserType(principal.getActorType().name());
             response.setCanChangePin(principal.getActorType() == ActorType.OWNER);
             response.setOwner(principal.getActorType() == ActorType.OWNER);
+
+            if (principal.getActorType() == ActorType.STAFF) {
+                SubscriberUser staffUser = subscriberUserRepository
+                        .findByIdAndSubscriberId(principal.getActorId(), principal.getSubscriberId())
+                        .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Team user not found"));
+                response.setTheme(staffUser.getThemeMode());
+                response.setFontSize(staffUser.getFontSize());
+            } else {
+                response.setTheme(subscriber.getThemeMode());
+                response.setFontSize(subscriber.getFontSize());
+            }
+        } else {
+            response.setTheme(subscriber.getThemeMode());
+            response.setFontSize(subscriber.getFontSize());
         }
 
         if (subscriber.getSubscriptionStatus() == SubscriptionStatus.ACTIVE) {

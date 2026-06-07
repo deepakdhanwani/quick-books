@@ -1,6 +1,6 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { colors } from '../theme/colors';
-
+import type { AppTheme } from '../theme/types';
+import { useThemedStyles } from '../theme/useThemedStyles';
 type DetailTabBarProps = {
   tabs: { id: string; label: string }[];
   activeTab: string;
@@ -8,6 +8,8 @@ type DetailTabBarProps = {
 };
 
 export function DetailTabBar({ tabs, activeTab, onChange }: DetailTabBarProps) {
+  const styles = useThemedStyles(createStyles);
+
   return (
     <View style={styles.row}>
       {tabs.map((tab) => {
@@ -26,7 +28,8 @@ export function DetailTabBar({ tabs, activeTab, onChange }: DetailTabBarProps) {
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(theme: AppTheme) {
+  return {
   row: {
     flexDirection: 'row',
     gap: 8,
@@ -37,20 +40,22 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surfaceElevated,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surfaceElevated,
     alignItems: 'center',
   },
   tabActive: {
-    borderColor: colors.primary,
+    borderColor: theme.colors.primary,
     backgroundColor: 'rgba(59, 130, 246, 0.15)',
   },
   tabText: {
-    color: colors.textSecondary,
-    fontSize: 13,
+    color: theme.colors.textSecondary,
+    fontSize: theme.scaleFont(13),
     fontWeight: '600',
   },
   tabTextActive: {
-    color: colors.primary,
+    color: theme.colors.primary,
   },
-});
+
+  };
+}

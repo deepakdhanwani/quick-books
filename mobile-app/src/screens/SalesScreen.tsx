@@ -1,4 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
+import { useAppTheme } from '../theme/AppThemeContext';
+import type { AppTheme } from '../theme/types';
+import { useThemedStyles } from '../theme/useThemedStyles';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -14,7 +17,6 @@ import { Card } from '../components/Card';
 import { PaymentListFilterChips } from '../components/PaymentListFilterChips';
 import { TransactionDateFilter, TransactionDateFilterSummary } from '../components/TransactionDateFilter';
 import { api, PaymentListFilter, Sale } from '../services/api';
-import { colors } from '../theme/colors';
 import {
   AppliedDateFilter,
   getClearedDateFilter,
@@ -38,6 +40,9 @@ type SalesScreenProps = {
 };
 
 export function SalesScreen({ token, onAddSale, onOpenSale }: SalesScreenProps) {
+  const theme = useAppTheme();
+  const styles = useThemedStyles(createStyles);
+
   const [sales, setSales] = useState<Sale[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -146,7 +151,7 @@ export function SalesScreen({ token, onAddSale, onOpenSale }: SalesScreenProps) 
             <Text style={[styles.statusLabel, { color: statusColor }]}>{statusLabel}</Text>
           </View>
         </View>
-        <Ionicons name="chevron-forward" size={14} color={colors.textSecondary} />
+        <Ionicons name="chevron-forward" size={14} color={theme.colors.textSecondary} />
       </Pressable>
     );
   };
@@ -154,7 +159,7 @@ export function SalesScreen({ token, onAddSale, onOpenSale }: SalesScreenProps) 
   if (loading && sales.length === 0) {
     return (
       <View style={styles.loading}>
-        <ActivityIndicator color={colors.primary} size="large" />
+        <ActivityIndicator color={theme.colors.primary} size="large" />
       </View>
     );
   }
@@ -164,13 +169,13 @@ export function SalesScreen({ token, onAddSale, onOpenSale }: SalesScreenProps) 
       <View style={styles.toolbar}>
         <View style={styles.searchRow}>
           <View style={styles.searchBox}>
-            <Ionicons name="search-outline" size={18} color={colors.textSecondary} />
+            <Ionicons name="search-outline" size={18} color={theme.colors.textSecondary} />
             <TextInput
               style={styles.searchInput}
               value={search}
               onChangeText={setSearch}
               placeholder="Search invoice or customer"
-              placeholderTextColor={colors.textSecondary}
+              placeholderTextColor={theme.colors.textSecondary}
             />
           </View>
           <TransactionDateFilter
@@ -179,7 +184,7 @@ export function SalesScreen({ token, onAddSale, onOpenSale }: SalesScreenProps) 
             onClear={() => setDateFilter(getClearedDateFilter())}
           />
           <Pressable style={styles.addButton} onPress={onAddSale}>
-            <Ionicons name="add" size={24} color={colors.text} />
+            <Ionicons name="add" size={24} color={theme.colors.onPrimary} />
           </Pressable>
         </View>
         <PaymentListFilterChips value={paymentFilter} onChange={setPaymentFilter} />
@@ -204,8 +209,8 @@ export function SalesScreen({ token, onAddSale, onOpenSale }: SalesScreenProps) 
               await loadSales({ pullRefresh: true });
               setRefreshing(false);
             }}
-            tintColor={colors.primary}
-            colors={[colors.primary]}
+            tintColor={theme.colors.primary}
+            colors={[theme.colors.primary]}
           />
         }
         onEndReached={infiniteScroll.onEndReached}
@@ -214,7 +219,7 @@ export function SalesScreen({ token, onAddSale, onOpenSale }: SalesScreenProps) 
         ListFooterComponent={
           loadingMore || (sales.length > 0 && totalElements > sales.length) ? (
             <View style={styles.footerLoader}>
-              {loadingMore ? <ActivityIndicator color={colors.primary} size="small" /> : null}
+              {loadingMore ? <ActivityIndicator color={theme.colors.primary} size="small" /> : null}
               {!loadingMore && totalElements > sales.length ? (
                 <Text style={styles.footerMeta}>
                   Showing {sales.length} of {totalElements}
@@ -225,7 +230,7 @@ export function SalesScreen({ token, onAddSale, onOpenSale }: SalesScreenProps) 
         }
         ListEmptyComponent={
           <Card style={styles.emptyCard}>
-            <Ionicons name="cart-outline" size={36} color={colors.primary} />
+            <Ionicons name="cart-outline" size={36} color={theme.colors.primary} />
             <Text style={styles.emptyTitle}>No sales found</Text>
             <Text style={styles.emptyText}>Tap + to record a new sale.</Text>
           </Card>
@@ -235,7 +240,8 @@ export function SalesScreen({ token, onAddSale, onOpenSale }: SalesScreenProps) 
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(theme: AppTheme) {
+  return {
   container: { flex: 1 },
   loading: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   toolbar: { paddingHorizontal: 20, paddingTop: 16 },
@@ -244,30 +250,30 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.surfaceElevated,
+    backgroundColor: theme.colors.surfaceElevated,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: theme.colors.border,
     borderRadius: 10,
     paddingHorizontal: 12,
     gap: 8,
   },
-  searchInput: { flex: 1, color: colors.text, fontSize: 16, paddingVertical: 12 },
+  searchInput: { flex: 1, color: theme.colors.text, fontSize: theme.scaleFont(16), paddingVertical: 12 },
   addButton: {
     width: 44,
     height: 44,
     borderRadius: 10,
-    backgroundColor: colors.primary,
+    backgroundColor: theme.colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  error: { color: colors.error, paddingHorizontal: 20, marginBottom: 8 },
+  error: { color: theme.colors.error, paddingHorizontal: 20, marginBottom: 8 },
   list: {
-    backgroundColor: colors.surface,
+    backgroundColor: theme.colors.surface,
     marginHorizontal: 20,
     marginTop: 12,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: theme.colors.border,
   },
   listContent: { paddingBottom: 8, flexGrow: 1 },
   row: {
@@ -302,30 +308,32 @@ const styles = StyleSheet.create({
   },
   customerName: {
     flex: 1,
-    color: colors.text,
-    fontSize: 14,
+    color: theme.colors.text,
+    fontSize: theme.scaleFont(14),
     fontWeight: '600',
   },
   amount: {
-    color: colors.primary,
-    fontSize: 13,
+    color: theme.colors.primary,
+    fontSize: theme.scaleFont(13),
     fontWeight: '700',
   },
   subtitle: {
     flex: 1,
-    color: colors.textSecondary,
-    fontSize: 11,
+    color: theme.colors.textSecondary,
+    fontSize: theme.scaleFont(11),
   },
   statusLabel: {
-    fontSize: 10,
+    fontSize: theme.scaleFont(10),
     fontWeight: '700',
     textTransform: 'uppercase',
     letterSpacing: 0.3,
   },
-  separator: { height: 1, backgroundColor: colors.border, marginLeft: 30 },
+  separator: { height: 1, backgroundColor: theme.colors.border, marginLeft: 30 },
   footerLoader: { paddingVertical: 16, alignItems: 'center', gap: 8 },
-  footerMeta: { color: colors.textSecondary, fontSize: 12 },
+  footerMeta: { color: theme.colors.textSecondary, fontSize: theme.scaleFont(12) },
   emptyCard: { alignItems: 'center', paddingVertical: 36, margin: 20, gap: 8 },
-  emptyTitle: { color: colors.text, fontSize: 18, fontWeight: '700' },
-  emptyText: { color: colors.textSecondary, textAlign: 'center' },
-});
+  emptyTitle: { color: theme.colors.text, fontSize: theme.scaleFont(18), fontWeight: '700' },
+  emptyText: { color: theme.colors.textSecondary, textAlign: 'center' },
+
+  };
+}

@@ -1,12 +1,13 @@
 import { ReactNode } from 'react';
+import { useAppTheme } from '../theme/AppThemeContext';
+import type { AppTheme } from '../theme/types';
+import { useThemedStyles } from '../theme/useThemedStyles';
 import {
   RefreshControl,
   ScrollView,
   ScrollViewProps,
   StyleSheet,
 } from 'react-native';
-import { colors } from '../theme/colors';
-
 type RefreshableScrollViewProps = ScrollViewProps & {
   children: ReactNode;
   refreshing: boolean;
@@ -20,6 +21,9 @@ export function RefreshableScrollView({
   contentContainerStyle,
   ...props
 }: RefreshableScrollViewProps) {
+  const theme = useAppTheme();
+  const styles = useThemedStyles(createStyles);
+
   return (
     <ScrollView
       {...props}
@@ -29,9 +33,9 @@ export function RefreshableScrollView({
         <RefreshControl
           refreshing={refreshing}
           onRefresh={onRefresh}
-          tintColor={colors.primary}
-          colors={[colors.primary]}
-          progressBackgroundColor={colors.surface}
+          tintColor={theme.colors.primary}
+          colors={[theme.colors.primary]}
+          progressBackgroundColor={theme.colors.surface}
         />
       }
     >
@@ -40,8 +44,11 @@ export function RefreshableScrollView({
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(theme: AppTheme) {
+  return {
   content: {
     flexGrow: 1,
   },
-});
+
+  };
+}

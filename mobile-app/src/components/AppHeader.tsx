@@ -1,7 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
+import { useAppTheme } from '../theme/AppThemeContext';
+import type { AppTheme } from '../theme/types';
+import { useThemedStyles } from '../theme/useThemedStyles';
 import { Platform, Pressable, StatusBar, StyleSheet, Text, View } from 'react-native';
-import { colors } from '../theme/colors';
-
 type AppHeaderProps = {
   title: string;
   subtitle?: string;
@@ -10,17 +11,20 @@ type AppHeaderProps = {
 };
 
 export function AppHeader({ title, subtitle, onMenuPress, onBackPress }: AppHeaderProps) {
+  const theme = useAppTheme();
+  const styles = useThemedStyles(createStyles);
+
   const topInset = Platform.OS === 'android' ? (StatusBar.currentHeight ?? 0) : 44;
 
   return (
     <View style={[styles.container, { paddingTop: topInset + 12 }]}>
       {onBackPress ? (
         <Pressable style={styles.iconButton} onPress={onBackPress} accessibilityLabel="Go back">
-          <Ionicons name="arrow-back" size={22} color={colors.text} />
+          <Ionicons name="arrow-back" size={22} color={theme.colors.text} />
         </Pressable>
       ) : onMenuPress ? (
         <Pressable style={styles.iconButton} onPress={onMenuPress} accessibilityLabel="Open menu">
-          <Ionicons name="menu" size={24} color={colors.text} />
+          <Ionicons name="menu" size={24} color={theme.colors.text} />
         </Pressable>
       ) : (
         <View style={styles.iconSpacer} />
@@ -36,15 +40,16 @@ export function AppHeader({ title, subtitle, onMenuPress, onBackPress }: AppHead
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(theme: AppTheme) {
+  return {
   container: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingBottom: 16,
-    backgroundColor: colors.background,
+    backgroundColor: theme.colors.background,
     borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    borderBottomColor: theme.colors.border,
   },
   iconButton: {
     width: 40,
@@ -52,7 +57,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.surfaceElevated,
+    backgroundColor: theme.colors.surfaceElevated,
   },
   iconSpacer: {
     width: 40,
@@ -62,13 +67,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   title: {
-    color: colors.text,
-    fontSize: 18,
+    color: theme.colors.text,
+    fontSize: theme.scaleFont(18),
     fontWeight: '700',
   },
   subtitle: {
-    color: colors.textSecondary,
-    fontSize: 12,
+    color: theme.colors.textSecondary,
+    fontSize: theme.scaleFont(12),
     marginTop: 2,
   },
-});
+
+  };
+}

@@ -1,10 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
+import { useAppTheme } from '../theme/AppThemeContext';
+import type { AppTheme } from '../theme/types';
+import { useThemedStyles } from '../theme/useThemedStyles';
 import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Card } from '../components/Card';
 import { api, TeamUser } from '../services/api';
-import { colors } from '../theme/colors';
-
 type TeamUsersScreenProps = {
   token: string;
   onAddUser: () => void;
@@ -20,6 +21,9 @@ export function TeamUsersScreen({
   refreshing,
   onRefresh,
 }: TeamUsersScreenProps) {
+  const theme = useAppTheme();
+  const styles = useThemedStyles(createStyles);
+
   const [users, setUsers] = useState<TeamUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -52,14 +56,14 @@ export function TeamUsersScreen({
           Staff sign in with your business mobile number and their assigned PIN.
         </Text>
         <Pressable style={styles.addButton} onPress={onAddUser}>
-          <Ionicons name="person-add-outline" size={18} color="#fff" />
+          <Ionicons name="person-add-outline" size={18} color={theme.colors.onPrimary} />
           <Text style={styles.addButtonText}>Add User</Text>
         </Pressable>
       </View>
 
       {loading && users.length === 0 ? (
         <View style={styles.loading}>
-          <ActivityIndicator color={colors.primary} size="large" />
+          <ActivityIndicator color={theme.colors.primary} size="large" />
         </View>
       ) : (
         <FlatList
@@ -90,7 +94,7 @@ export function TeamUsersScreen({
                       {item.active ? 'Active' : 'Inactive'}
                     </Text>
                   </View>
-                  <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
+                  <Ionicons name="chevron-forward" size={18} color={theme.colors.textSecondary} />
                 </View>
               </Card>
             </Pressable>
@@ -103,20 +107,21 @@ export function TeamUsersScreen({
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(theme: AppTheme) {
+  return {
   container: { flex: 1 },
   header: { padding: 20, paddingBottom: 8, gap: 12 },
-  subtitle: { color: colors.textSecondary, fontSize: 13, lineHeight: 18 },
+  subtitle: { color: theme.colors.textSecondary, fontSize: theme.scaleFont(13), lineHeight: theme.scaleFont(18) },
   addButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    backgroundColor: colors.primary,
+    backgroundColor: theme.colors.primary,
     borderRadius: 10,
     paddingVertical: 12,
   },
-  addButtonText: { color: '#fff', fontWeight: '700', fontSize: 14 },
+  addButtonText: { color: theme.colors.onPrimary, fontWeight: '700', fontSize: theme.scaleFont(14) },
   loading: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   listContent: { padding: 20, paddingTop: 8, gap: 10 },
   userCard: { marginBottom: 0 },
@@ -130,14 +135,16 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   avatarInactive: { backgroundColor: 'rgba(148, 163, 184, 0.15)' },
-  avatarText: { color: colors.primary, fontWeight: '700', fontSize: 16 },
+  avatarText: { color: theme.colors.primary, fontWeight: '700', fontSize: theme.scaleFont(16) },
   userInfo: { flex: 1 },
-  userName: { color: colors.text, fontSize: 15, fontWeight: '600' },
-  userMeta: { color: colors.textSecondary, fontSize: 12, marginTop: 2 },
-  userStatus: { fontSize: 12, marginTop: 4, fontWeight: '600' },
-  active: { color: colors.success },
-  inactive: { color: colors.warning },
-  error: { color: colors.error, marginBottom: 12 },
-  emptyTitle: { color: colors.text, fontWeight: '700', fontSize: 15 },
-  emptyHint: { color: colors.textSecondary, fontSize: 13, marginTop: 6 },
-});
+  userName: { color: theme.colors.text, fontSize: theme.scaleFont(15), fontWeight: '600' },
+  userMeta: { color: theme.colors.textSecondary, fontSize: theme.scaleFont(12), marginTop: 2 },
+  userStatus: { fontSize: theme.scaleFont(12), marginTop: 4, fontWeight: '600' },
+  active: { color: theme.colors.success },
+  inactive: { color: theme.colors.warning },
+  error: { color: theme.colors.error, marginBottom: 12 },
+  emptyTitle: { color: theme.colors.text, fontWeight: '700', fontSize: theme.scaleFont(15) },
+  emptyHint: { color: theme.colors.textSecondary, fontSize: theme.scaleFont(13), marginTop: 6 },
+
+  };
+}

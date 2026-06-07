@@ -1,4 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
+import { useAppTheme } from '../theme/AppThemeContext';
+import type { AppTheme } from '../theme/types';
+import { useThemedStyles } from '../theme/useThemedStyles';
 import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { Button } from '../components/Button';
@@ -6,7 +9,6 @@ import { Card } from '../components/Card';
 import { PaymentProofLink } from '../components/PaymentProofLink';
 import { RefreshableScrollView } from '../components/RefreshableScrollView';
 import { api, Purchase, PurchaseItem } from '../services/api';
-import { colors } from '../theme/colors';
 import {
   formatCurrency,
   formatDate,
@@ -28,6 +30,9 @@ export function PurchaseDetailScreen({
   onEdit,
   onMakePayment,
 }: PurchaseDetailScreenProps) {
+  const theme = useAppTheme();
+  const styles = useThemedStyles(createStyles);
+
   const [purchase, setPurchase] = useState<Purchase | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -56,7 +61,7 @@ export function PurchaseDetailScreen({
   if (loading && !purchase) {
     return (
       <View style={styles.loading}>
-        <ActivityIndicator color={colors.primary} size="large" />
+        <ActivityIndicator color={theme.colors.primary} size="large" />
       </View>
     );
   }
@@ -167,6 +172,8 @@ export function PurchaseDetailScreen({
 }
 
 function PurchaseProductLine({ item }: { item: PurchaseItem }) {
+  const styles = useThemedStyles(createStyles);
+
   const qty = item.quantity;
   const unitDiscount = item.discount ?? 0;
   const lineGross = item.unitPrice * qty;
@@ -209,6 +216,8 @@ function DetailRow({
   value?: string;
   highlight?: boolean;
 }) {
+  const styles = useThemedStyles(createStyles);
+
   return (
     <View style={styles.detailRow}>
       <Text style={styles.detailLabel}>{label}</Text>
@@ -219,13 +228,14 @@ function DetailRow({
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(theme: AppTheme) {
+  return {
   container: { flex: 1 },
   content: { padding: 20, paddingBottom: 32, gap: 16 },
   loading: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 },
   headerCard: { alignItems: 'center', paddingVertical: 24 },
-  billNumber: { color: colors.text, fontSize: 22, fontWeight: '700' },
-  vendor: { color: colors.textSecondary, fontSize: 15, marginTop: 4 },
+  billNumber: { color: theme.colors.text, fontSize: theme.scaleFont(22), fontWeight: '700' },
+  vendor: { color: theme.colors.textSecondary, fontSize: theme.scaleFont(15), marginTop: 4 },
   statusPill: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -234,19 +244,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 999,
-    backgroundColor: colors.surfaceElevated,
+    backgroundColor: theme.colors.surfaceElevated,
   },
   statusDot: { width: 8, height: 8, borderRadius: 4 },
-  statusText: { fontSize: 13, fontWeight: '600' },
-  sectionTitle: { color: colors.text, fontSize: 15, fontWeight: '700', marginBottom: 8 },
+  statusText: { fontSize: theme.scaleFont(13), fontWeight: '600' },
+  sectionTitle: { color: theme.colors.text, fontSize: theme.scaleFont(15), fontWeight: '700', marginBottom: 8 },
   itemRow: {
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    borderBottomColor: theme.colors.border,
     gap: 6,
   },
-  itemName: { color: colors.text, fontSize: 14, fontWeight: '600' },
-  itemMeta: { color: colors.textSecondary, fontSize: 12 },
+  itemName: { color: theme.colors.text, fontSize: theme.scaleFont(14), fontWeight: '600' },
+  itemMeta: { color: theme.colors.textSecondary, fontSize: theme.scaleFont(12) },
   priceGrid: {
     flexDirection: 'row',
     gap: 8,
@@ -254,45 +264,47 @@ const styles = StyleSheet.create({
   },
   priceCell: {
     flex: 1,
-    backgroundColor: colors.surfaceElevated,
+    backgroundColor: theme.colors.surfaceElevated,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: theme.colors.border,
     paddingVertical: 8,
     paddingHorizontal: 8,
     alignItems: 'center',
   },
   priceLabel: {
-    color: colors.textSecondary,
-    fontSize: 10,
+    color: theme.colors.textSecondary,
+    fontSize: theme.scaleFont(10),
     fontWeight: '600',
     textTransform: 'uppercase',
     letterSpacing: 0.3,
     marginBottom: 4,
   },
-  priceValue: { color: colors.text, fontSize: 13, fontWeight: '600' },
-  priceNet: { color: colors.primary },
+  priceValue: { color: theme.colors.text, fontSize: theme.scaleFont(13), fontWeight: '600' },
+  priceNet: { color: theme.colors.primary },
   detailRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     gap: 12,
     paddingVertical: 10,
     borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    borderBottomColor: theme.colors.border,
   },
-  detailLabel: { color: colors.textSecondary, fontSize: 13 },
-  detailValue: { color: colors.text, fontSize: 14, fontWeight: '600', textAlign: 'right', flexShrink: 1 },
-  detailValueHighlight: { color: colors.primary },
+  detailLabel: { color: theme.colors.textSecondary, fontSize: theme.scaleFont(13) },
+  detailValue: { color: theme.colors.text, fontSize: theme.scaleFont(14), fontWeight: '600', textAlign: 'right', flexShrink: 1 },
+  detailValueHighlight: { color: theme.colors.primary },
   paymentCard: {
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    borderBottomColor: theme.colors.border,
   },
   paymentHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  paymentAmount: { color: colors.text, fontSize: 16, fontWeight: '700' },
-  paymentDate: { color: colors.textSecondary, fontSize: 12 },
-  paymentMeta: { color: colors.textSecondary, fontSize: 13, marginTop: 4 },
-  adjustedMeta: { color: colors.warning, fontSize: 12, marginTop: 4, fontWeight: '500' },
-  emptyPayments: { color: colors.textSecondary, fontStyle: 'italic' },
-  error: { color: colors.error, textAlign: 'center' },
-});
+  paymentAmount: { color: theme.colors.text, fontSize: theme.scaleFont(16), fontWeight: '700' },
+  paymentDate: { color: theme.colors.textSecondary, fontSize: theme.scaleFont(12) },
+  paymentMeta: { color: theme.colors.textSecondary, fontSize: theme.scaleFont(13), marginTop: 4 },
+  adjustedMeta: { color: theme.colors.warning, fontSize: theme.scaleFont(12), marginTop: 4, fontWeight: '500' },
+  emptyPayments: { color: theme.colors.textSecondary, fontStyle: 'italic' },
+  error: { color: theme.colors.error, textAlign: 'center' },
+
+  };
+}

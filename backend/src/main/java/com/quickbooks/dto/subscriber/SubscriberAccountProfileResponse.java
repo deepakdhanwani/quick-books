@@ -1,6 +1,8 @@
 package com.quickbooks.dto.subscriber;
 
 import com.quickbooks.entity.Subscriber;
+import com.quickbooks.entity.enums.AppFontSize;
+import com.quickbooks.entity.enums.AppTheme;
 import com.quickbooks.entity.enums.SubscriptionStatus;
 
 import java.math.BigDecimal;
@@ -23,6 +25,8 @@ public class SubscriberAccountProfileResponse {
     private String userType;
     private boolean canChangePin = true;
     private boolean owner = true;
+    private AppTheme theme;
+    private AppFontSize fontSize;
 
     public static SubscriberAccountProfileResponse from(Subscriber subscriber) {
         SubscriberAccountProfileResponse response = new SubscriberAccountProfileResponse();
@@ -71,4 +75,8 @@ public class SubscriberAccountProfileResponse {
     public void setCanChangePin(boolean canChangePin) { this.canChangePin = canChangePin; }
     public boolean isOwner() { return owner; }
     public void setOwner(boolean owner) { this.owner = owner; }
+    public AppTheme getTheme() { return theme; }
+    public void setTheme(AppTheme theme) { this.theme = theme; }
+    public AppFontSize getFontSize() { return fontSize; }
+    public void setFontSize(AppFontSize fontSize) { this.fontSize = fontSize; }
 }

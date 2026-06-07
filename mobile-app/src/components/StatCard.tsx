@@ -1,7 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
+import { useAppTheme } from '../theme/AppThemeContext';
+import type { AppTheme } from '../theme/types';
+import { useThemedStyles } from '../theme/useThemedStyles';
 import { StyleSheet, Text, View } from 'react-native';
-import { colors } from '../theme/colors';
-
 type StatCardProps = {
   label: string;
   value: string;
@@ -9,11 +10,15 @@ type StatCardProps = {
   accent?: string;
 };
 
-export function StatCard({ label, value, icon, accent = colors.primary }: StatCardProps) {
+export function StatCard({ label, value, icon, accent }: StatCardProps) {
+  const theme = useAppTheme();
+  const styles = useThemedStyles(createStyles);
+  const accentColor = accent ?? theme.colors.primary;
+
   return (
     <View style={styles.card}>
-      <View style={[styles.iconWrap, { backgroundColor: `${accent}22` }]}>
-        <Ionicons name={icon} size={18} color={accent} />
+      <View style={[styles.iconWrap, { backgroundColor: `${accentColor}22` }]}>
+        <Ionicons name={icon} size={18} color={accentColor} />
       </View>
       <Text style={styles.value}>{value}</Text>
       <Text style={styles.label}>{label}</Text>
@@ -21,14 +26,15 @@ export function StatCard({ label, value, icon, accent = colors.primary }: StatCa
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(theme: AppTheme) {
+  return {
   card: {
     flex: 1,
-    backgroundColor: colors.surface,
+    backgroundColor: theme.colors.surface,
     borderRadius: 14,
     padding: 14,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: theme.colors.border,
     minWidth: 100,
   },
   iconWrap: {
@@ -40,13 +46,15 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   value: {
-    color: colors.text,
-    fontSize: 20,
+    color: theme.colors.text,
+    fontSize: theme.scaleFont(20),
     fontWeight: '700',
     marginBottom: 4,
   },
   label: {
-    color: colors.textSecondary,
-    fontSize: 12,
+    color: theme.colors.textSecondary,
+    fontSize: theme.scaleFont(12),
   },
-});
+
+  };
+}

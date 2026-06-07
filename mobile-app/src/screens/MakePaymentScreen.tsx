@@ -1,5 +1,8 @@
 import * as DocumentPicker from 'expo-document-picker';
+import { useAppTheme } from '../theme/AppThemeContext';
 import { Ionicons } from '@expo/vector-icons';
+import type { AppTheme } from '../theme/types';
+import { useThemedStyles } from '../theme/useThemedStyles';
 import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Button } from '../components/Button';
@@ -8,7 +11,6 @@ import { Input } from '../components/Input';
 import { PaymentModePicker } from '../components/PaymentModePicker';
 import { RefreshableScrollView } from '../components/RefreshableScrollView';
 import { api, PaymentMode, PaymentProofFile, Purchase } from '../services/api';
-import { colors } from '../theme/colors';
 import { PAYMENT_PROOF_PICKER_TYPES } from '../utils/paymentProofFiles';
 import { resolvePaymentSettlementType } from '../utils/paymentSettlement';
 import { formatCurrency, getPaymentDetailsLabel, parseAmount } from '../utils/saleAmounts';
@@ -20,6 +22,9 @@ type MakePaymentScreenProps = {
 };
 
 export function MakePaymentScreen({ token, purchaseId, onSaved }: MakePaymentScreenProps) {
+  const theme = useAppTheme();
+  const styles = useThemedStyles(createStyles);
+
   const [purchase, setPurchase] = useState<Purchase | null>(null);
   const [amount, setAmount] = useState('');
   const [paymentMode, setPaymentMode] = useState<PaymentMode>('CASH');
@@ -158,7 +163,7 @@ export function MakePaymentScreen({ token, purchaseId, onSaved }: MakePaymentScr
 
         <Text style={styles.sectionLabel}>Payment Proof (optional)</Text>
         <Pressable style={styles.proofPicker} onPress={pickProof}>
-          <Ionicons name="cloud-upload-outline" size={22} color={colors.primary} />
+          <Ionicons name="cloud-upload-outline" size={22} color={theme.colors.primary} />
           <View style={styles.proofTextBlock}>
             <Text style={styles.proofTitle}>
               {proof ? proof.name : 'Upload receipt, screenshot, or PDF'}
@@ -174,25 +179,26 @@ export function MakePaymentScreen({ token, purchaseId, onSaved }: MakePaymentScr
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(theme: AppTheme) {
+  return {
   container: { flex: 1 },
   content: { padding: 20, paddingBottom: 32 },
   loading: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  loadingText: { color: colors.textSecondary },
+  loadingText: { color: theme.colors.textSecondary },
   summary: {
     marginBottom: 16,
     padding: 14,
     borderRadius: 10,
-    backgroundColor: colors.surfaceElevated,
+    backgroundColor: theme.colors.surfaceElevated,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: theme.colors.border,
     alignItems: 'center',
   },
-  summaryLabel: { color: colors.textSecondary, fontSize: 13 },
-  summaryValue: { color: colors.primary, fontSize: 24, fontWeight: '700', marginTop: 4 },
+  summaryLabel: { color: theme.colors.textSecondary, fontSize: theme.scaleFont(13) },
+  summaryValue: { color: theme.colors.primary, fontSize: theme.scaleFont(24), fontWeight: '700', marginTop: 4 },
   sectionLabel: {
-    color: colors.text,
-    fontSize: 14,
+    color: theme.colors.text,
+    fontSize: theme.scaleFont(14),
     fontWeight: '600',
     marginBottom: 10,
     marginTop: 4,
@@ -204,13 +210,15 @@ const styles = StyleSheet.create({
     padding: 14,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: theme.colors.border,
     borderStyle: 'dashed',
-    backgroundColor: colors.surfaceElevated,
+    backgroundColor: theme.colors.surfaceElevated,
     marginBottom: 16,
   },
   proofTextBlock: { flex: 1 },
-  proofTitle: { color: colors.text, fontSize: 14, fontWeight: '600' },
-  proofHint: { color: colors.textSecondary, fontSize: 12, marginTop: 2 },
-  error: { color: colors.error, marginBottom: 12 },
-});
+  proofTitle: { color: theme.colors.text, fontSize: theme.scaleFont(14), fontWeight: '600' },
+  proofHint: { color: theme.colors.textSecondary, fontSize: theme.scaleFont(12), marginTop: 2 },
+  error: { color: theme.colors.error, marginBottom: 12 },
+
+  };
+}

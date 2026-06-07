@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useState } from 'react';
+import { useAppTheme } from '../theme/AppThemeContext';
+import type { AppTheme } from '../theme/types';
+import { useThemedStyles } from '../theme/useThemedStyles';
 import { ActivityIndicator, Pressable, StyleSheet, Switch, Text, View } from 'react-native';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
 import { Input } from '../components/Input';
 import { RefreshableScrollView } from '../components/RefreshableScrollView';
 import { api, CustomerType } from '../services/api';
-import { colors } from '../theme/colors';
 import {
   CUSTOMER_TYPE_OPTIONS,
   getBusinessNameLabel,
@@ -19,6 +21,9 @@ type CustomerFormScreenProps = {
 };
 
 export function CustomerFormScreen({ token, customerId, onSaved }: CustomerFormScreenProps) {
+  const theme = useAppTheme();
+  const styles = useThemedStyles(createStyles);
+
   const isEditing = customerId != null;
 
   const [name, setName] = useState('');
@@ -138,7 +143,7 @@ export function CustomerFormScreen({ token, customerId, onSaved }: CustomerFormS
   if (loading) {
     return (
       <View style={styles.loading}>
-        <ActivityIndicator color={colors.primary} size="large" />
+        <ActivityIndicator color={theme.colors.primary} size="large" />
       </View>
     );
   }
@@ -233,8 +238,8 @@ export function CustomerFormScreen({ token, customerId, onSaved }: CustomerFormS
             <Switch
               value={active}
               onValueChange={setActive}
-              trackColor={{ false: colors.border, true: 'rgba(34, 197, 94, 0.35)' }}
-              thumbColor={active ? colors.success : colors.textSecondary}
+              trackColor={{ false: theme.colors.border, true: 'rgba(34, 197, 94, 0.35)' }}
+              thumbColor={active ? theme.colors.success : theme.colors.textSecondary}
             />
           </View>
         </View>
@@ -250,7 +255,8 @@ export function CustomerFormScreen({ token, customerId, onSaved }: CustomerFormS
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(theme: AppTheme) {
+  return {
   container: {
     flex: 1,
   },
@@ -264,15 +270,15 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   sectionLabel: {
-    color: colors.text,
-    fontSize: 15,
+    color: theme.colors.text,
+    fontSize: theme.scaleFont(15),
     fontWeight: '600',
     marginBottom: 4,
   },
   sectionHint: {
-    color: colors.textSecondary,
-    fontSize: 12,
-    lineHeight: 17,
+    color: theme.colors.textSecondary,
+    fontSize: theme.scaleFont(12),
+    lineHeight: theme.scaleFont(17),
     marginBottom: 12,
   },
   typeRow: {
@@ -286,29 +292,29 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surfaceElevated,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surfaceElevated,
   },
   typeChipActive: {
-    borderColor: colors.primary,
+    borderColor: theme.colors.primary,
     backgroundColor: 'rgba(59, 130, 246, 0.12)',
   },
   typeChipText: {
-    color: colors.textSecondary,
-    fontSize: 13,
+    color: theme.colors.textSecondary,
+    fontSize: theme.scaleFont(13),
     fontWeight: '500',
   },
   typeChipTextActive: {
-    color: colors.primary,
+    color: theme.colors.primary,
     fontWeight: '600',
   },
   businessSection: {
     marginBottom: 8,
     padding: 14,
     borderRadius: 12,
-    backgroundColor: colors.surfaceElevated,
+    backgroundColor: theme.colors.surfaceElevated,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: theme.colors.border,
   },
   addressInput: {
     minHeight: 88,
@@ -318,20 +324,20 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     padding: 14,
     borderRadius: 12,
-    backgroundColor: colors.surfaceElevated,
+    backgroundColor: theme.colors.surfaceElevated,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: theme.colors.border,
   },
   activeLabel: {
-    color: colors.text,
-    fontSize: 15,
+    color: theme.colors.text,
+    fontSize: theme.scaleFont(15),
     fontWeight: '600',
     marginBottom: 4,
   },
   activeHint: {
-    color: colors.textSecondary,
-    fontSize: 12,
-    lineHeight: 17,
+    color: theme.colors.textSecondary,
+    fontSize: theme.scaleFont(12),
+    lineHeight: theme.scaleFont(17),
     marginBottom: 12,
   },
   activeSwitchRow: {
@@ -340,12 +346,14 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   activeValue: {
-    color: colors.text,
-    fontSize: 14,
+    color: theme.colors.text,
+    fontSize: theme.scaleFont(14),
     fontWeight: '500',
   },
   error: {
-    color: colors.error,
+    color: theme.colors.error,
     marginBottom: 12,
   },
-});
+
+  };
+}

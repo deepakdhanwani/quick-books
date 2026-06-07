@@ -1,8 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
+import { useAppTheme } from '../theme/AppThemeContext';
+import type { AppTheme } from '../theme/types';
+import { useThemedStyles } from '../theme/useThemedStyles';
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, TextInputProps, View } from 'react-native';
-import { colors } from '../theme/colors';
-
 type InputProps = TextInputProps & {
   label: string;
   enableVisibilityToggle?: boolean;
@@ -16,6 +17,9 @@ export function Input({
   style,
   ...props
 }: InputProps) {
+  const theme = useAppTheme();
+  const styles = useThemedStyles(createStyles);
+
   const [revealed, setRevealed] = useState(false);
   const isSecure = Boolean(secureTextEntry) && !revealed;
 
@@ -24,7 +28,7 @@ export function Input({
       <Text style={styles.label}>{label}</Text>
       <View style={styles.inputRow}>
         <TextInput
-          placeholderTextColor={colors.textSecondary}
+          placeholderTextColor={theme.colors.textSecondary}
           style={[
             styles.input,
             multiline && styles.multiline,
@@ -47,7 +51,7 @@ export function Input({
             <Ionicons
               name={revealed ? 'eye-off-outline' : 'eye-outline'}
               size={22}
-              color={colors.textSecondary}
+              color={theme.colors.textSecondary}
             />
           </Pressable>
         ) : null}
@@ -56,27 +60,28 @@ export function Input({
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(theme: AppTheme) {
+  return {
   container: {
     marginBottom: 16,
   },
   label: {
-    color: colors.textSecondary,
+    color: theme.colors.textSecondary,
     marginBottom: 6,
-    fontSize: 14,
+    fontSize: theme.scaleFont(14),
   },
   inputRow: {
     position: 'relative',
   },
   input: {
-    backgroundColor: colors.surfaceElevated,
+    backgroundColor: theme.colors.surfaceElevated,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: theme.colors.border,
     borderRadius: 10,
     paddingHorizontal: 14,
     paddingVertical: 12,
-    color: colors.text,
-    fontSize: 16,
+    color: theme.colors.text,
+    fontSize: theme.scaleFont(16),
   },
   multiline: {
     minHeight: 88,
@@ -95,4 +100,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     width: 32,
   },
-});
+
+  };
+}

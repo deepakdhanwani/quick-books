@@ -32,7 +32,8 @@ export type StackRoute =
   | 'team-users'
   | 'team-user-form'
   | 'team-user-detail'
-  | 'activity-log';
+  | 'activity-log'
+  | 'preferences';
 
 export type AppRoute = DrawerRoute | StackRoute;
 

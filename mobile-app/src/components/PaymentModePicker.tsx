@@ -1,8 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
+import { useAppTheme } from '../theme/AppThemeContext';
+import type { AppTheme } from '../theme/types';
+import { useThemedStyles } from '../theme/useThemedStyles';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { PaymentMode } from '../services/api';
-import { colors } from '../theme/colors';
-
 type PaymentModePickerProps = {
   value: PaymentMode;
   onChange: (mode: PaymentMode) => void;
@@ -15,6 +16,9 @@ const PAYMENT_MODES: { value: PaymentMode; label: string; icon: keyof typeof Ion
 ];
 
 export function PaymentModePicker({ value, onChange }: PaymentModePickerProps) {
+  const theme = useAppTheme();
+  const styles = useThemedStyles(createStyles);
+
   return (
     <View>
       <Text style={styles.sectionLabel}>Payment Mode *</Text>
@@ -30,7 +34,7 @@ export function PaymentModePicker({ value, onChange }: PaymentModePickerProps) {
               <Ionicons
                 name={mode.icon}
                 size={14}
-                color={selected ? colors.primary : colors.textSecondary}
+                color={selected ? theme.colors.primary : theme.colors.textSecondary}
               />
               <Text style={[styles.modeChipText, selected && styles.modeChipTextActive]}>
                 {mode.label}
@@ -43,10 +47,11 @@ export function PaymentModePicker({ value, onChange }: PaymentModePickerProps) {
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(theme: AppTheme) {
+  return {
   sectionLabel: {
-    color: colors.text,
-    fontSize: 14,
+    color: theme.colors.text,
+    fontSize: theme.scaleFont(14),
     fontWeight: '600',
     marginBottom: 8,
     marginTop: 4,
@@ -66,21 +71,23 @@ const styles = StyleSheet.create({
     paddingVertical: 7,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surfaceElevated,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surfaceElevated,
     minWidth: 0,
   },
   modeChipActive: {
-    borderColor: colors.primary,
+    borderColor: theme.colors.primary,
     backgroundColor: 'rgba(59, 130, 246, 0.12)',
   },
   modeChipText: {
-    color: colors.textSecondary,
-    fontSize: 11,
+    color: theme.colors.textSecondary,
+    fontSize: theme.scaleFont(11),
     fontWeight: '500',
   },
   modeChipTextActive: {
-    color: colors.primary,
+    color: theme.colors.primary,
     fontWeight: '600',
   },
-});
+
+  };
+}

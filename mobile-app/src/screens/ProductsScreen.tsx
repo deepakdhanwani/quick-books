@@ -1,4 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
+import { useAppTheme } from '../theme/AppThemeContext';
+import type { AppTheme } from '../theme/types';
+import { useThemedStyles } from '../theme/useThemedStyles';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -13,7 +16,6 @@ import {
 import { Card } from '../components/Card';
 import { StatusFilter, StatusFilterChips } from '../components/StatusFilterChips';
 import { api, Product } from '../services/api';
-import { colors } from '../theme/colors';
 import { LIST_PERFORMANCE_PROPS, useInfiniteScrollHandlers } from '../utils/infiniteScroll';
 import { formatCurrency } from '../utils/saleAmounts';
 
@@ -25,11 +27,14 @@ type ProductsScreenProps = {
   onOpenProduct: (id: number) => void;
 };
 
-function getAvatarColor(active: boolean) {
+function getAvatarColor(active: boolean, colors: AppTheme["colors"]) {
   return active ? colors.success : colors.textSecondary;
 }
 
 export function ProductsScreen({ token, onAddProduct, onOpenProduct }: ProductsScreenProps) {
+  const theme = useAppTheme();
+  const styles = useThemedStyles(createStyles);
+
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -119,7 +124,7 @@ export function ProductsScreen({ token, onAddProduct, onOpenProduct }: ProductsS
   };
 
   const renderProduct = ({ item }: { item: Product }) => {
-    const accentColor = getAvatarColor(item.active);
+    const accentColor = getAvatarColor(item.active, theme.colors);
     return (
       <Pressable style={styles.row} onPress={() => onOpenProduct(item.id)}>
         <View style={[styles.avatar, { backgroundColor: `${accentColor}20` }]}>
@@ -137,7 +142,7 @@ export function ProductsScreen({ token, onAddProduct, onOpenProduct }: ProductsS
           </Text>
         </View>
         <View style={[styles.statusIndicator, { backgroundColor: accentColor }]} />
-        <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} />
+        <Ionicons name="chevron-forward" size={16} color={theme.colors.textSecondary} />
       </Pressable>
     );
   };
@@ -145,7 +150,7 @@ export function ProductsScreen({ token, onAddProduct, onOpenProduct }: ProductsS
   if (loading && products.length === 0) {
     return (
       <View style={styles.loading}>
-        <ActivityIndicator color={colors.primary} size="large" />
+        <ActivityIndicator color={theme.colors.primary} size="large" />
       </View>
     );
   }
@@ -155,17 +160,17 @@ export function ProductsScreen({ token, onAddProduct, onOpenProduct }: ProductsS
       <View style={styles.toolbar}>
         <View style={styles.searchRow}>
           <View style={styles.searchBox}>
-            <Ionicons name="search-outline" size={18} color={colors.textSecondary} />
+            <Ionicons name="search-outline" size={18} color={theme.colors.textSecondary} />
             <TextInput
               style={styles.searchInput}
               value={search}
               onChangeText={setSearch}
               placeholder="Search products"
-              placeholderTextColor={colors.textSecondary}
+              placeholderTextColor={theme.colors.textSecondary}
             />
           </View>
           <Pressable style={styles.addButton} onPress={onAddProduct}>
-            <Ionicons name="add" size={24} color={colors.text} />
+            <Ionicons name="add" size={24} color={theme.colors.onPrimary} />
           </Pressable>
         </View>
         <StatusFilterChips value={statusFilter} onChange={setStatusFilter} />
@@ -185,8 +190,8 @@ export function ProductsScreen({ token, onAddProduct, onOpenProduct }: ProductsS
           <RefreshControl
             refreshing={refreshing}
             onRefresh={handleRefresh}
-            tintColor={colors.primary}
-            colors={[colors.primary]}
+            tintColor={theme.colors.primary}
+            colors={[theme.colors.primary]}
           />
         }
         onEndReached={infiniteScroll.onEndReached}
@@ -195,7 +200,7 @@ export function ProductsScreen({ token, onAddProduct, onOpenProduct }: ProductsS
         ListFooterComponent={
           loadingMore || (products.length > 0 && totalElements > products.length) ? (
             <View style={styles.footerLoader}>
-              {loadingMore ? <ActivityIndicator color={colors.primary} size="small" /> : null}
+              {loadingMore ? <ActivityIndicator color={theme.colors.primary} size="small" /> : null}
               {!loadingMore && totalElements > products.length ? (
                 <Text style={styles.footerMeta}>
                   Showing {products.length} of {totalElements}
@@ -206,7 +211,7 @@ export function ProductsScreen({ token, onAddProduct, onOpenProduct }: ProductsS
         }
         ListEmptyComponent={
           <Card style={styles.emptyCard}>
-            <Ionicons name="cube-outline" size={36} color={colors.primary} />
+            <Ionicons name="cube-outline" size={36} color={theme.colors.primary} />
             <Text style={styles.emptyTitle}>No products found</Text>
             <Text style={styles.emptyText}>Tap + to add a product.</Text>
           </Card>
@@ -216,7 +221,8 @@ export function ProductsScreen({ token, onAddProduct, onOpenProduct }: ProductsS
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(theme: AppTheme) {
+  return {
   container: { flex: 1 },
   loading: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   toolbar: { paddingHorizontal: 20, paddingTop: 16 },
@@ -225,30 +231,30 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.surfaceElevated,
+    backgroundColor: theme.colors.surfaceElevated,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: theme.colors.border,
     borderRadius: 10,
     paddingHorizontal: 12,
     gap: 8,
   },
-  searchInput: { flex: 1, color: colors.text, fontSize: 16, paddingVertical: 12 },
+  searchInput: { flex: 1, color: theme.colors.text, fontSize: theme.scaleFont(16), paddingVertical: 12 },
   addButton: {
     width: 44,
     height: 44,
     borderRadius: 10,
-    backgroundColor: colors.primary,
+    backgroundColor: theme.colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  error: { color: colors.error, paddingHorizontal: 20, marginBottom: 8 },
+  error: { color: theme.colors.error, paddingHorizontal: 20, marginBottom: 8 },
   list: {
-    backgroundColor: colors.surface,
+    backgroundColor: theme.colors.surface,
     marginHorizontal: 20,
     marginTop: 12,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: theme.colors.border,
   },
   listContent: { paddingBottom: 8, flexGrow: 1 },
   row: {
@@ -265,15 +271,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  avatarText: { fontSize: 16, fontWeight: '700' },
+  avatarText: { fontSize: theme.scaleFont(16), fontWeight: '700' },
   info: { flex: 1, minWidth: 0 },
-  name: { color: colors.text, fontSize: 16, fontWeight: '600' },
-  nameInactive: { color: colors.textSecondary },
-  subtitle: { color: colors.textSecondary, fontSize: 13, marginTop: 2 },
+  name: { color: theme.colors.text, fontSize: theme.scaleFont(16), fontWeight: '600' },
+  nameInactive: { color: theme.colors.textSecondary },
+  subtitle: { color: theme.colors.textSecondary, fontSize: theme.scaleFont(13), marginTop: 2 },
   statusIndicator: { width: 8, height: 8, borderRadius: 4 },
-  separator: { height: 1, backgroundColor: colors.border, marginLeft: 66 },
+  separator: { height: 1, backgroundColor: theme.colors.border, marginLeft: 66 },
   footerLoader: { paddingVertical: 16, alignItems: 'center', gap: 8 },
-  footerMeta: { color: colors.textSecondary, fontSize: 12 },
+  footerMeta: { color: theme.colors.textSecondary, fontSize: theme.scaleFont(12) },
   emptyCard: {
     alignItems: 'center',
     paddingVertical: 36,
@@ -281,6 +287,8 @@ const styles = StyleSheet.create({
     marginHorizontal: 20,
     gap: 8,
   },
-  emptyTitle: { color: colors.text, fontSize: 18, fontWeight: '700' },
-  emptyText: { color: colors.textSecondary, textAlign: 'center', lineHeight: 20 },
-});
+  emptyTitle: { color: theme.colors.text, fontSize: theme.scaleFont(18), fontWeight: '700' },
+  emptyText: { color: theme.colors.textSecondary, textAlign: 'center', lineHeight: theme.scaleFont(20) },
+
+  };
+}

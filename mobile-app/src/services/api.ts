@@ -303,6 +303,14 @@ export type PaymentProofFile = {
   mimeType: string;
 };
 
+export type ThemeMode = 'DARK' | 'LIGHT';
+export type FontSizeMode = 'LARGE' | 'SMALL' | 'EXTRA_SMALL';
+
+export type UserPreferences = {
+  theme: ThemeMode;
+  fontSize: FontSizeMode;
+};
+
 export type SubscriberAccountProfile = {
   id: number;
   businessName: string;
@@ -319,6 +327,8 @@ export type SubscriberAccountProfile = {
   userType?: SubscriberUserType;
   canChangePin?: boolean;
   owner?: boolean;
+  theme?: ThemeMode;
+  fontSize?: FontSizeMode;
 };
 
 export type TeamUser = {
@@ -452,6 +462,14 @@ export const api = {
     }),
   getAccountProfile: (token: string) =>
     request<SubscriberAccountProfile>('/api/subscriber/account/profile', { token }),
+  getUserPreferences: (token: string) =>
+    request<UserPreferences>('/api/subscriber/account/preferences', { token }),
+  updateUserPreferences: (token: string, payload: UserPreferences) =>
+    request<UserPreferences>('/api/subscriber/account/preferences', {
+      method: 'PUT',
+      token,
+      body: payload,
+    }),
   updateAccountSettings: (token: string, payload: UpdateAccountSettingsPayload) =>
     request<SubscriberAccountProfile>('/api/subscriber/account/settings', {
       method: 'PUT',

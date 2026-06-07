@@ -1,4 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
+import { useAppTheme } from '../theme/AppThemeContext';
+import type { AppTheme } from '../theme/types';
+import { useThemedStyles } from '../theme/useThemedStyles';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -16,7 +19,6 @@ import { PaymentListFilterChips } from '../components/PaymentListFilterChips';
 import { RefreshableScrollView } from '../components/RefreshableScrollView';
 import { api, Customer, PaymentListFilter, Sale } from '../services/api';
 import { appAlert } from '../utils/appAlert';
-import { colors } from '../theme/colors';
 import {
   getBusinessNameLabel,
   getCustomerTypeLabel,
@@ -55,6 +57,9 @@ export function CustomerDetailScreen({
   onDeleted,
   onOpenSale,
 }: CustomerDetailScreenProps) {
+  const theme = useAppTheme();
+  const styles = useThemedStyles(createStyles);
+
   const [customer, setCustomer] = useState<Customer | null>(null);
   const [activeTab, setActiveTab] = useState<CustomerDetailTab>('details');
   const [loading, setLoading] = useState(true);
@@ -200,7 +205,7 @@ export function CustomerDetailScreen({
   if (loading && !customer) {
     return (
       <View style={styles.loading}>
-        <ActivityIndicator color={colors.primary} size="large" />
+        <ActivityIndicator color={theme.colors.primary} size="large" />
       </View>
     );
   }
@@ -213,7 +218,7 @@ export function CustomerDetailScreen({
     );
   }
 
-  const avatarColor = customer.active ? colors.success : colors.textSecondary;
+  const avatarColor = customer.active ? theme.colors.success : theme.colors.textSecondary;
 
   const headerCard = (
     <Card style={styles.headerCard}>
@@ -254,7 +259,7 @@ export function CustomerDetailScreen({
             <Text style={[styles.invoiceStatus, { color: statusColor }]}>{statusLabel}</Text>
           </View>
         </View>
-        <Ionicons name="chevron-forward" size={14} color={colors.textSecondary} />
+        <Ionicons name="chevron-forward" size={14} color={theme.colors.textSecondary} />
       </Pressable>
     );
   };
@@ -289,7 +294,7 @@ export function CustomerDetailScreen({
           ListEmptyComponent={
             salesLoading ? (
               <View style={styles.sectionLoading}>
-                <ActivityIndicator color={colors.primary} />
+                <ActivityIndicator color={theme.colors.primary} />
               </View>
             ) : (
               <Card>
@@ -302,7 +307,7 @@ export function CustomerDetailScreen({
           }
           ListFooterComponent={
             salesLoadingMore ? (
-              <ActivityIndicator color={colors.primary} style={styles.footerLoader} />
+              <ActivityIndicator color={theme.colors.primary} style={styles.footerLoader} />
             ) : null
           }
         />
@@ -365,8 +370,8 @@ export function CustomerDetailScreen({
             value={customer.active}
             onValueChange={handleToggleActive}
             disabled={togglingActive}
-            trackColor={{ false: colors.border, true: 'rgba(34, 197, 94, 0.35)' }}
-            thumbColor={customer.active ? colors.success : colors.textSecondary}
+            trackColor={{ false: theme.colors.border, true: 'rgba(34, 197, 94, 0.35)' }}
+            thumbColor={customer.active ? theme.colors.success : theme.colors.textSecondary}
           />
         </View>
       </Card>
@@ -374,7 +379,7 @@ export function CustomerDetailScreen({
       <View style={styles.actions}>
         <Button title="Edit Customer" onPress={onEdit} />
         <Pressable style={styles.deleteButton} onPress={handleDelete}>
-          <Ionicons name="trash-outline" size={18} color={colors.error} />
+          <Ionicons name="trash-outline" size={18} color={theme.colors.error} />
           <Text style={styles.deleteText}>Delete Customer</Text>
         </Pressable>
       </View>
@@ -393,9 +398,12 @@ function DetailRow({
   label: string;
   value?: string;
 }) {
+  const theme = useAppTheme();
+  const styles = useThemedStyles(createStyles);
+
   return (
     <View style={styles.detailRow}>
-      <Ionicons name={icon} size={18} color={colors.textSecondary} />
+      <Ionicons name={icon} size={18} color={theme.colors.textSecondary} />
       <View style={styles.detailText}>
         <Text style={styles.detailLabel}>{label}</Text>
         <Text style={styles.detailValue}>{value || '—'}</Text>
@@ -404,7 +412,8 @@ function DetailRow({
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(theme: AppTheme) {
+  return {
   container: { flex: 1 },
   content: { padding: 20, paddingBottom: 32 },
   listContent: { padding: 20, paddingBottom: 32 },
@@ -433,7 +442,7 @@ const styles = StyleSheet.create({
     marginBottom: 14,
     position: 'relative',
   },
-  avatarText: { fontSize: 28, fontWeight: '700' },
+  avatarText: { fontSize: theme.scaleFont(28), fontWeight: '700' },
   statusDot: {
     position: 'absolute',
     right: 4,
@@ -442,28 +451,28 @@ const styles = StyleSheet.create({
     height: 14,
     borderRadius: 7,
     borderWidth: 2,
-    borderColor: colors.surface,
+    borderColor: theme.colors.surface,
   },
-  name: { color: colors.text, fontSize: 22, fontWeight: '700' },
-  nameInactive: { color: colors.textSecondary },
-  subtitle: { color: colors.textSecondary, fontSize: 14, marginTop: 4 },
+  name: { color: theme.colors.text, fontSize: theme.scaleFont(22), fontWeight: '700' },
+  nameInactive: { color: theme.colors.textSecondary },
+  subtitle: { color: theme.colors.textSecondary, fontSize: theme.scaleFont(14), marginTop: 4 },
   detailRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: 12,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    borderBottomColor: theme.colors.border,
   },
   detailText: { flex: 1 },
   detailLabel: {
-    color: colors.textSecondary,
-    fontSize: 12,
+    color: theme.colors.textSecondary,
+    fontSize: theme.scaleFont(12),
     marginBottom: 4,
     textTransform: 'uppercase',
     letterSpacing: 0.4,
   },
-  detailValue: { color: colors.text, fontSize: 15 },
+  detailValue: { color: theme.colors.text, fontSize: theme.scaleFont(15) },
   activeRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -471,8 +480,8 @@ const styles = StyleSheet.create({
     paddingTop: 16,
     gap: 16,
   },
-  activeLabel: { color: colors.text, fontSize: 15, fontWeight: '600' },
-  activeHint: { color: colors.textSecondary, fontSize: 12, marginTop: 2 },
+  activeLabel: { color: theme.colors.text, fontSize: theme.scaleFont(15), fontWeight: '600' },
+  activeHint: { color: theme.colors.textSecondary, fontSize: theme.scaleFont(12), marginTop: 2 },
   actions: { marginTop: 16, gap: 12 },
   deleteButton: {
     flexDirection: 'row',
@@ -485,15 +494,15 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(239, 68, 68, 0.3)',
     backgroundColor: 'rgba(239, 68, 68, 0.08)',
   },
-  deleteText: { color: colors.error, fontSize: 15, fontWeight: '600' },
-  error: { color: colors.error, marginTop: 12, textAlign: 'center' },
+  deleteText: { color: theme.colors.error, fontSize: theme.scaleFont(15), fontWeight: '600' },
+  error: { color: theme.colors.error, marginTop: 12, textAlign: 'center' },
   invoiceRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
     paddingVertical: 14,
     borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    borderBottomColor: theme.colors.border,
   },
   invoiceDot: { width: 8, height: 8, borderRadius: 4 },
   invoiceMain: { flex: 1 },
@@ -504,11 +513,13 @@ const styles = StyleSheet.create({
     gap: 12,
     marginTop: 4,
   },
-  invoiceNumber: { color: colors.text, fontSize: 15, fontWeight: '600', flex: 1 },
-  invoiceAmount: { color: colors.text, fontSize: 15, fontWeight: '700' },
-  invoiceMeta: { color: colors.textSecondary, fontSize: 12, flex: 1 },
-  invoiceStatus: { fontSize: 12, fontWeight: '600' },
-  emptyTitle: { color: colors.text, fontWeight: '700', fontSize: 15 },
-  emptyHint: { color: colors.textSecondary, fontSize: 13, marginTop: 6 },
+  invoiceNumber: { color: theme.colors.text, fontSize: theme.scaleFont(15), fontWeight: '600', flex: 1 },
+  invoiceAmount: { color: theme.colors.text, fontSize: theme.scaleFont(15), fontWeight: '700' },
+  invoiceMeta: { color: theme.colors.textSecondary, fontSize: theme.scaleFont(12), flex: 1 },
+  invoiceStatus: { fontSize: theme.scaleFont(12), fontWeight: '600' },
+  emptyTitle: { color: theme.colors.text, fontWeight: '700', fontSize: theme.scaleFont(15) },
+  emptyHint: { color: theme.colors.textSecondary, fontSize: theme.scaleFont(13), marginTop: 6 },
   footerLoader: { marginVertical: 16 },
-});
+
+  };
+}

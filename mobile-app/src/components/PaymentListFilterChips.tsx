@@ -1,7 +1,7 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import type { AppTheme } from '../theme/types';
+import { useThemedStyles } from '../theme/useThemedStyles';
 import { PaymentListFilter } from '../services/api';
-import { colors } from '../theme/colors';
-
 const FILTER_OPTIONS: { value: PaymentListFilter; label: string }[] = [
   { value: 'ALL', label: 'All' },
   { value: 'PENDING', label: 'Pending' },
@@ -14,6 +14,8 @@ type PaymentListFilterChipsProps = {
 };
 
 export function PaymentListFilterChips({ value, onChange }: PaymentListFilterChipsProps) {
+  const styles = useThemedStyles(createStyles);
+
   return (
     <View style={styles.row}>
       {FILTER_OPTIONS.map((option) => {
@@ -32,7 +34,8 @@ export function PaymentListFilterChips({ value, onChange }: PaymentListFilterChi
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(theme: AppTheme) {
+  return {
   row: {
     flexDirection: 'row',
     gap: 8,
@@ -43,20 +46,22 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surfaceElevated,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surfaceElevated,
     alignItems: 'center',
   },
   chipActive: {
-    borderColor: colors.primary,
+    borderColor: theme.colors.primary,
     backgroundColor: 'rgba(59, 130, 246, 0.15)',
   },
   chipText: {
-    color: colors.textSecondary,
-    fontSize: 13,
+    color: theme.colors.textSecondary,
+    fontSize: theme.scaleFont(13),
     fontWeight: '600',
   },
   chipTextActive: {
-    color: colors.primary,
+    color: theme.colors.primary,
   },
-});
+
+  };
+}

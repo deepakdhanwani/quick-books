@@ -1,5 +1,7 @@
 package com.quickbooks.entity;
 
+import com.quickbooks.entity.enums.AppFontSize;
+import com.quickbooks.entity.enums.AppTheme;
 import com.quickbooks.entity.enums.SubscriptionStatus;
 import jakarta.persistence.*;
 import java.math.BigDecimal;
@@ -48,6 +50,14 @@ public class Subscriber {
     @Column(name = "is_demo", nullable = false)
     private boolean demo = false;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "theme_mode", nullable = false)
+    private AppTheme themeMode = AppTheme.DARK;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "font_size", nullable = false)
+    private AppFontSize fontSize = AppFontSize.SMALL;
+
     @Column(name = "created_at", nullable = false)
     private OffsetDateTime createdAt = OffsetDateTime.now();
 
@@ -75,6 +85,10 @@ public class Subscriber {
     public void setActive(boolean active) { this.active = active; }
     public boolean isDemo() { return demo; }
     public void setDemo(boolean demo) { this.demo = demo; }
+    public AppTheme getThemeMode() { return themeMode; }
+    public void setThemeMode(AppTheme themeMode) { this.themeMode = themeMode; }
+    public AppFontSize getFontSize() { return fontSize; }
+    public void setFontSize(AppFontSize fontSize) { this.fontSize = fontSize; }
     public OffsetDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(OffsetDateTime createdAt) { this.createdAt = createdAt; }
 }
