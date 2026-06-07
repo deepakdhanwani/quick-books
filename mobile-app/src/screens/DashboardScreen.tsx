@@ -1,13 +1,21 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useCallback, useEffect, useState } from 'react';
+import { ActivityIndicator, Pressable, Text, View } from 'react-native';
+import { TrendChart } from '../components/bi/TrendChart';
+import { CashPositionCard } from '../components/dashboard/CashPositionCard';
+import { DashboardHero } from '../components/dashboard/DashboardHero';
+import { DashboardInsightPreview } from '../components/dashboard/DashboardInsightPreview';
+import { DashboardPulseStrip } from '../components/dashboard/DashboardPulseStrip';
+import { DashboardQuickActions } from '../components/dashboard/DashboardQuickActions';
+import { DashboardTodayCards } from '../components/dashboard/DashboardTodayCards';
+import { MonthPerformanceCard } from '../components/dashboard/MonthPerformanceCard';
+import { WorkspaceTiles } from '../components/dashboard/WorkspaceTiles';
+import { RefreshableScrollView } from '../components/RefreshableScrollView';
+import type { DrawerRoute } from '../navigation/types';
+import { api, BusinessIntelligence, SubscriberAccountProfile, SubscriberDashboard } from '../services/api';
 import { useAppTheme } from '../theme/AppThemeContext';
 import type { AppTheme } from '../theme/types';
 import { useThemedStyles } from '../theme/useThemedStyles';
-import { ActivityIndicator, Pressable, Text, View } from 'react-native';
-import { Card } from '../components/Card';
-import { RefreshableScrollView } from '../components/RefreshableScrollView';
-import { StatCard } from '../components/StatCard';
-import { api, BusinessIntelligence, SubscriberAccountProfile, SubscriberDashboard } from '../services/api';
 import { formatCurrency } from '../utils/saleAmounts';
 
 type DashboardScreenProps = {
@@ -19,13 +27,8 @@ type DashboardScreenProps = {
   onNewPurchase?: () => void;
   onAddCustomer?: () => void;
   onOpenReports?: () => void;
+  onNavigate?: (route: DrawerRoute) => void;
 };
-
-const QUICK_ACTIONS = [
-  { key: 'sale', label: 'New Sale', icon: 'add-circle-outline' as const },
-  { key: 'purchase', label: 'New Purchase', icon: 'bag-add-outline' as const },
-  { key: 'customer', label: 'Add Customer', icon: 'person-add-outline' as const },
-];
 
 export function DashboardScreen({
   token,
@@ -36,6 +39,7 @@ export function DashboardScreen({
   onNewPurchase,
   onAddCustomer,
   onOpenReports,
+  onNavigate,
 }: DashboardScreenProps) {
   const theme = useAppTheme();
   const styles = useThemedStyles(createStyles);
@@ -87,6 +91,11 @@ export function DashboardScreen({
   const pendingTotal =
     (dashboard?.pendingReceivables ?? 0) + (dashboard?.pendingPayables ?? 0);
 
+  const salesForecast =
+    intelligence?.forecasts.find((item) => item.key === 'SALES_MONTH') ?? null;
+
+  const trendData = (intelligence?.salesTrend ?? []).slice(-7);
+
   const handleQuickAction = (key: string) => {
     if (key === 'sale') {
       onNewSale?.();
@@ -94,8 +103,43 @@ export function DashboardScreen({
       onNewPurchase?.();
     } else if (key === 'customer') {
       onAddCustomer?.();
+    } else if (key === 'reports') {
+      onOpenReports?.();
     }
   };
+
+  const workspaceTiles = [
+    {
+      route: 'customers' as const,
+      label: 'Customers',
+      value: String(dashboard?.customerCount ?? 0),
+      icon: 'people-outline' as const,
+    },
+    {
+      route: 'vendors' as const,
+      label: 'Vendors',
+      value: String(dashboard?.vendorCount ?? 0),
+      icon: 'storefront-outline' as const,
+    },
+    {
+      route: 'products' as const,
+      label: 'Products',
+      value: String(dashboard?.productCount ?? 0),
+      icon: 'cube-outline' as const,
+    },
+    {
+      route: 'sales' as const,
+      label: 'Sales',
+      value: String(dashboard?.saleCount ?? 0),
+      icon: 'receipt-outline' as const,
+    },
+    {
+      route: 'purchases' as const,
+      label: 'Purchases',
+      value: String(dashboard?.purchaseCount ?? 0),
+      icon: 'document-text-outline' as const,
+    },
+  ];
 
   return (
     <RefreshableScrollView
@@ -105,168 +149,82 @@ export function DashboardScreen({
       refreshing={refreshing}
       onRefresh={handleRefresh}
     >
-      <View style={styles.hero}>
-        <View>
-          <Text style={styles.greeting}>Welcome back,</Text>
-          <Text style={styles.name}>{greetingName}</Text>
-          <Text style={styles.business}>{profile?.businessName ?? 'Your business'}</Text>
-        </View>
-        <View style={[styles.statusPill, { borderColor: `${subscriptionColor}55` }]}>
-          <View style={[styles.statusDot, { backgroundColor: subscriptionColor }]} />
-          <Text style={[styles.statusText, { color: subscriptionColor }]}>{subscriptionLabel}</Text>
-        </View>
-      </View>
+      <DashboardHero
+        greetingName={greetingName}
+        businessName={profile?.businessName ?? 'Your business'}
+        subscriptionLabel={subscriptionLabel}
+        subscriptionColor={subscriptionColor}
+      />
 
       {loading && !dashboard ? (
         <View style={styles.loadingBox}>
-          <ActivityIndicator color={theme.colors.primary} />
+          <ActivityIndicator color={theme.colors.primary} size="large" />
+          <Text style={styles.loadingText}>Loading your business snapshot...</Text>
         </View>
       ) : (
         <>
-          <View style={styles.statsRow}>
-            <StatCard
-              label="Today's Sales"
-              value={formatCurrency(dashboard?.todaySales ?? 0)}
-              icon="trending-up-outline"
-              accent={theme.colors.success}
+          {intelligence ? (
+            <DashboardPulseStrip
+              score={intelligence.healthScore}
+              label={intelligence.healthLabel}
+              summary={intelligence.healthSummary}
+              onPress={onOpenReports}
             />
-            <View style={styles.statGap} />
-            <StatCard
-              label="Today's Purchases"
-              value={formatCurrency(dashboard?.todayPurchases ?? 0)}
-              icon="bag-handle-outline"
-              accent={theme.colors.primary}
-            />
-            <View style={styles.statGap} />
-            <StatCard
-              label="Outstanding"
-              value={formatCurrency(pendingTotal)}
-              icon="time-outline"
-              accent={theme.colors.warning}
-            />
-          </View>
+          ) : null}
 
-          <Text style={styles.sectionTitle}>This Month</Text>
-          <Card>
-            <View style={styles.monthRow}>
-              <MonthMetric label="Sales" value={formatCurrency(dashboard?.monthSales ?? 0)} />
-              <MonthMetric label="Purchases" value={formatCurrency(dashboard?.monthPurchases ?? 0)} />
-              <MonthMetric
-                label="Net Position"
-                value={formatCurrency(dashboard?.monthNetPosition ?? 0)}
-                highlight={
-                  (dashboard?.monthNetPosition ?? 0) >= 0 ? theme.colors.success : theme.colors.error
-                }
-              />
-            </View>
-          </Card>
+          <DashboardTodayCards
+            todaySales={formatCurrency(dashboard?.todaySales ?? 0)}
+            todayPurchases={formatCurrency(dashboard?.todayPurchases ?? 0)}
+            outstanding={formatCurrency(pendingTotal)}
+          />
+
+          <MonthPerformanceCard
+            monthSales={dashboard?.monthSales ?? 0}
+            monthPurchases={dashboard?.monthPurchases ?? 0}
+            monthNetPosition={dashboard?.monthNetPosition ?? 0}
+            salesForecast={salesForecast}
+          />
+
+          <CashPositionCard
+            receivables={dashboard?.pendingReceivables ?? 0}
+            payables={dashboard?.pendingPayables ?? 0}
+            netOutlook={intelligence?.cashFlowOutlook.netOutlook}
+            outlookSummary={intelligence?.cashFlowOutlook.summary}
+          />
+
+          {trendData.length > 0 ? (
+            <TrendChart
+              title="Sales Trend"
+              data={trendData}
+              emptyText="Record a few sales to see your trend"
+            />
+          ) : null}
 
           {intelligence ? (
-            <Card style={styles.forecastCard}>
-              <View style={styles.forecastHeader}>
-                <Text style={styles.forecastTitle}>Month-end Forecast</Text>
-                <View style={[styles.healthPill, { backgroundColor: `${theme.colors.primary}18` }]}>
-                  <Text style={[styles.healthPillText, { color: theme.colors.primary }]}>
-                    Pulse {intelligence.healthScore}
-                  </Text>
-                </View>
-              </View>
-              <Text style={styles.forecastValue}>
-                {formatCurrency(
-                  intelligence.forecasts.find((item) => item.key === 'SALES_MONTH')?.projectedValue ?? 0,
-                )}
-              </Text>
-              <Text style={styles.forecastHint}>
-                {intelligence.insights[0]?.message ??
-                  'Projected sales at current daily pace. Open Reports for full forecasts and actions.'}
-              </Text>
-            </Card>
+            <DashboardInsightPreview insights={intelligence.insights} onViewAll={onOpenReports} />
           ) : null}
         </>
       )}
 
-      <Text style={styles.sectionTitle}>Quick Actions</Text>
-      <View style={styles.actionsGrid}>
-        {QUICK_ACTIONS.map((action) => (
-          <Pressable key={action.key} style={styles.actionCard} onPress={() => handleQuickAction(action.key)}>
-            <View style={styles.actionIcon}>
-              <Ionicons name={action.icon} size={22} color={theme.colors.primary} />
-            </View>
-            <Text style={styles.actionLabel}>{action.label}</Text>
-          </Pressable>
-        ))}
-      </View>
+      <DashboardQuickActions onAction={handleQuickAction} />
 
-      <Text style={styles.sectionTitle}>Overview</Text>
-      <Card>
-        <View style={styles.overviewRow}>
-          <OverviewItem icon="people-outline" label="Customers" value={String(dashboard?.customerCount ?? 0)} />
-          <OverviewItem icon="storefront-outline" label="Vendors" value={String(dashboard?.vendorCount ?? 0)} />
-          <OverviewItem icon="cube-outline" label="Products" value={String(dashboard?.productCount ?? 0)} />
-        </View>
-        <View style={[styles.overviewRow, styles.overviewRowSecond]}>
-          <OverviewItem icon="receipt-outline" label="Sales" value={String(dashboard?.saleCount ?? 0)} />
-          <OverviewItem icon="document-text-outline" label="Purchases" value={String(dashboard?.purchaseCount ?? 0)} />
-          <OverviewItem
-            icon="wallet-outline"
-            label="Receivable"
-            value={formatCurrency(dashboard?.pendingReceivables ?? 0)}
-          />
-        </View>
-      </Card>
+      {onNavigate ? (
+        <WorkspaceTiles tiles={workspaceTiles} onNavigate={onNavigate} />
+      ) : null}
 
       <Pressable style={styles.reportsCard} onPress={onOpenReports}>
         <View style={styles.reportsIcon}>
-          <Ionicons name="bar-chart-outline" size={22} color={theme.colors.primary} />
+          <Ionicons name="analytics-outline" size={24} color={theme.colors.primary} />
         </View>
         <View style={styles.reportsText}>
-          <Text style={styles.reportsTitle}>Business Intelligence</Text>
+          <Text style={styles.reportsTitle}>Open Business Intelligence</Text>
           <Text style={styles.reportsBody}>
-            Forecasts, cash outlook, health score, and recommended actions for what to do next.
+            Forecasts, customer and vendor trends, cash outlook, and actionable recommendations.
           </Text>
         </View>
-        <Ionicons name="chevron-forward" size={20} color={theme.colors.textSecondary} />
+        <Ionicons name="arrow-forward-circle" size={28} color={theme.colors.primary} />
       </Pressable>
     </RefreshableScrollView>
-  );
-}
-
-function MonthMetric({
-  label,
-  value,
-  highlight,
-}: {
-  label: string;
-  value: string;
-  highlight?: string;
-}) {
-  const styles = useThemedStyles(createStyles);
-  return (
-    <View style={styles.monthMetric}>
-      <Text style={styles.monthLabel}>{label}</Text>
-      <Text style={[styles.monthValue, highlight ? { color: highlight } : null]}>{value}</Text>
-    </View>
-  );
-}
-
-function OverviewItem({
-  icon,
-  label,
-  value,
-}: {
-  icon: keyof typeof Ionicons.glyphMap;
-  label: string;
-  value: string;
-}) {
-  const theme = useAppTheme();
-  const styles = useThemedStyles(createStyles);
-
-  return (
-    <View style={styles.overviewItem}>
-      <Ionicons name={icon} size={18} color={theme.colors.textSecondary} />
-      <Text style={styles.overviewValue}>{value}</Text>
-      <Text style={styles.overviewLabel}>{label}</Text>
-    </View>
   );
 }
 
@@ -277,189 +235,33 @@ function createStyles(theme: AppTheme) {
     },
     content: {
       padding: 20,
-      paddingBottom: 32,
-    },
-    hero: {
-      flexDirection: 'row' as const,
-      justifyContent: 'space-between' as const,
-      alignItems: 'flex-start' as const,
-      marginBottom: 20,
-      gap: 12,
-    },
-    greeting: {
-      color: theme.colors.textSecondary,
-      fontSize: theme.scaleFont(14),
-    },
-    name: {
-      color: theme.colors.text,
-      fontSize: theme.scaleFont(28),
-      fontWeight: '700' as const,
-      marginTop: 4,
-    },
-    business: {
-      color: theme.colors.textSecondary,
-      fontSize: theme.scaleFont(14),
-      marginTop: 4,
-    },
-    statusPill: {
-      flexDirection: 'row' as const,
-      alignItems: 'center' as const,
-      borderWidth: 1,
-      borderRadius: 999,
-      paddingHorizontal: 10,
-      paddingVertical: 6,
-      backgroundColor: theme.colors.surface,
-    },
-    statusDot: {
-      width: 8,
-      height: 8,
-      borderRadius: 4,
-      marginRight: 6,
-    },
-    statusText: {
-      fontSize: theme.scaleFont(12),
-      fontWeight: '600' as const,
+      paddingBottom: 36,
     },
     loadingBox: {
-      paddingVertical: 24,
+      paddingVertical: 40,
       alignItems: 'center' as const,
+      gap: 12,
       marginBottom: 16,
     },
-    statsRow: {
-      flexDirection: 'row' as const,
-      marginBottom: 20,
-    },
-    statGap: {
-      width: 10,
-    },
-    sectionTitle: {
-      color: theme.colors.text,
-      fontSize: theme.scaleFont(16),
-      fontWeight: '700' as const,
-      marginBottom: 12,
-    },
-    monthRow: {
-      flexDirection: 'row' as const,
-      justifyContent: 'space-between' as const,
-    },
-    monthMetric: {
-      flex: 1,
-      alignItems: 'center' as const,
-    },
-    monthLabel: {
+    loadingText: {
       color: theme.colors.textSecondary,
-      fontSize: theme.scaleFont(12),
-      marginBottom: 4,
-    },
-    monthValue: {
-      color: theme.colors.text,
-      fontSize: theme.scaleFont(15),
-      fontWeight: '700' as const,
-    },
-    forecastCard: {
-      marginTop: 12,
-      gap: 8,
-    },
-    forecastHeader: {
-      flexDirection: 'row' as const,
-      justifyContent: 'space-between' as const,
-      alignItems: 'center' as const,
-      gap: 8,
-    },
-    forecastTitle: {
-      color: theme.colors.text,
-      fontSize: theme.scaleFont(14),
-      fontWeight: '700' as const,
-    },
-    healthPill: {
-      paddingHorizontal: 10,
-      paddingVertical: 4,
-      borderRadius: 999,
-    },
-    healthPillText: {
-      fontSize: theme.scaleFont(11),
-      fontWeight: '700' as const,
-    },
-    forecastValue: {
-      color: theme.colors.text,
-      fontSize: theme.scaleFont(24),
-      fontWeight: '800' as const,
-    },
-    forecastHint: {
-      color: theme.colors.textSecondary,
-      fontSize: theme.scaleFont(12),
-      lineHeight: theme.scaleFont(17),
-    },
-    actionsGrid: {
-      flexDirection: 'row' as const,
-      gap: 10,
-      marginBottom: 24,
-    },
-    actionCard: {
-      flex: 1,
-      backgroundColor: theme.colors.surface,
-      borderRadius: 14,
-      borderWidth: 1,
-      borderColor: theme.colors.border,
-      padding: 14,
-      alignItems: 'center' as const,
-    },
-    actionIcon: {
-      width: 42,
-      height: 42,
-      borderRadius: 12,
-      backgroundColor: `${theme.colors.primary}1F`,
-      alignItems: 'center' as const,
-      justifyContent: 'center' as const,
-      marginBottom: 8,
-    },
-    actionLabel: {
-      color: theme.colors.text,
-      fontSize: theme.scaleFont(12),
-      fontWeight: '600' as const,
-      textAlign: 'center' as const,
-    },
-    overviewRow: {
-      flexDirection: 'row' as const,
-      justifyContent: 'space-between' as const,
-    },
-    overviewRowSecond: {
-      marginTop: 16,
-      paddingTop: 16,
-      borderTopWidth: 1,
-      borderTopColor: theme.colors.border,
-    },
-    overviewItem: {
-      flex: 1,
-      alignItems: 'center' as const,
-    },
-    overviewValue: {
-      color: theme.colors.text,
-      fontSize: theme.scaleFont(18),
-      fontWeight: '700' as const,
-      marginTop: 8,
-    },
-    overviewLabel: {
-      color: theme.colors.textSecondary,
-      fontSize: theme.scaleFont(11),
-      marginTop: 4,
-      textAlign: 'center' as const,
+      fontSize: theme.scaleFont(13),
     },
     reportsCard: {
       flexDirection: 'row' as const,
       alignItems: 'center' as const,
-      gap: 12,
-      marginTop: 16,
-      padding: 14,
-      borderRadius: 14,
+      gap: 14,
+      marginTop: 8,
+      padding: 16,
+      borderRadius: 18,
       borderWidth: 1,
       borderColor: `${theme.colors.primary}44`,
-      backgroundColor: `${theme.colors.primary}12`,
+      backgroundColor: theme.colors.primarySurface,
     },
     reportsIcon: {
-      width: 42,
-      height: 42,
-      borderRadius: 12,
+      width: 48,
+      height: 48,
+      borderRadius: 14,
       backgroundColor: `${theme.colors.primary}22`,
       alignItems: 'center' as const,
       justifyContent: 'center' as const,

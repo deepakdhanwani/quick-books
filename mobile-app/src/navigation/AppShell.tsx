@@ -717,6 +717,7 @@ export function AppShell({ auth, onLogout, onSubscriptionChanged }: AppShellProp
           onNewPurchase={openCreatePurchase}
           onAddCustomer={openCreateCustomer}
           onOpenReports={() => navigateDrawer('reports')}
+          onNavigate={navigateDrawer}
         />
       );
     }
