@@ -10,6 +10,7 @@ import com.quickbooks.entity.Vendor;
 import com.quickbooks.entity.enums.AuditAction;
 import com.quickbooks.entity.enums.AuditEntityType;
 import com.quickbooks.entity.enums.CustomerType;
+import com.quickbooks.repository.PurchaseRepository;
 import com.quickbooks.repository.VendorRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -20,17 +21,25 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.math.BigDecimal;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
+
 @Service
 public class VendorService {
 
     private final VendorRepository vendorRepository;
+    private final PurchaseRepository purchaseRepository;
     private final SubscriberService subscriberService;
     private final AuditLogService auditLogService;
 
     public VendorService(VendorRepository vendorRepository,
+                         PurchaseRepository purchaseRepository,
                          SubscriberService subscriberService,
                          AuditLogService auditLogService) {
         this.vendorRepository = vendorRepository;
+        this.purchaseRepository = purchaseRepository;
         this.subscriberService = subscriberService;
         this.auditLogService = auditLogService;
     }
@@ -49,7 +58,26 @@ public class VendorService {
                 pageable
         );
 
-        return PageResponse.from(result.map(VendorResponse::from));
+        List<Long> vendorIds = result.getContent().stream().map(Vendor::getId).toList();
+        Map<Long, BigDecimal> pendingByVendor = loadPendingAmountsByVendor(subscriberId, vendorIds);
+
+        return PageResponse.from(result.map(vendor -> {
+            VendorResponse response = VendorResponse.from(vendor);
+            response.setTotalPendingAmount(pendingByVendor.getOrDefault(vendor.getId(), BigDecimal.ZERO));
+            return response;
+        }));
+    }
+
+    private Map<Long, BigDecimal> loadPendingAmountsByVendor(Long subscriberId, List<Long> vendorIds) {
+        if (vendorIds.isEmpty()) {
+            return Map.of();
+        }
+
+        return purchaseRepository.sumPendingAmountsByVendorIds(subscriberId, vendorIds).stream()
+                .collect(Collectors.toMap(
+                        row -> (Long) row[0],
+                        row -> (BigDecimal) row[1]
+                ));
     }
 
     @Transactional(readOnly = true)

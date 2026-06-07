@@ -86,6 +86,30 @@ public class PurchaseService {
     }
 
     @Transactional(readOnly = true)
+    public PageResponse<PurchaseResponse> findPageByVendor(Long subscriberId,
+                                                           Long vendorId,
+                                                           int page,
+                                                           int size,
+                                                           PaymentListFilter paymentFilter) {
+        vendorRepository.findByIdAndSubscriberId(vendorId, subscriberId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Vendor not found"));
+
+        int normalizedPage = Math.max(page, 0);
+        int normalizedSize = Math.min(Math.max(size, 1), 100);
+        PaymentListFilter normalizedFilter = paymentFilter != null ? paymentFilter : PaymentListFilter.ALL;
+
+        Pageable pageable = PageRequest.of(normalizedPage, normalizedSize, Sort.by("date").descending().and(Sort.by("id").descending()));
+        Page<PurchaseResponse> result = purchaseRepository.findBySubscriberAndVendor(
+                        subscriberId,
+                        vendorId,
+                        normalizedFilter.name(),
+                        pageable)
+                .map(PurchaseResponse::from);
+
+        return PageResponse.from(result);
+    }
+
+    @Transactional(readOnly = true)
     public NextBillNumberResponse getNextBillNumber(Long subscriberId) {
         String suggested = suggestNextBillNumber(subscriberId);
         return new NextBillNumberResponse(suggested, true);

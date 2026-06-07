@@ -5,8 +5,11 @@ import com.quickbooks.dto.customer.CreateCustomerRequest;
 import com.quickbooks.dto.customer.CustomerResponse;
 import com.quickbooks.dto.customer.UpdateCustomerActiveRequest;
 import com.quickbooks.dto.customer.UpdateCustomerRequest;
+import com.quickbooks.dto.sale.SaleResponse;
+import com.quickbooks.entity.enums.PaymentListFilter;
 import com.quickbooks.security.UserPrincipal;
 import com.quickbooks.service.CustomerService;
+import com.quickbooks.service.SaleService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -17,9 +20,11 @@ import org.springframework.web.bind.annotation.*;
 public class SubscriberCustomerController {
 
     private final CustomerService customerService;
+    private final SaleService saleService;
 
-    public SubscriberCustomerController(CustomerService customerService) {
+    public SubscriberCustomerController(CustomerService customerService, SaleService saleService) {
         this.customerService = customerService;
+        this.saleService = saleService;
     }
 
     @GetMapping
@@ -36,6 +41,16 @@ public class SubscriberCustomerController {
     public CustomerResponse get(@AuthenticationPrincipal UserPrincipal principal,
                                 @PathVariable Long id) {
         return customerService.getById(principal.getId(), id);
+    }
+
+    @GetMapping("/{id}/sales")
+    public PageResponse<SaleResponse> listSales(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable Long id,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(defaultValue = "ALL") PaymentListFilter paymentFilter) {
+        return saleService.findPageByCustomer(principal.getId(), id, page, size, paymentFilter);
     }
 
     @PostMapping

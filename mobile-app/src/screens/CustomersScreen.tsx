@@ -14,6 +14,7 @@ import { Card } from '../components/Card';
 import { api, Customer } from '../services/api';
 import { colors } from '../theme/colors';
 import { isBusinessCustomerType } from '../utils/customerType';
+import { formatCurrency } from '../utils/saleAmounts';
 
 const PAGE_SIZE = 20;
 
@@ -145,6 +146,7 @@ export function CustomersScreen({ token, onAddCustomer, onOpenCustomer }: Custom
 
   const renderCustomer = ({ item }: { item: Customer }) => {
     const accentColor = getAvatarColor(item.active);
+    const hasPending = (item.totalPendingAmount ?? 0) > 0;
 
     return (
       <Pressable style={styles.contactRow} onPress={() => onOpenCustomer(item.id)}>
@@ -161,6 +163,9 @@ export function CustomersScreen({ token, onAddCustomer, onOpenCustomer }: Custom
             {getContactSubtitle(item)}
           </Text>
         </View>
+        {hasPending ? (
+          <Text style={styles.pendingAmount}>{formatCurrency(item.totalPendingAmount!)}</Text>
+        ) : null}
         <View style={[styles.statusIndicator, { backgroundColor: accentColor }]} />
         <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} />
       </Pressable>
@@ -364,6 +369,12 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     fontSize: 13,
     marginTop: 2,
+  },
+  pendingAmount: {
+    color: colors.warning,
+    fontSize: 12,
+    fontWeight: '700',
+    marginRight: 4,
   },
   statusIndicator: {
     width: 8,

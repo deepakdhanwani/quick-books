@@ -1,11 +1,14 @@
 package com.quickbooks.controller.subscriber;
 
 import com.quickbooks.dto.common.PageResponse;
+import com.quickbooks.dto.purchase.PurchaseResponse;
 import com.quickbooks.dto.vendor.CreateVendorRequest;
 import com.quickbooks.dto.vendor.UpdateVendorActiveRequest;
 import com.quickbooks.dto.vendor.UpdateVendorRequest;
 import com.quickbooks.dto.vendor.VendorResponse;
+import com.quickbooks.entity.enums.PaymentListFilter;
 import com.quickbooks.security.UserPrincipal;
+import com.quickbooks.service.PurchaseService;
 import com.quickbooks.service.VendorService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -17,9 +20,11 @@ import org.springframework.web.bind.annotation.*;
 public class SubscriberVendorController {
 
     private final VendorService vendorService;
+    private final PurchaseService purchaseService;
 
-    public SubscriberVendorController(VendorService vendorService) {
+    public SubscriberVendorController(VendorService vendorService, PurchaseService purchaseService) {
         this.vendorService = vendorService;
+        this.purchaseService = purchaseService;
     }
 
     @GetMapping
@@ -36,6 +41,16 @@ public class SubscriberVendorController {
     public VendorResponse get(@AuthenticationPrincipal UserPrincipal principal,
                               @PathVariable Long id) {
         return vendorService.getById(principal.getId(), id);
+    }
+
+    @GetMapping("/{id}/purchases")
+    public PageResponse<PurchaseResponse> listPurchases(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable Long id,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(defaultValue = "ALL") PaymentListFilter paymentFilter) {
+        return purchaseService.findPageByVendor(principal.getId(), id, page, size, paymentFilter);
     }
 
     @PostMapping

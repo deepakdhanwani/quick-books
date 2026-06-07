@@ -105,6 +105,7 @@ export type Customer = {
   businessDetails?: string;
   active: boolean;
   createdAt: string;
+  totalPendingAmount?: number;
 };
 
 export type CustomerPayload = {
@@ -132,6 +133,7 @@ export type Vendor = {
   businessDetails?: string;
   active: boolean;
   createdAt: string;
+  totalPendingAmount?: number;
 };
 
 export type VendorPayload = {
@@ -497,6 +499,21 @@ export const api = {
   },
   getCustomer: (token: string, id: number) =>
     request<Customer>(`/api/subscriber/customers/${id}`, { token }),
+  listCustomerSales: (
+    token: string,
+    customerId: number,
+    page = 0,
+    size = 20,
+    paymentFilter: PaymentListFilter = 'ALL',
+  ) => {
+    const params = new URLSearchParams({ page: String(page), size: String(size) });
+    if (paymentFilter !== 'ALL') {
+      params.set('paymentFilter', paymentFilter);
+    }
+    return request<PageResponse<Sale>>(`/api/subscriber/customers/${customerId}/sales?${params}`, {
+      token,
+    });
+  },
   createCustomer: (token: string, payload: CustomerPayload) =>
     request<Customer>('/api/subscriber/customers', { method: 'POST', token, body: payload }),
   updateCustomer: (token: string, id: number, payload: CustomerPayload) =>
@@ -527,6 +544,22 @@ export const api = {
   },
   getVendor: (token: string, id: number) =>
     request<Vendor>(`/api/subscriber/vendors/${id}`, { token }),
+  listVendorPurchases: (
+    token: string,
+    vendorId: number,
+    page = 0,
+    size = 20,
+    paymentFilter: PaymentListFilter = 'ALL',
+  ) => {
+    const params = new URLSearchParams({ page: String(page), size: String(size) });
+    if (paymentFilter !== 'ALL') {
+      params.set('paymentFilter', paymentFilter);
+    }
+    return request<PageResponse<Purchase>>(
+      `/api/subscriber/vendors/${vendorId}/purchases?${params}`,
+      { token },
+    );
+  },
   createVendor: (token: string, payload: VendorPayload) =>
     request<Vendor>('/api/subscriber/vendors', { method: 'POST', token, body: payload }),
   updateVendor: (token: string, id: number, payload: VendorPayload) =>

@@ -1,7 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  FlatList,
   Pressable,
   StyleSheet,
   Switch,
@@ -10,8 +11,10 @@ import {
 } from 'react-native';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
+import { DetailTabBar } from '../components/DetailTabBar';
+import { PaymentListFilterChips } from '../components/PaymentListFilterChips';
 import { RefreshableScrollView } from '../components/RefreshableScrollView';
-import { api, Customer } from '../services/api';
+import { api, Customer, PaymentListFilter, Sale } from '../services/api';
 import { appAlert } from '../utils/appAlert';
 import { colors } from '../theme/colors';
 import {
@@ -19,12 +22,23 @@ import {
   getCustomerTypeLabel,
   isBusinessCustomerType,
 } from '../utils/customerType';
+import {
+  formatCurrency,
+  formatDate,
+  getPaymentStatusColor,
+  getPaymentStatusLabel,
+} from '../utils/saleAmounts';
+
+const PAGE_SIZE = 20;
+
+type CustomerDetailTab = 'details' | 'invoices';
 
 type CustomerDetailScreenProps = {
   token: string;
   customerId: number;
   onEdit: () => void;
   onDeleted: () => void;
+  onOpenSale: (saleId: number) => void;
 };
 
 function getSubtitle(customer: Customer) {
@@ -39,12 +53,24 @@ export function CustomerDetailScreen({
   customerId,
   onEdit,
   onDeleted,
+  onOpenSale,
 }: CustomerDetailScreenProps) {
   const [customer, setCustomer] = useState<Customer | null>(null);
+  const [activeTab, setActiveTab] = useState<CustomerDetailTab>('details');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [togglingActive, setTogglingActive] = useState(false);
   const [error, setError] = useState('');
+
+  const [sales, setSales] = useState<Sale[]>([]);
+  const [salesLoading, setSalesLoading] = useState(false);
+  const [salesRefreshing, setSalesRefreshing] = useState(false);
+  const [salesError, setSalesError] = useState('');
+  const [paymentFilter, setPaymentFilter] = useState<PaymentListFilter>('ALL');
+  const [salesPage, setSalesPage] = useState(0);
+  const [salesHasMore, setSalesHasMore] = useState(true);
+  const [salesLoadingMore, setSalesLoadingMore] = useState(false);
+  const loadingMoreRef = useRef(false);
 
   const loadCustomer = useCallback(
     async (isPullRefresh = false) => {
@@ -64,20 +90,82 @@ export function CustomerDetailScreen({
     [customerId, token],
   );
 
+  const fetchSalesPage = useCallback(
+    async (pageNumber: number, reset: boolean) => {
+      const response = await api.listCustomerSales(
+        token,
+        customerId,
+        pageNumber,
+        PAGE_SIZE,
+        paymentFilter,
+      );
+      setSales((current) => (reset ? response.content : [...current, ...response.content]));
+      setSalesPage(pageNumber);
+      setSalesHasMore(pageNumber + 1 < response.totalPages);
+    },
+    [customerId, paymentFilter, token],
+  );
+
+  const loadSales = useCallback(
+    async (options?: { pullRefresh?: boolean; loadMore?: boolean }) => {
+      const pullRefresh = options?.pullRefresh ?? false;
+      const loadMore = options?.loadMore ?? false;
+
+      if (loadMore) {
+        if (!salesHasMore || loadingMoreRef.current) return;
+        loadingMoreRef.current = true;
+        setSalesLoadingMore(true);
+        setSalesError('');
+        try {
+          await fetchSalesPage(salesPage + 1, false);
+        } catch (err) {
+          setSalesError(err instanceof Error ? err.message : 'Could not load more invoices');
+        } finally {
+          loadingMoreRef.current = false;
+          setSalesLoadingMore(false);
+        }
+        return;
+      }
+
+      if (!pullRefresh) setSalesLoading(true);
+      setSalesError('');
+      try {
+        await fetchSalesPage(0, true);
+      } catch (err) {
+        setSales([]);
+        setSalesHasMore(false);
+        setSalesError(err instanceof Error ? err.message : 'Could not load invoices');
+      } finally {
+        setSalesLoading(false);
+      }
+    },
+    [fetchSalesPage, salesHasMore, salesPage],
+  );
+
   useEffect(() => {
     loadCustomer();
   }, [loadCustomer]);
 
+  useEffect(() => {
+    if (activeTab === 'invoices') {
+      loadSales();
+    }
+  }, [activeTab, paymentFilter, customerId, token]);
+
   const handleRefresh = async () => {
     setRefreshing(true);
-    await loadCustomer(true);
+    if (activeTab === 'details') {
+      await loadCustomer(true);
+    } else {
+      setSalesRefreshing(true);
+      await loadSales({ pullRefresh: true });
+      setSalesRefreshing(false);
+    }
     setRefreshing(false);
   };
 
   const handleToggleActive = async (value: boolean) => {
-    if (!customer) {
-      return;
-    }
+    if (!customer) return;
     setTogglingActive(true);
     try {
       const updated = await api.setCustomerActive(token, customer.id, value);
@@ -90,29 +178,23 @@ export function CustomerDetailScreen({
   };
 
   const handleDelete = () => {
-    if (!customer) {
-      return;
-    }
+    if (!customer) return;
 
-    appAlert(
-      'Delete customer',
-      `Delete ${customer.name}? This cannot be undone.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await api.deleteCustomer(token, customer.id);
-              onDeleted();
-            } catch (err) {
-              appAlert('Delete failed', err instanceof Error ? err.message : 'Could not delete customer');
-            }
-          },
+    appAlert('Delete customer', `Delete ${customer.name}? This cannot be undone.`, [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await api.deleteCustomer(token, customer.id);
+            onDeleted();
+          } catch (err) {
+            appAlert('Delete failed', err instanceof Error ? err.message : 'Could not delete customer');
+          }
         },
-      ],
-    );
+      },
+    ]);
   };
 
   if (loading && !customer) {
@@ -133,6 +215,101 @@ export function CustomerDetailScreen({
 
   const avatarColor = customer.active ? colors.success : colors.textSecondary;
 
+  const headerCard = (
+    <Card style={styles.headerCard}>
+      <View style={[styles.avatar, { backgroundColor: `${avatarColor}22` }]}>
+        <Text style={[styles.avatarText, { color: avatarColor }]}>
+          {customer.name.charAt(0).toUpperCase()}
+        </Text>
+        <View style={[styles.statusDot, { backgroundColor: avatarColor }]} />
+      </View>
+      <Text style={[styles.name, !customer.active && styles.nameInactive]}>{customer.name}</Text>
+      <Text style={styles.subtitle}>{getSubtitle(customer)}</Text>
+    </Card>
+  );
+
+  const renderSale = ({ item }: { item: Sale }) => {
+    const statusColor = getPaymentStatusColor(item.paymentStatus);
+    const statusLabel = getPaymentStatusLabel(item.paymentStatus);
+    const invoiceRef = item.invoiceNumber ?? `#${item.id}`;
+    const subtitleParts = [formatDate(item.date)];
+    if (item.pendingAmount > 0 && item.paymentStatus !== 'PAID') {
+      subtitleParts.push(`Due ${formatCurrency(item.pendingAmount)}`);
+    }
+
+    return (
+      <Pressable style={styles.invoiceRow} onPress={() => onOpenSale(item.id)}>
+        <View style={[styles.invoiceDot, { backgroundColor: statusColor }]} />
+        <View style={styles.invoiceMain}>
+          <View style={styles.invoiceTop}>
+            <Text style={styles.invoiceNumber} numberOfLines={1}>
+              {invoiceRef}
+            </Text>
+            <Text style={styles.invoiceAmount}>{formatCurrency(item.netAmount)}</Text>
+          </View>
+          <View style={styles.invoiceBottom}>
+            <Text style={styles.invoiceMeta} numberOfLines={1}>
+              {subtitleParts.join(' · ')}
+            </Text>
+            <Text style={[styles.invoiceStatus, { color: statusColor }]}>{statusLabel}</Text>
+          </View>
+        </View>
+        <Ionicons name="chevron-forward" size={14} color={colors.textSecondary} />
+      </Pressable>
+    );
+  };
+
+  if (activeTab === 'invoices') {
+    return (
+      <View style={styles.container}>
+        <FlatList
+          data={sales}
+          keyExtractor={(item) => String(item.id)}
+          renderItem={renderSale}
+          contentContainerStyle={styles.listContent}
+          refreshing={salesRefreshing}
+          onRefresh={() => void loadSales({ pullRefresh: true })}
+          onEndReached={() => void loadSales({ loadMore: true })}
+          onEndReachedThreshold={0.3}
+          ListHeaderComponent={
+            <View>
+              {headerCard}
+              <DetailTabBar
+                tabs={[
+                  { id: 'details', label: 'Details' },
+                  { id: 'invoices', label: 'Invoices' },
+                ]}
+                activeTab={activeTab}
+                onChange={(tab) => setActiveTab(tab as CustomerDetailTab)}
+              />
+              <PaymentListFilterChips value={paymentFilter} onChange={setPaymentFilter} />
+              {salesError ? <Text style={styles.error}>{salesError}</Text> : null}
+            </View>
+          }
+          ListEmptyComponent={
+            salesLoading ? (
+              <View style={styles.sectionLoading}>
+                <ActivityIndicator color={colors.primary} />
+              </View>
+            ) : (
+              <Card>
+                <Text style={styles.emptyTitle}>No invoices found</Text>
+                <Text style={styles.emptyHint}>
+                  Sales for this customer will appear here.
+                </Text>
+              </Card>
+            )
+          }
+          ListFooterComponent={
+            salesLoadingMore ? (
+              <ActivityIndicator color={colors.primary} style={styles.footerLoader} />
+            ) : null
+          }
+        />
+      </View>
+    );
+  }
+
   return (
     <RefreshableScrollView
       style={styles.container}
@@ -140,16 +317,15 @@ export function CustomerDetailScreen({
       refreshing={refreshing}
       onRefresh={handleRefresh}
     >
-      <Card style={styles.headerCard}>
-        <View style={[styles.avatar, { backgroundColor: `${avatarColor}22` }]}>
-          <Text style={[styles.avatarText, { color: avatarColor }]}>
-            {customer.name.charAt(0).toUpperCase()}
-          </Text>
-          <View style={[styles.statusDot, { backgroundColor: avatarColor }]} />
-        </View>
-        <Text style={[styles.name, !customer.active && styles.nameInactive]}>{customer.name}</Text>
-        <Text style={styles.subtitle}>{getSubtitle(customer)}</Text>
-      </Card>
+      {headerCard}
+      <DetailTabBar
+        tabs={[
+          { id: 'details', label: 'Details' },
+          { id: 'invoices', label: 'Invoices' },
+        ]}
+        activeTab={activeTab}
+        onChange={(tab) => setActiveTab(tab as CustomerDetailTab)}
+      />
 
       <Card>
         <DetailRow
@@ -181,7 +357,9 @@ export function CustomerDetailScreen({
         <View style={styles.activeRow}>
           <View>
             <Text style={styles.activeLabel}>Status</Text>
-            <Text style={styles.activeHint}>{customer.active ? 'Active customer' : 'Inactive customer'}</Text>
+            <Text style={styles.activeHint}>
+              {customer.active ? 'Active customer' : 'Inactive customer'}
+            </Text>
           </View>
           <Switch
             value={customer.active}
@@ -227,18 +405,19 @@ function DetailRow({
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  content: {
-    padding: 20,
-    paddingBottom: 32,
-  },
+  container: { flex: 1 },
+  content: { padding: 20, paddingBottom: 32 },
+  listContent: { padding: 20, paddingBottom: 32 },
   loading: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
     padding: 24,
+  },
+  sectionLoading: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 24,
   },
   headerCard: {
     alignItems: 'center',
@@ -254,10 +433,7 @@ const styles = StyleSheet.create({
     marginBottom: 14,
     position: 'relative',
   },
-  avatarText: {
-    fontSize: 28,
-    fontWeight: '700',
-  },
+  avatarText: { fontSize: 28, fontWeight: '700' },
   statusDot: {
     position: 'absolute',
     right: 4,
@@ -268,19 +444,9 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: colors.surface,
   },
-  name: {
-    color: colors.text,
-    fontSize: 22,
-    fontWeight: '700',
-  },
-  nameInactive: {
-    color: colors.textSecondary,
-  },
-  subtitle: {
-    color: colors.textSecondary,
-    fontSize: 14,
-    marginTop: 4,
-  },
+  name: { color: colors.text, fontSize: 22, fontWeight: '700' },
+  nameInactive: { color: colors.textSecondary },
+  subtitle: { color: colors.textSecondary, fontSize: 14, marginTop: 4 },
   detailRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
@@ -289,9 +455,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
-  detailText: {
-    flex: 1,
-  },
+  detailText: { flex: 1 },
   detailLabel: {
     color: colors.textSecondary,
     fontSize: 12,
@@ -299,10 +463,7 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     letterSpacing: 0.4,
   },
-  detailValue: {
-    color: colors.text,
-    fontSize: 15,
-  },
+  detailValue: { color: colors.text, fontSize: 15 },
   activeRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -310,20 +471,9 @@ const styles = StyleSheet.create({
     paddingTop: 16,
     gap: 16,
   },
-  activeLabel: {
-    color: colors.text,
-    fontSize: 15,
-    fontWeight: '600',
-  },
-  activeHint: {
-    color: colors.textSecondary,
-    fontSize: 12,
-    marginTop: 2,
-  },
-  actions: {
-    marginTop: 16,
-    gap: 12,
-  },
+  activeLabel: { color: colors.text, fontSize: 15, fontWeight: '600' },
+  activeHint: { color: colors.textSecondary, fontSize: 12, marginTop: 2 },
+  actions: { marginTop: 16, gap: 12 },
   deleteButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -335,14 +485,30 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(239, 68, 68, 0.3)',
     backgroundColor: 'rgba(239, 68, 68, 0.08)',
   },
-  deleteText: {
-    color: colors.error,
-    fontSize: 15,
-    fontWeight: '600',
+  deleteText: { color: colors.error, fontSize: 15, fontWeight: '600' },
+  error: { color: colors.error, marginTop: 12, textAlign: 'center' },
+  invoiceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
   },
-  error: {
-    color: colors.error,
-    marginTop: 12,
-    textAlign: 'center',
+  invoiceDot: { width: 8, height: 8, borderRadius: 4 },
+  invoiceMain: { flex: 1 },
+  invoiceTop: { flexDirection: 'row', justifyContent: 'space-between', gap: 12 },
+  invoiceBottom: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 12,
+    marginTop: 4,
   },
+  invoiceNumber: { color: colors.text, fontSize: 15, fontWeight: '600', flex: 1 },
+  invoiceAmount: { color: colors.text, fontSize: 15, fontWeight: '700' },
+  invoiceMeta: { color: colors.textSecondary, fontSize: 12, flex: 1 },
+  invoiceStatus: { fontSize: 12, fontWeight: '600' },
+  emptyTitle: { color: colors.text, fontWeight: '700', fontSize: 15 },
+  emptyHint: { color: colors.textSecondary, fontSize: 13, marginTop: 6 },
+  footerLoader: { marginVertical: 16 },
 });

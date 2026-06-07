@@ -7,6 +7,8 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 
 public interface PurchaseRepository extends JpaRepository<Purchase, Long> {
@@ -47,4 +49,32 @@ public interface PurchaseRepository extends JpaRepository<Purchase, Long> {
     boolean existsBySubscriberIdAndBillNumberIgnoreCaseAndIdNot(Long subscriberId, String billNumber, Long id);
 
     Optional<Purchase> findFirstBySubscriber_IdOrderByIdDesc(Long subscriberId);
+
+    @Query("""
+            SELECT p FROM Purchase p
+            WHERE p.subscriber.id = :subscriberId
+            AND p.vendor.id = :vendorId
+            AND (
+                :paymentFilter = 'ALL'
+                OR (:paymentFilter = 'PENDING' AND p.paymentStatus <> 'PAID')
+                OR (:paymentFilter = 'PAID' AND p.paymentStatus = 'PAID')
+            )
+            """)
+    Page<Purchase> findBySubscriberAndVendor(
+            @Param("subscriberId") Long subscriberId,
+            @Param("vendorId") Long vendorId,
+            @Param("paymentFilter") String paymentFilter,
+            Pageable pageable);
+
+    @Query("""
+            SELECT p.vendor.id, COALESCE(SUM(p.pendingAmount), 0)
+            FROM Purchase p
+            WHERE p.subscriber.id = :subscriberId
+            AND p.vendor.id IN :vendorIds
+            AND p.pendingAmount > 0
+            GROUP BY p.vendor.id
+            """)
+    List<Object[]> sumPendingAmountsByVendorIds(
+            @Param("subscriberId") Long subscriberId,
+            @Param("vendorIds") Collection<Long> vendorIds);
 }

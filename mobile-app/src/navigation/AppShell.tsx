@@ -563,6 +563,7 @@ export function AppShell({ auth, onLogout, onSubscriptionChanged }: AppShellProp
           customerId={selectedCustomerId}
           onEdit={() => openEditCustomer(selectedCustomerId)}
           onDeleted={closeStack}
+          onOpenSale={openSaleDetail}
         />
       );
     }
@@ -584,6 +585,7 @@ export function AppShell({ auth, onLogout, onSubscriptionChanged }: AppShellProp
           vendorId={selectedVendorId}
           onEdit={() => openEditVendor(selectedVendorId)}
           onDeleted={closeStack}
+          onOpenPurchase={openPurchaseDetail}
         />
       );
     }

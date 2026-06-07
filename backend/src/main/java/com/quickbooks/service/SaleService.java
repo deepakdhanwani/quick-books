@@ -86,6 +86,30 @@ public class SaleService {
     }
 
     @Transactional(readOnly = true)
+    public PageResponse<SaleResponse> findPageByCustomer(Long subscriberId,
+                                                         Long customerId,
+                                                         int page,
+                                                         int size,
+                                                         PaymentListFilter paymentFilter) {
+        customerRepository.findByIdAndSubscriberId(customerId, subscriberId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Customer not found"));
+
+        int normalizedPage = Math.max(page, 0);
+        int normalizedSize = Math.min(Math.max(size, 1), 100);
+        PaymentListFilter normalizedFilter = paymentFilter != null ? paymentFilter : PaymentListFilter.ALL;
+
+        Pageable pageable = PageRequest.of(normalizedPage, normalizedSize, Sort.by("date").descending().and(Sort.by("id").descending()));
+        Page<SaleResponse> result = saleRepository.findBySubscriberAndCustomer(
+                        subscriberId,
+                        customerId,
+                        normalizedFilter.name(),
+                        pageable)
+                .map(SaleResponse::from);
+
+        return PageResponse.from(result);
+    }
+
+    @Transactional(readOnly = true)
     public NextInvoiceNumberResponse getNextInvoiceNumber(Long subscriberId) {
         String suggested = suggestNextInvoiceNumber(subscriberId);
         return new NextInvoiceNumberResponse(suggested, true);
