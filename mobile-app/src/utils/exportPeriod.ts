@@ -61,11 +61,29 @@ export function resolveLedgerExportPeriod(period: LedgerExportPeriod) {
 }
 
 export function defaultLedgerExportPeriod(): LedgerExportPeriod {
+  return createLedgerExportPeriod('monthYear');
+}
+
+export function createLedgerExportPeriod(mode: LedgerExportPeriodMode): LedgerExportPeriod {
   const now = new Date();
+  if (mode === 'monthYear') {
+    return {
+      mode,
+      month: now.getMonth() + 1,
+      year: now.getFullYear(),
+    };
+  }
+  if (mode === 'financialYear') {
+    return {
+      mode,
+      financialYearStart: currentFinancialYearStart(now),
+    };
+  }
+  const monthText = String(now.getMonth() + 1).padStart(2, '0');
   return {
-    mode: 'monthYear',
-    month: now.getMonth() + 1,
-    year: now.getFullYear(),
+    mode,
+    fromDate: `${now.getFullYear()}-${monthText}-01`,
+    toDate: todayIso(),
   };
 }
 

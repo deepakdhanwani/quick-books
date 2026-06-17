@@ -135,6 +135,38 @@ public interface SaleRepository extends JpaRepository<Sale, Long> {
     BigDecimal sumPendingAmountBySubscriber(@Param("subscriberId") Long subscriberId);
 
     @Query("""
+            SELECT
+                COALESCE(SUM(CASE WHEN s.date = :today THEN s.totalAmount ELSE 0 END), 0),
+                COALESCE(SUM(CASE WHEN s.date BETWEEN :monthStart AND :today THEN s.totalAmount ELSE 0 END), 0),
+                COALESCE(SUM(CASE WHEN s.pendingAmount > 0 THEN s.pendingAmount ELSE 0 END), 0)
+            FROM Sale s
+            WHERE s.subscriber.id = :subscriberId
+            AND s.company.id = :companyId
+            """)
+    List<Object[]> aggregateDashboardMetrics(
+            @Param("subscriberId") Long subscriberId,
+            @Param("companyId") Long companyId,
+            @Param("today") LocalDate today,
+            @Param("monthStart") LocalDate monthStart);
+
+    @Query(value = """
+            SELECT CAST(date_trunc('month', s.date) AS date) AS month_start,
+                   COALESCE(SUM(s.total_amount), 0)
+            FROM sales s
+            WHERE s.subscriber_id = :subscriberId
+              AND s.company_id = :companyId
+              AND s.date >= :fromDate
+              AND s.date <= :toDate
+            GROUP BY date_trunc('month', s.date)
+            ORDER BY month_start
+            """, nativeQuery = true)
+    List<Object[]> sumNetAmountGroupedByMonth(
+            @Param("subscriberId") Long subscriberId,
+            @Param("companyId") Long companyId,
+            @Param("fromDate") LocalDate fromDate,
+            @Param("toDate") LocalDate toDate);
+
+    @Query("""
             SELECT s.date, s.totalAmount FROM Sale s
             WHERE s.subscriber.id = :subscriberId
             AND s.company.id = :companyId

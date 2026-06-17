@@ -25,6 +25,7 @@ import { api, PartyAccountSummary, PartyLedgerEntry, PaymentListFilter, Purchase
 import { LEDGER_PAGE_SIZE } from '../utils/partyLedger';
 import { appAlert } from '../utils/appAlert';
 import { exportPurchaseDocument } from '../utils/exportPurchaseDocument';
+import type { PdfCompanyInfo } from '../utils/pdfDocument';
 import { formatOpeningBalanceLabel } from '../utils/openingBalance';
 import {
   formatCurrency,
@@ -48,6 +49,7 @@ type VendorDetailScreenProps = {
   token: string;
   vendorId: number;
   businessName?: string;
+  pdfCompany?: PdfCompanyInfo;
   onEdit: () => void;
   onDeleted: () => void;
   onOpenPurchase: (purchaseId: number) => void;
@@ -63,6 +65,7 @@ export function VendorDetailScreen({
   token,
   vendorId,
   businessName,
+  pdfCompany,
   onEdit,
   onDeleted,
   onOpenPurchase,
@@ -373,8 +376,8 @@ export function VendorDetailScreen({
     try {
       const fullPurchase = await api.getPurchase(token, purchase.id);
       await exportPurchaseDocument(
-        { purchase: fullPurchase, businessName },
-        { onPdfReady: () => setPurchaseExporting(false) },
+        { purchase: fullPurchase, company: pdfCompany, businessName },
+        { token, onPdfReady: () => setPurchaseExporting(false) },
       );
     } catch (err) {
       appAlert('Export failed', err instanceof Error ? err.message : 'Could not export purchase order');
@@ -420,6 +423,7 @@ export function VendorDetailScreen({
           partyId={vendorId}
           partyName={displayName}
           businessName={businessName}
+          pdfCompany={pdfCompany}
           onClose={() => setLedgerExportVisible(false)}
         />
       </>

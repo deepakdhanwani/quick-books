@@ -13,6 +13,7 @@ import { RefreshableScrollView } from '../components/RefreshableScrollView';
 import { api, Purchase, PurchaseItem } from '../services/api';
 import { appAlert } from '../utils/appAlert';
 import { exportPurchaseDocument } from '../utils/exportPurchaseDocument';
+import type { PdfCompanyInfo } from '../utils/pdfDocument';
 import {
   formatCurrency,
   formatDate,
@@ -25,6 +26,7 @@ type PurchaseDetailScreenProps = {
   token: string;
   purchaseId: number;
   businessName?: string;
+  pdfCompany?: PdfCompanyInfo;
   onEdit: () => void;
   onMakePayment: () => void;
   canEdit?: boolean;
@@ -34,6 +36,7 @@ export function PurchaseDetailScreen({
   token,
   purchaseId,
   businessName,
+  pdfCompany,
   onEdit,
   onMakePayment,
   canEdit: canEditPermission = true,
@@ -92,8 +95,8 @@ export function PurchaseDetailScreen({
     setExporting(true);
     try {
       await exportPurchaseDocument(
-        { purchase, businessName },
-        { onPdfReady: () => setExporting(false) },
+        { purchase, company: pdfCompany, businessName },
+        { token, onPdfReady: () => setExporting(false) },
       );
     } catch (err) {
       appAlert('Export failed', err instanceof Error ? err.message : 'Could not export purchase order');

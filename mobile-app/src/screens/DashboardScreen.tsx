@@ -74,15 +74,20 @@ export function DashboardScreen({
   const loadDashboard = useCallback(async () => {
     const generation = ++loadGenerationRef.current;
     try {
-      const [dash, intel, reminders] = await Promise.all([
-        api.getDashboard(token),
+      const dash = await api.getDashboard(token);
+      if (generation !== loadGenerationRef.current) {
+        return;
+      }
+      setDashboard(dash);
+      setLoading(false);
+
+      const [intel, reminders] = await Promise.all([
         api.getIntelligence(token).catch(() => null),
         api.getDuePaymentReminders(token).catch(() => []),
       ]);
       if (generation !== loadGenerationRef.current) {
         return;
       }
-      setDashboard(dash);
       setIntelligence(intel);
       setDueReminders(reminders);
     } catch {
@@ -92,10 +97,7 @@ export function DashboardScreen({
       setDashboard(null);
       setIntelligence(null);
       setDueReminders([]);
-    } finally {
-      if (generation === loadGenerationRef.current) {
-        setLoading(false);
-      }
+      setLoading(false);
     }
   }, [token]);
 

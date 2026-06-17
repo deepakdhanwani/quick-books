@@ -135,6 +135,38 @@ public interface PurchaseRepository extends JpaRepository<Purchase, Long> {
     BigDecimal sumPendingAmountBySubscriber(@Param("subscriberId") Long subscriberId);
 
     @Query("""
+            SELECT
+                COALESCE(SUM(CASE WHEN p.date = :today THEN p.totalAmount ELSE 0 END), 0),
+                COALESCE(SUM(CASE WHEN p.date BETWEEN :monthStart AND :today THEN p.totalAmount ELSE 0 END), 0),
+                COALESCE(SUM(CASE WHEN p.pendingAmount > 0 THEN p.pendingAmount ELSE 0 END), 0)
+            FROM Purchase p
+            WHERE p.subscriber.id = :subscriberId
+            AND p.company.id = :companyId
+            """)
+    List<Object[]> aggregateDashboardMetrics(
+            @Param("subscriberId") Long subscriberId,
+            @Param("companyId") Long companyId,
+            @Param("today") LocalDate today,
+            @Param("monthStart") LocalDate monthStart);
+
+    @Query(value = """
+            SELECT CAST(date_trunc('month', p.date) AS date) AS month_start,
+                   COALESCE(SUM(p.total_amount), 0)
+            FROM purchases p
+            WHERE p.subscriber_id = :subscriberId
+              AND p.company_id = :companyId
+              AND p.date >= :fromDate
+              AND p.date <= :toDate
+            GROUP BY date_trunc('month', p.date)
+            ORDER BY month_start
+            """, nativeQuery = true)
+    List<Object[]> sumNetAmountGroupedByMonth(
+            @Param("subscriberId") Long subscriberId,
+            @Param("companyId") Long companyId,
+            @Param("fromDate") LocalDate fromDate,
+            @Param("toDate") LocalDate toDate);
+
+    @Query("""
             SELECT p.date, p.totalAmount FROM Purchase p
             WHERE p.subscriber.id = :subscriberId
             AND p.company.id = :companyId

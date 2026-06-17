@@ -25,6 +25,7 @@ import { api, Customer, PartyAccountSummary, PartyLedgerEntry, PaymentListFilter
 import { LEDGER_PAGE_SIZE } from '../utils/partyLedger';
 import { appAlert } from '../utils/appAlert';
 import { exportSaleDocument } from '../utils/exportSaleDocument';
+import type { PdfCompanyInfo } from '../utils/pdfDocument';
 import {
   getBusinessNameLabel,
   getCustomerTypeLabel,
@@ -52,6 +53,7 @@ type CustomerDetailScreenProps = {
   token: string;
   customerId: number;
   businessName?: string;
+  pdfCompany?: PdfCompanyInfo;
   onEdit: () => void;
   onDeleted: () => void;
   onOpenSale: (saleId: number) => void;
@@ -72,6 +74,7 @@ export function CustomerDetailScreen({
   token,
   customerId,
   businessName,
+  pdfCompany,
   onEdit,
   onDeleted,
   onOpenSale,
@@ -387,8 +390,8 @@ export function CustomerDetailScreen({
     try {
       const fullSale = await api.getSale(token, sale.id);
       await exportSaleDocument(
-        { sale: fullSale, businessName },
-        { onPdfReady: () => setSaleExporting(false) },
+        { sale: fullSale, company: pdfCompany, businessName },
+        { token, onPdfReady: () => setSaleExporting(false) },
       );
     } catch (err) {
       appAlert('Export failed', err instanceof Error ? err.message : 'Could not export invoice');
@@ -434,6 +437,7 @@ export function CustomerDetailScreen({
           partyId={customerId}
           partyName={customer.name}
           businessName={businessName}
+          pdfCompany={pdfCompany}
           onClose={() => setLedgerExportVisible(false)}
         />
       </>

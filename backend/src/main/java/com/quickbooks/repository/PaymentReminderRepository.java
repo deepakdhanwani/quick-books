@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 
@@ -28,6 +29,27 @@ public interface PaymentReminderRepository extends JpaRepository<PaymentReminder
             @Param("subscriberId") Long subscriberId,
             @Param("companyId") Long companyId,
             @Param("statuses") List<PaymentReminderStatus> statuses);
+
+    @Query("""
+            SELECT r FROM PaymentReminder r
+            JOIN FETCH r.customer
+            LEFT JOIN FETCH r.sale
+            WHERE r.subscriber.id = :subscriberId
+            AND r.company.id = :companyId
+            AND r.status IN :statuses
+            AND (
+                (r.status = :pendingStatus AND r.promisedDate <= :today)
+                OR (r.status = :snoozedStatus AND r.snoozedUntil IS NOT NULL AND r.snoozedUntil <= :today)
+            )
+            ORDER BY r.promisedDate ASC, r.id ASC
+            """)
+    List<PaymentReminder> findDueOrOverdueBySubscriber(
+            @Param("subscriberId") Long subscriberId,
+            @Param("companyId") Long companyId,
+            @Param("statuses") List<PaymentReminderStatus> statuses,
+            @Param("pendingStatus") PaymentReminderStatus pendingStatus,
+            @Param("snoozedStatus") PaymentReminderStatus snoozedStatus,
+            @Param("today") LocalDate today);
 
     @Query("""
             SELECT r FROM PaymentReminder r

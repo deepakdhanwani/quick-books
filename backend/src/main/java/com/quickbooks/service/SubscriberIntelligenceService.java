@@ -8,8 +8,11 @@ import com.quickbooks.dto.subscriber.SubscriberIntelligenceResponse;
 import com.quickbooks.repository.PurchaseRepository;
 import com.quickbooks.repository.SaleItemRepository;
 import com.quickbooks.repository.SaleRepository;
+import com.quickbooks.util.AggregateQueryUtils;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -19,8 +22,10 @@ import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
 @Service
 public class SubscriberIntelligenceService {
@@ -42,15 +47,24 @@ public class SubscriberIntelligenceService {
 
     @Transactional(readOnly = true)
     public SubscriberIntelligenceResponse buildIntelligence(Long subscriberId, Long companyId) {
+        if (companyId == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Active company is required");
+        }
+
         LocalDate today = LocalDate.now(ZoneOffset.UTC);
         LocalDate monthStart = today.withDayOfMonth(1);
         int daysElapsed = Math.max(today.getDayOfMonth(), 1);
         int daysInMonth = today.lengthOfMonth();
 
-        BigDecimal monthSalesMtd = nz(saleRepository.sumNetAmountBySubscriber(subscriberId, companyId, monthStart, today));
-        BigDecimal monthPurchasesMtd = nz(purchaseRepository.sumNetAmountBySubscriber(subscriberId, companyId, monthStart, today));
-        BigDecimal pendingReceivables = nz(saleRepository.sumPendingAmountBySubscriber(subscriberId, companyId));
-        BigDecimal pendingPayables = nz(purchaseRepository.sumPendingAmountBySubscriber(subscriberId, companyId));
+        Object[] salesMetrics = AggregateQueryUtils.firstRow(
+                saleRepository.aggregateDashboardMetrics(subscriberId, companyId, today, monthStart));
+        Object[] purchaseMetrics = AggregateQueryUtils.firstRow(
+                purchaseRepository.aggregateDashboardMetrics(subscriberId, companyId, today, monthStart));
+
+        BigDecimal monthSalesMtd = AggregateQueryUtils.amountAt(salesMetrics, 1);
+        BigDecimal monthPurchasesMtd = AggregateQueryUtils.amountAt(purchaseMetrics, 1);
+        BigDecimal pendingReceivables = AggregateQueryUtils.amountAt(salesMetrics, 2);
+        BigDecimal pendingPayables = AggregateQueryUtils.amountAt(purchaseMetrics, 2);
 
         BigDecimal projectedMonthSales = projectMonthEnd(monthSalesMtd, daysElapsed, daysInMonth);
         BigDecimal projectedMonthPurchases = projectMonthEnd(monthPurchasesMtd, daysElapsed, daysInMonth);
@@ -65,10 +79,16 @@ public class SubscriberIntelligenceService {
                 saleRepository.sumNetAmountBySubscriber(subscriberId, companyId, prevMonthStart, prevComparableEnd));
         BigDecimal prevPurchasesComparable = nz(
                 purchaseRepository.sumNetAmountBySubscriber(subscriberId, companyId, prevMonthStart, prevComparableEnd));
-        BigDecimal prevMonthSalesFull = nz(
-                saleRepository.sumNetAmountBySubscriber(subscriberId, companyId, prevMonthStart, prevMonthEnd));
-        BigDecimal prevMonthPurchasesFull = nz(
-                purchaseRepository.sumNetAmountBySubscriber(subscriberId, companyId, prevMonthStart, prevMonthEnd));
+
+        YearMonth currentMonth = YearMonth.from(today);
+        LocalDate trendStart = currentMonth.minusMonths(TREND_MONTHS).atDay(1);
+        Map<YearMonth, BigDecimal> salesByMonth = toMonthAmountMap(
+                saleRepository.sumNetAmountGroupedByMonth(subscriberId, companyId, trendStart, today));
+        Map<YearMonth, BigDecimal> purchasesByMonth = toMonthAmountMap(
+                purchaseRepository.sumNetAmountGroupedByMonth(subscriberId, companyId, trendStart, today));
+
+        BigDecimal prevMonthSalesFull = salesByMonth.getOrDefault(YearMonth.from(prevMonthEnd), BigDecimal.ZERO);
+        BigDecimal prevMonthPurchasesFull = purchasesByMonth.getOrDefault(YearMonth.from(prevMonthEnd), BigDecimal.ZERO);
 
         double salesChange = percentChange(monthSalesMtd, prevSalesComparable);
         double purchaseChange = percentChange(monthPurchasesMtd, prevPurchasesComparable);
@@ -131,9 +151,9 @@ public class SubscriberIntelligenceService {
         response.setHealthLabel(healthLabel(healthScore));
         response.setHealthSummary(buildHealthSummary(healthScore, salesChange, projectedNet));
 
-        response.setSalesTrend(buildSalesTrend(subscriberId, companyId, today, projectedMonthSales, nextMonthSalesForecast));
+        response.setSalesTrend(buildSalesTrend(currentMonth, salesByMonth, projectedMonthSales, nextMonthSalesForecast));
         response.setPurchaseTrend(buildPurchaseTrend(
-                subscriberId, companyId, today, projectedMonthPurchases, nextMonthPurchaseForecast));
+                currentMonth, purchasesByMonth, projectedMonthPurchases, nextMonthPurchaseForecast));
 
         response.getInsights().addAll(buildInsights(
                 subscriberId,
@@ -157,45 +177,37 @@ public class SubscriberIntelligenceService {
         return response;
     }
 
-    private List<ChartPointDto> buildSalesTrend(Long subscriberId,
-                                                Long companyId,
-                                                LocalDate today,
+    private List<ChartPointDto> buildSalesTrend(YearMonth currentMonth,
+                                                Map<YearMonth, BigDecimal> salesByMonth,
                                                 BigDecimal projectedMonthSales,
                                                 BigDecimal nextMonthForecast) {
         List<ChartPointDto> points = new ArrayList<>();
-        YearMonth current = YearMonth.from(today);
 
         for (int offset = TREND_MONTHS; offset >= 1; offset--) {
-            YearMonth month = current.minusMonths(offset);
-            LocalDate from = month.atDay(1);
-            LocalDate to = month.atEndOfMonth();
-            BigDecimal amount = nz(saleRepository.sumNetAmountBySubscriber(subscriberId, companyId, from, to));
+            YearMonth month = currentMonth.minusMonths(offset);
+            BigDecimal amount = salesByMonth.getOrDefault(month, BigDecimal.ZERO);
             points.add(new ChartPointDto(month.format(MONTH_FORMAT), amount, false));
         }
 
-        points.add(new ChartPointDto(current.format(MONTH_FORMAT) + " (proj.)", projectedMonthSales, true));
-        points.add(new ChartPointDto(current.plusMonths(1).format(MONTH_FORMAT) + " (fcst.)", nextMonthForecast, true));
+        points.add(new ChartPointDto(currentMonth.format(MONTH_FORMAT) + " (proj.)", projectedMonthSales, true));
+        points.add(new ChartPointDto(currentMonth.plusMonths(1).format(MONTH_FORMAT) + " (fcst.)", nextMonthForecast, true));
         return points;
     }
 
-    private List<ChartPointDto> buildPurchaseTrend(Long subscriberId,
-                                                   Long companyId,
-                                                   LocalDate today,
+    private List<ChartPointDto> buildPurchaseTrend(YearMonth currentMonth,
+                                                   Map<YearMonth, BigDecimal> purchasesByMonth,
                                                    BigDecimal projectedMonthPurchases,
                                                    BigDecimal nextMonthForecast) {
         List<ChartPointDto> points = new ArrayList<>();
-        YearMonth current = YearMonth.from(today);
 
         for (int offset = TREND_MONTHS; offset >= 1; offset--) {
-            YearMonth month = current.minusMonths(offset);
-            LocalDate from = month.atDay(1);
-            LocalDate to = month.atEndOfMonth();
-            BigDecimal amount = nz(purchaseRepository.sumNetAmountBySubscriber(subscriberId, companyId, from, to));
+            YearMonth month = currentMonth.minusMonths(offset);
+            BigDecimal amount = purchasesByMonth.getOrDefault(month, BigDecimal.ZERO);
             points.add(new ChartPointDto(month.format(MONTH_FORMAT), amount, false));
         }
 
-        points.add(new ChartPointDto(current.format(MONTH_FORMAT) + " (proj.)", projectedMonthPurchases, true));
-        points.add(new ChartPointDto(current.plusMonths(1).format(MONTH_FORMAT) + " (fcst.)", nextMonthForecast, true));
+        points.add(new ChartPointDto(currentMonth.format(MONTH_FORMAT) + " (proj.)", projectedMonthPurchases, true));
+        points.add(new ChartPointDto(currentMonth.plusMonths(1).format(MONTH_FORMAT) + " (fcst.)", nextMonthForecast, true));
         return points;
     }
 
@@ -472,6 +484,28 @@ public class SubscriberIntelligenceService {
             return BigDecimal.ZERO;
         }
         return numerator.divide(denominator, 4, RoundingMode.HALF_UP);
+    }
+
+    private Map<YearMonth, BigDecimal> toMonthAmountMap(List<Object[]> rows) {
+        Map<YearMonth, BigDecimal> amounts = new HashMap<>();
+        for (Object[] row : rows) {
+            Object[] values = AggregateQueryUtils.flattenRow(row);
+            if (values.length < 2 || values[0] == null) {
+                continue;
+            }
+            LocalDate monthStart;
+            if (values[0] instanceof LocalDate localDate) {
+                monthStart = localDate;
+            } else if (values[0] instanceof java.sql.Date sqlDate) {
+                monthStart = sqlDate.toLocalDate();
+            } else if (values[0] instanceof java.sql.Timestamp timestamp) {
+                monthStart = timestamp.toLocalDateTime().toLocalDate();
+            } else {
+                monthStart = LocalDate.parse(values[0].toString());
+            }
+            amounts.put(YearMonth.from(monthStart), AggregateQueryUtils.amountAt(values, 1));
+        }
+        return amounts;
     }
 
     private BigDecimal nz(BigDecimal value) {

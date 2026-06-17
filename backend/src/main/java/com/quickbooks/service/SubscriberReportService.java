@@ -12,6 +12,7 @@ import com.quickbooks.repository.PurchaseRepository;
 import com.quickbooks.repository.SaleItemRepository;
 import com.quickbooks.repository.SaleRepository;
 import com.quickbooks.repository.VendorRepository;
+import com.quickbooks.util.AggregateQueryUtils;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -68,30 +69,35 @@ public class SubscriberReportService {
 
     @Transactional(readOnly = true)
     public SubscriberDashboardResponse dashboard(Long subscriberId, Long companyId) {
+        requireCompanyId(companyId);
         LocalDate today = LocalDate.now(ZoneOffset.UTC);
         LocalDate monthStart = today.withDayOfMonth(1);
 
-        BigDecimal todaySales = saleRepository.sumNetAmountBySubscriber(subscriberId, companyId, today, today);
-        BigDecimal todayPurchases = purchaseRepository.sumNetAmountBySubscriber(subscriberId, companyId, today, today);
-        BigDecimal monthSales = saleRepository.sumNetAmountBySubscriber(subscriberId, companyId, monthStart, today);
-        BigDecimal monthPurchases = purchaseRepository.sumNetAmountBySubscriber(subscriberId, companyId, monthStart, today);
-        BigDecimal pendingReceivables = saleRepository.sumPendingAmountBySubscriber(subscriberId, companyId);
-        BigDecimal pendingPayables = purchaseRepository.sumPendingAmountBySubscriber(subscriberId, companyId);
+        Object[] salesMetrics = AggregateQueryUtils.firstRow(
+                saleRepository.aggregateDashboardMetrics(subscriberId, companyId, today, monthStart));
+        Object[] purchaseMetrics = AggregateQueryUtils.firstRow(
+                purchaseRepository.aggregateDashboardMetrics(subscriberId, companyId, today, monthStart));
 
         SubscriberDashboardResponse response = new SubscriberDashboardResponse();
-        response.setTodaySales(todaySales);
-        response.setTodayPurchases(todayPurchases);
-        response.setMonthSales(monthSales);
-        response.setMonthPurchases(monthPurchases);
-        response.setPendingReceivables(pendingReceivables);
-        response.setPendingPayables(pendingPayables);
-        response.setMonthNetPosition(monthSales.subtract(monthPurchases));
+        response.setTodaySales(AggregateQueryUtils.amountAt(salesMetrics, 0));
+        response.setTodayPurchases(AggregateQueryUtils.amountAt(purchaseMetrics, 0));
+        response.setMonthSales(AggregateQueryUtils.amountAt(salesMetrics, 1));
+        response.setMonthPurchases(AggregateQueryUtils.amountAt(purchaseMetrics, 1));
+        response.setPendingReceivables(AggregateQueryUtils.amountAt(salesMetrics, 2));
+        response.setPendingPayables(AggregateQueryUtils.amountAt(purchaseMetrics, 2));
+        response.setMonthNetPosition(response.getMonthSales().subtract(response.getMonthPurchases()));
         response.setCustomerCount(customerRepository.countBySubscriber_IdAndCompany_Id(subscriberId, companyId));
         response.setVendorCount(vendorRepository.countBySubscriber_IdAndCompany_Id(subscriberId, companyId));
         response.setProductCount(productRepository.countBySubscriber_IdAndCompany_Id(subscriberId, companyId));
         response.setSaleCount(saleRepository.countBySubscriber_IdAndCompany_Id(subscriberId, companyId));
         response.setPurchaseCount(purchaseRepository.countBySubscriber_IdAndCompany_Id(subscriberId, companyId));
         return response;
+    }
+
+    private void requireCompanyId(Long companyId) {
+        if (companyId == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Active company is required");
+        }
     }
 
     @Transactional(readOnly = true)
@@ -534,12 +540,9 @@ public class SubscriberReportService {
     }
 
     private Object[] firstAggregateRow(List<Object[]> rows) {
-        if (rows == null || rows.isEmpty()) {
+        Object[] row = AggregateQueryUtils.firstRow(rows);
+        if (row.length == 0) {
             return new Object[] { 0L, BigDecimal.ZERO, BigDecimal.ZERO };
-        }
-        Object[] row = rows.get(0);
-        if (row.length == 1 && row[0] instanceof Object[] nested) {
-            return nested;
         }
         return row;
     }

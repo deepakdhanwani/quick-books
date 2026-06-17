@@ -1,26 +1,44 @@
 import type { Sale } from '../services/api';
 import { formatCurrency, formatDate, getPaymentModeLabel, getPaymentStatusLabel } from './saleAmounts';
 import { shareHtmlAsPdf, type SharePdfOptions } from './exportPdf';
+import {
+  buildPdfDocumentHtml,
+  escapeHtml,
+  type PdfCompanyInfo,
+  type PdfPlatformBranding,
+  renderAmountSummary,
+  renderAmountSummaryRow,
+  renderInfoCard,
+  renderInfoGrid,
+  renderSection,
+} from './pdfDocument';
+import { fetchPlatformBranding } from './platformBranding';
 
-type SaleExportContext = {
+export type SaleExportContext = {
   sale: Sale;
+  company?: PdfCompanyInfo;
+  platform?: PdfPlatformBranding;
   businessName?: string;
+};
+
+type SaleExportOptions = SharePdfOptions & {
+  token?: string;
 };
 
 function invoiceRef(sale: Sale) {
   return sale.invoiceNumber ?? `Sale-${sale.id}`;
 }
 
-function buildSaleHtml({ sale, businessName }: SaleExportContext) {
+function buildSaleHtml({ sale, company, platform, businessName }: SaleExportContext) {
   const items = (sale.items ?? [])
     .map(
       (item) => `
       <tr>
-        <td>${item.productName ?? item.description}</td>
-        <td class="num">${item.quantity}</td>
-        <td class="num">${formatCurrency(item.unitPrice)}</td>
-        <td class="num">${formatCurrency(item.discount ?? 0)}</td>
-        <td class="num">${formatCurrency(item.amount)}</td>
+        <td>${escapeHtml(item.productName ?? item.description)}</td>
+        <td class="num">${escapeHtml(item.quantity)}</td>
+        <td class="num">${escapeHtml(formatCurrency(item.unitPrice))}</td>
+        <td class="num">${escapeHtml(formatCurrency(item.discount ?? 0))}</td>
+        <td class="num">${escapeHtml(formatCurrency(item.amount))}</td>
       </tr>`,
     )
     .join('');
@@ -29,54 +47,91 @@ function buildSaleHtml({ sale, businessName }: SaleExportContext) {
     .map(
       (payment) => `
       <tr>
-        <td>${formatDate(payment.date)}</td>
-        <td class="num">${formatCurrency(payment.amount)}</td>
-        <td>${payment.paymentMode ? getPaymentModeLabel(payment.paymentMode) : '—'}</td>
-        <td class="num">${payment.adjustedAmount ? formatCurrency(payment.adjustedAmount) : '—'}</td>
+        <td>${escapeHtml(formatDate(payment.date))}</td>
+        <td class="num">${escapeHtml(formatCurrency(payment.amount))}</td>
+        <td>${escapeHtml(payment.paymentMode ? getPaymentModeLabel(payment.paymentMode) : '—')}</td>
+        <td class="num">${escapeHtml(payment.adjustedAmount ? formatCurrency(payment.adjustedAmount) : '—')}</td>
       </tr>`,
     )
     .join('');
 
-  return `<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8" />
-  <style>
-    body { font-family: Arial, sans-serif; color: #111827; padding: 24px; }
-    h1 { margin: 0 0 4px; font-size: 22px; }
-    .meta { color: #64748b; font-size: 12px; margin-bottom: 18px; }
-    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 16px; margin-bottom: 18px; font-size: 12px; }
-    .label { color: #64748b; }
-    table { width: 100%; border-collapse: collapse; font-size: 11px; margin-top: 10px; }
-    th, td { border: 1px solid #e2e8f0; padding: 8px; text-align: left; }
-    th { background: #f8fafc; }
-    .num { text-align: right; white-space: nowrap; }
-    h2 { font-size: 14px; margin: 18px 0 8px; }
-  </style>
-</head>
-<body>
-  <h1>Tax Invoice</h1>
-  <div class="meta">
-    ${businessName ? `<div>${businessName}</div>` : ''}
-    <div>${invoiceRef(sale)}</div>
-    <div>Generated: ${new Date().toLocaleString('en-IN')}</div>
-  </div>
-  <div class="grid">
-    <div><span class="label">Customer</span><div>${sale.customerName}</div></div>
-    <div><span class="label">Date</span><div>${formatDate(sale.date)}</div></div>
-    <div><span class="label">Status</span><div>${getPaymentStatusLabel(sale.paymentStatus)}</div></div>
-    <div><span class="label">Net Amount</span><div>${formatCurrency(sale.netAmount)}</div></div>
-    <div><span class="label">Paid</span><div>${formatCurrency(sale.paidAmount)}</div></div>
-    <div><span class="label">Pending</span><div>${formatCurrency(sale.pendingAmount)}</div></div>
-  </div>
-  ${items ? `<h2>Line Items</h2><table><thead><tr><th>Product</th><th>Qty</th><th>Rate</th><th>Discount</th><th>Amount</th></tr></thead><tbody>${items}</tbody></table>` : ''}
-  ${payments ? `<h2>Payments</h2><table><thead><tr><th>Date</th><th>Amount</th><th>Mode</th><th>Adjusted</th></tr></thead><tbody>${payments}</tbody></table>` : ''}
-  ${sale.notes ? `<h2>Notes</h2><p>${sale.notes}</p>` : ''}
-</body>
-</html>`;
+  const bodyHtml = `
+    ${renderInfoGrid(
+      [
+        renderInfoCard('Customer', sale.customerName),
+        renderInfoCard('Invoice Date', formatDate(sale.date)),
+        renderInfoCard('Payment Status', getPaymentStatusLabel(sale.paymentStatus)),
+        renderInfoCard('Paid Amount', formatCurrency(sale.paidAmount)),
+        renderInfoCard('Pending Amount', formatCurrency(sale.pendingAmount)),
+        renderInfoCard('Net Amount', formatCurrency(sale.netAmount)),
+      ].join(''),
+    )}
+    ${
+      items
+        ? renderSection(
+            'Line Items',
+            `<table class="data-table">
+              <thead>
+                <tr>
+                  <th>Product</th>
+                  <th class="num">Qty</th>
+                  <th class="num">Rate</th>
+                  <th class="num">Discount</th>
+                  <th class="num">Amount</th>
+                </tr>
+              </thead>
+              <tbody>${items}</tbody>
+            </table>`,
+          )
+        : ''
+    }
+    ${renderAmountSummary(
+      [
+        sale.grossAmount != null ? renderAmountSummaryRow('Gross Amount', formatCurrency(sale.grossAmount)) : '',
+        sale.discountAmount != null && sale.discountAmount > 0
+          ? renderAmountSummaryRow('Discount', formatCurrency(sale.discountAmount))
+          : '',
+        sale.taxPercent != null ? renderAmountSummaryRow('Tax %', `${sale.taxPercent}%`) : '',
+        sale.taxAmount != null ? renderAmountSummaryRow('Tax Amount', formatCurrency(sale.taxAmount)) : '',
+        renderAmountSummaryRow('Net Amount', formatCurrency(sale.netAmount), true),
+        renderAmountSummaryRow('Paid', formatCurrency(sale.paidAmount)),
+        renderAmountSummaryRow('Pending', formatCurrency(sale.pendingAmount)),
+      ]
+        .filter(Boolean)
+        .join(''),
+    )}
+    ${
+      payments
+        ? renderSection(
+            'Payments',
+            `<table class="data-table">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th class="num">Amount</th>
+                  <th>Mode</th>
+                  <th class="num">Adjusted</th>
+                </tr>
+              </thead>
+              <tbody>${payments}</tbody>
+            </table>`,
+          )
+        : ''
+    }
+    ${sale.notes ? `<div class="notes-box"><strong>Notes:</strong> ${escapeHtml(sale.notes)}</div>` : ''}
+  `;
+
+  return buildPdfDocumentHtml({
+    documentTitle: 'Tax Invoice',
+    documentSubtitle: invoiceRef(sale),
+    company: company ?? (businessName ? { name: businessName } : undefined),
+    platform,
+    bodyHtml,
+  });
 }
 
-export async function exportSaleDocument(context: SaleExportContext, options?: SharePdfOptions) {
+export async function exportSaleDocument(context: SaleExportContext, options?: SaleExportOptions) {
+  const platform = context.platform ?? (options?.token ? await fetchPlatformBranding(options.token) : undefined);
   const fileStem = `invoice_${invoiceRef(context.sale)}`;
-  await shareHtmlAsPdf(`${fileStem}.pdf`, buildSaleHtml(context), options);
+  await shareHtmlAsPdf(`${fileStem}.pdf`, buildSaleHtml({ ...context, platform }), options);
 }

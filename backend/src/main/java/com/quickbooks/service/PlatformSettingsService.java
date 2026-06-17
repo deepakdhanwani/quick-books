@@ -1,5 +1,6 @@
 package com.quickbooks.service;
 
+import com.quickbooks.dto.platform.PlatformBrandingResponse;
 import com.quickbooks.dto.platform.PlatformCompanySettingsResponse;
 import com.quickbooks.dto.platform.PlatformSettingsResponse;
 import com.quickbooks.dto.platform.SmtpSettingsResponse;
@@ -26,6 +27,11 @@ public class PlatformSettingsService {
     @Transactional(readOnly = true)
     public PlatformSettingsResponse getSettings() {
         return PlatformSettingsResponse.from(getOrCreateSettings());
+    }
+
+    @Transactional(readOnly = true)
+    public PlatformBrandingResponse getBranding() {
+        return PlatformBrandingResponse.from(getOrCreateSettings());
     }
 
     @Transactional

@@ -73,10 +73,18 @@ public class PaymentReminderService {
 
     @Transactional(readOnly = true)
     public List<PaymentReminderResponse> findDueSummary(Long subscriberId, Long companyId) {
+        if (companyId == null) {
+            return List.of();
+        }
         LocalDate today = LocalDate.now();
-        return paymentReminderRepository.findActiveBySubscriber(subscriberId, companyId, ACTIVE_STATUSES).stream()
+        return paymentReminderRepository.findDueOrOverdueBySubscriber(
+                        subscriberId,
+                        companyId,
+                        ACTIVE_STATUSES,
+                        PaymentReminderStatus.PENDING,
+                        PaymentReminderStatus.SNOOZED,
+                        today).stream()
                 .map(reminder -> PaymentReminderResponse.from(reminder, today))
-                .filter(response -> response.isDueToday() || response.isOverdue())
                 .sorted(Comparator
                         .comparing(PaymentReminderResponse::isOverdue)
                         .reversed()

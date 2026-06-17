@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { AppTheme } from '../theme/types';
 import { useThemedStyles } from '../theme/useThemedStyles';
 import { StyleSheet, View } from 'react-native';
 import { appAlert } from '../utils/appAlert';
+import { buildPdfCompanyInfo } from '../utils/pdfDocument';
 import { AppHeader } from '../components/AppHeader';
 import { DrawerLayout } from '../components/DrawerLayout';
 import { AccountScreen } from '../screens/AccountScreen';
@@ -99,6 +100,10 @@ export function AppShell({ auth, onLogout, onSubscriptionChanged }: AppShellProp
   const staffPermissions = resolveStaffPermissions(
     isOwner,
     profile?.staffPermissions ?? auth.staffPermissions,
+  );
+  const pdfCompany = useMemo(
+    () => buildPdfCompanyInfo(profile, activeCompanyId),
+    [profile, activeCompanyId],
   );
   const drawerNavItems = DRAWER_NAV_ITEMS.filter((item) =>
     canAccessDrawerRoute(item.id, staffPermissions, isOwner),
@@ -834,6 +839,7 @@ export function AppShell({ auth, onLogout, onSubscriptionChanged }: AppShellProp
           token={auth.token}
           customerId={selectedCustomerId}
           businessName={profile?.businessName}
+          pdfCompany={pdfCompany}
           onEdit={() => openEditCustomer(selectedCustomerId)}
           onDeleted={closeStack}
           onOpenSale={openSaleDetail}
@@ -861,6 +867,7 @@ export function AppShell({ auth, onLogout, onSubscriptionChanged }: AppShellProp
           token={auth.token}
           vendorId={selectedVendorId}
           businessName={profile?.businessName}
+          pdfCompany={pdfCompany}
           onEdit={() => openEditVendor(selectedVendorId)}
           onDeleted={closeStack}
           onOpenPurchase={openPurchaseDetail}
@@ -909,6 +916,7 @@ export function AppShell({ auth, onLogout, onSubscriptionChanged }: AppShellProp
           token={auth.token}
           saleId={selectedSaleId}
           businessName={profile?.businessName}
+          pdfCompany={pdfCompany}
           onEdit={() => openEditSale(selectedSaleId)}
           onReceivePayment={() => openReceivePayment(selectedSaleId)}
           canEdit={canSaleEdit}
@@ -942,6 +950,7 @@ export function AppShell({ auth, onLogout, onSubscriptionChanged }: AppShellProp
           token={auth.token}
           purchaseId={selectedPurchaseId}
           businessName={profile?.businessName}
+          pdfCompany={pdfCompany}
           onEdit={() => openEditPurchase(selectedPurchaseId)}
           onMakePayment={() => openMakePayment(selectedPurchaseId)}
           canEdit={canPurchaseEdit}

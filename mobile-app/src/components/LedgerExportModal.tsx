@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Modal, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { useAppTheme } from '../theme/AppThemeContext';
 import type { AppTheme } from '../theme/types';
@@ -7,15 +7,17 @@ import { useThemedStyles } from '../theme/useThemedStyles';
 import { api } from '../services/api';
 import { appAlert } from '../utils/appAlert';
 import { exportLedger } from '../utils/exportLedger';
+import type { PdfCompanyInfo } from '../utils/pdfDocument';
 import {
+  createLedgerExportPeriod,
   defaultLedgerExportPeriod,
   financialYearLabel,
   LedgerExportPeriod,
   LedgerExportPeriodMode,
+  ledgerExportPeriodCaption,
   recentFinancialYearOptions,
   recentMonthYearOptions,
   resolveLedgerExportPeriod,
-  todayIso,
 } from '../utils/exportPeriod';
 import { fetchAllPartyLedgerEntries } from '../utils/fetchPartyLedger';
 import {
@@ -34,14 +36,46 @@ type LedgerExportModalProps = {
   partyId: number;
   partyName: string;
   businessName?: string;
+  pdfCompany?: PdfCompanyInfo;
   onClose: () => void;
 };
 
-const PERIOD_OPTIONS: { id: LedgerExportPeriodMode; label: string; hint: string }[] = [
-  { id: 'monthYear', label: 'Month & Year', hint: 'Pick a calendar month' },
-  { id: 'financialYear', label: 'Financial Year', hint: 'Apr to Mar (India FY)' },
-  { id: 'customRange', label: 'Custom Range', hint: 'Choose start and end dates' },
+const PERIOD_MODES: { id: LedgerExportPeriodMode; label: string }[] = [
+  { id: 'monthYear', label: 'Month' },
+  { id: 'financialYear', label: 'FY' },
+  { id: 'customRange', label: 'Custom' },
 ];
+
+function ChipRow<T extends string>({
+  options,
+  value,
+  onChange,
+  styles,
+}: {
+  options: { id: T; label: string }[];
+  value: T;
+  onChange: (id: T) => void;
+  styles: ReturnType<typeof createStyles>;
+}) {
+  return (
+    <View style={styles.chipRow}>
+      {options.map((option) => {
+        const selected = value === option.id;
+        return (
+          <Pressable
+            key={option.id}
+            style={[styles.chip, selected && styles.chipActive]}
+            onPress={() => onChange(option.id)}
+          >
+            <Text style={[styles.chipText, selected && styles.chipTextActive]} numberOfLines={1}>
+              {option.label}
+            </Text>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
 
 export function LedgerExportModal({
   visible,
@@ -50,6 +84,7 @@ export function LedgerExportModal({
   partyId,
   partyName,
   businessName,
+  pdfCompany,
   onClose,
 }: LedgerExportModalProps) {
   const theme = useAppTheme();
@@ -58,7 +93,25 @@ export function LedgerExportModal({
   const [period, setPeriod] = useState<LedgerExportPeriod>(defaultLedgerExportPeriod());
   const [scope, setScope] = useState<LedgerExportScope>(defaultLedgerExportScope());
   const [exporting, setExporting] = useState(false);
-  const scopeOptions = ledgerScopeOptions(mode);
+
+  const scopeOptions = useMemo(
+    () =>
+      ledgerScopeOptions(mode).map((option) => ({
+        id: option.id,
+        label:
+          option.id === 'all'
+            ? 'Ledger'
+            : option.id === 'documents'
+              ? mode === 'customer'
+                ? 'Invoices'
+                : 'Bills'
+              : 'Payments',
+      })),
+    [mode],
+  );
+  const monthYearOptions = useMemo(() => recentMonthYearOptions(12), []);
+  const financialYearOptions = useMemo(() => recentFinancialYearOptions(6), []);
+  const periodCaption = ledgerExportPeriodCaption(period);
 
   useEffect(() => {
     if (!visible) return;
@@ -102,6 +155,7 @@ export function LedgerExportModal({
         {
           mode,
           partyName,
+          company: pdfCompany,
           businessName,
           fromDate,
           toDate,
@@ -111,7 +165,7 @@ export function LedgerExportModal({
           openingCredit: summary.openingCredit,
           openingBalance: summary.openingBalance,
         },
-        { onPdfReady: () => setExporting(false) },
+        { token, onPdfReady: () => setExporting(false) },
       );
       onClose();
     } catch (err) {
@@ -121,137 +175,130 @@ export function LedgerExportModal({
     }
   };
 
+  const renderPeriodDetail = () => {
+    if (period.mode === 'monthYear') {
+      return (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.hScrollContent}
+        >
+          {monthYearOptions.map((option) => {
+            const selected = period.month === option.month && period.year === option.year;
+            return (
+              <Pressable
+                key={`${option.year}-${option.month}`}
+                style={[styles.miniChip, selected && styles.miniChipActive]}
+                onPress={() =>
+                  setPeriod({ mode: 'monthYear', month: option.month, year: option.year })
+                }
+              >
+                <Text style={[styles.miniChipText, selected && styles.miniChipTextActive]}>
+                  {option.label}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+      );
+    }
+
+    if (period.mode === 'financialYear') {
+      return (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.hScrollContent}
+        >
+          {financialYearOptions.map((year) => {
+            const selected = period.financialYearStart === year;
+            return (
+              <Pressable
+                key={year}
+                style={[styles.miniChip, selected && styles.miniChipActive]}
+                onPress={() => setPeriod({ mode: 'financialYear', financialYearStart: year })}
+              >
+                <Text style={[styles.miniChipText, selected && styles.miniChipTextActive]}>
+                  {financialYearLabel(year)}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+      );
+    }
+
+    return (
+      <View style={styles.rangeRow}>
+        <View style={styles.rangeField}>
+          <Text style={styles.inputLabel}>From</Text>
+          <TextInput
+            style={styles.dateInput}
+            value={period.fromDate ?? ''}
+            onChangeText={(fromDate) => setPeriod((current) => ({ ...current, mode: 'customRange', fromDate }))}
+            placeholder="YYYY-MM-DD"
+            placeholderTextColor={theme.colors.textSecondary}
+            autoCapitalize="none"
+          />
+        </View>
+        <View style={styles.rangeField}>
+          <Text style={styles.inputLabel}>To</Text>
+          <TextInput
+            style={styles.dateInput}
+            value={period.toDate ?? ''}
+            onChangeText={(toDate) => setPeriod((current) => ({ ...current, mode: 'customRange', toDate }))}
+            placeholder="YYYY-MM-DD"
+            placeholderTextColor={theme.colors.textSecondary}
+            autoCapitalize="none"
+          />
+        </View>
+      </View>
+    );
+  };
+
   return (
     <>
       <Modal visible={visible && !exporting} transparent animationType="fade" onRequestClose={onClose}>
         <Pressable style={styles.overlay} onPress={onClose}>
           <Pressable style={styles.card} onPress={(event) => event.stopPropagation()}>
             <Text style={styles.title}>Export Ledger</Text>
-            <Text style={styles.subtitle}>
-              Choose what to include and the period, then share the ledger PDF via WhatsApp, email, or any app.
-            </Text>
 
-            <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false}>
-              <Text style={styles.sectionLabel}>Export type</Text>
-              <View style={styles.scopeList}>
-                {scopeOptions.map((option) => {
-                  const selected = scope === option.id;
-                  return (
-                    <Pressable
-                      key={option.id}
-                      style={[styles.scopeItem, selected && styles.scopeItemActive]}
-                      onPress={() => setScope(option.id)}
-                    >
-                      <Text style={[styles.scopeTitle, selected && styles.scopeTitleActive]}>
-                        {option.label}
-                      </Text>
-                      <Text style={styles.scopeHint}>{option.hint}</Text>
-                    </Pressable>
-                  );
-                })}
-              </View>
+            <ScrollView
+              style={styles.body}
+              contentContainerStyle={styles.bodyContent}
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+              bounces={false}
+            >
+              <Text style={styles.sectionLabel}>What to export</Text>
+              <ChipRow
+                options={scopeOptions}
+                value={scope}
+                onChange={setScope}
+                styles={styles}
+              />
 
               <Text style={styles.sectionLabel}>Period</Text>
-              <View style={styles.periodRow}>
-                {PERIOD_OPTIONS.map((option) => {
-                  const selected = period.mode === option.id;
-                  return (
-                    <Pressable
-                      key={option.id}
-                      style={[styles.periodChip, selected && styles.periodChipActive]}
-                      onPress={() =>
-                        setPeriod((current) => ({
-                          ...current,
-                          mode: option.id,
-                          fromDate: option.id === 'customRange' ? todayIso() : current.fromDate,
-                          toDate: option.id === 'customRange' ? todayIso() : current.toDate,
-                        }))
-                      }
-                    >
-                      <Text style={[styles.periodChipText, selected && styles.periodChipTextActive]}>
-                        {option.label}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
-              </View>
+              <ChipRow
+                options={PERIOD_MODES}
+                value={period.mode}
+                onChange={(modeId) => setPeriod(createLedgerExportPeriod(modeId))}
+                styles={styles}
+              />
 
-              {period.mode === 'monthYear' ? (
-                <View style={styles.pickerList}>
-                  {recentMonthYearOptions(18).map((option) => {
-                    const selected = period.month === option.month && period.year === option.year;
-                    return (
-                      <Pressable
-                        key={`${option.year}-${option.month}`}
-                        style={[styles.pickerItem, selected && styles.pickerItemActive]}
-                        onPress={() =>
-                          setPeriod({ mode: 'monthYear', month: option.month, year: option.year })
-                        }
-                      >
-                        <Text style={[styles.pickerItemText, selected && styles.pickerItemTextActive]}>
-                          {option.label}
-                        </Text>
-                      </Pressable>
-                    );
-                  })}
-                </View>
-              ) : null}
-
-              {period.mode === 'financialYear' ? (
-                <View style={styles.pickerList}>
-                  {recentFinancialYearOptions(8).map((year) => {
-                    const selected = period.financialYearStart === year;
-                    return (
-                      <Pressable
-                        key={year}
-                        style={[styles.pickerItem, selected && styles.pickerItemActive]}
-                        onPress={() => setPeriod({ mode: 'financialYear', financialYearStart: year })}
-                      >
-                        <Text style={[styles.pickerItemText, selected && styles.pickerItemTextActive]}>
-                          {financialYearLabel(year)}
-                        </Text>
-                      </Pressable>
-                    );
-                  })}
-                </View>
-              ) : null}
-
-              {period.mode === 'customRange' ? (
-                <View style={styles.rangeRow}>
-                  <View style={styles.rangeField}>
-                    <Text style={styles.inputLabel}>From</Text>
-                    <TextInput
-                      style={styles.input}
-                      value={period.fromDate ?? ''}
-                      onChangeText={(fromDate) => setPeriod((current) => ({ ...current, fromDate }))}
-                      placeholder="YYYY-MM-DD"
-                      placeholderTextColor={theme.colors.textSecondary}
-                      autoCapitalize="none"
-                    />
-                  </View>
-                  <View style={styles.rangeField}>
-                    <Text style={styles.inputLabel}>To</Text>
-                    <TextInput
-                      style={styles.input}
-                      value={period.toDate ?? ''}
-                      onChangeText={(toDate) => setPeriod((current) => ({ ...current, toDate }))}
-                      placeholder="YYYY-MM-DD"
-                      placeholderTextColor={theme.colors.textSecondary}
-                      autoCapitalize="none"
-                    />
-                  </View>
-                </View>
-              ) : null}
+              <View style={styles.periodDetail}>{renderPeriodDetail()}</View>
+              <Text style={styles.caption}>{periodCaption}</Text>
             </ScrollView>
 
-            <Pressable style={styles.primaryButton} onPress={() => void handleExport()}>
-              <Ionicons name="share-outline" size={18} color={theme.colors.onPrimary} />
-              <Text style={styles.primaryButtonText}>Export PDF</Text>
-            </Pressable>
-
-            <Pressable style={styles.cancelButton} onPress={onClose}>
-              <Text style={styles.cancelText}>Cancel</Text>
-            </Pressable>
+            <View style={styles.footer}>
+              <Pressable style={styles.primaryButton} onPress={() => void handleExport()}>
+                <Ionicons name="share-outline" size={18} color={theme.colors.onPrimary} />
+                <Text style={styles.primaryButtonText}>Export PDF</Text>
+              </Pressable>
+              <Pressable style={styles.cancelButton} onPress={onClose}>
+                <Text style={styles.cancelText}>Cancel</Text>
+              </Pressable>
+            </View>
           </Pressable>
         </Pressable>
       </Modal>
@@ -267,77 +314,76 @@ function createStyles(theme: AppTheme) {
       flex: 1,
       backgroundColor: 'rgba(15, 20, 25, 0.55)',
       justifyContent: 'flex-end' as const,
-      padding: 16,
+      padding: 12,
     },
     card: {
       backgroundColor: theme.colors.surface,
-      borderRadius: 18,
-      padding: 18,
+      borderRadius: 16,
       borderWidth: 1,
       borderColor: theme.colors.border,
-      maxHeight: '88%' as const,
-    },
-    scroll: {
-      maxHeight: 360,
-      marginBottom: 14,
+      maxHeight: '78%' as const,
+      overflow: 'hidden' as const,
     },
     title: {
       color: theme.colors.text,
-      fontSize: theme.scaleFont(18),
+      fontSize: theme.scaleFont(17),
       fontWeight: '700' as const,
-      marginBottom: 4,
+      paddingHorizontal: 16,
+      paddingTop: 14,
+      paddingBottom: 8,
     },
-    subtitle: {
-      color: theme.colors.textSecondary,
-      fontSize: theme.scaleFont(13),
-      lineHeight: theme.scaleFont(19),
-      marginBottom: 14,
+    body: {
+      flexGrow: 0,
+      flexShrink: 1,
+    },
+    bodyContent: {
+      paddingHorizontal: 16,
+      paddingBottom: 8,
     },
     sectionLabel: {
       color: theme.colors.textSecondary,
       fontSize: theme.scaleFont(11),
       fontWeight: '700' as const,
       textTransform: 'uppercase' as const,
-      marginBottom: 8,
-      marginTop: 4,
+      marginBottom: 6,
+      marginTop: 10,
     },
-    scopeList: {
+    chipRow: {
+      flexDirection: 'row' as const,
       gap: 8,
-      marginBottom: 14,
     },
-    scopeItem: {
-      paddingHorizontal: 14,
-      paddingVertical: 12,
-      borderRadius: 12,
+    chip: {
+      flex: 1,
+      paddingVertical: 9,
+      paddingHorizontal: 6,
+      borderRadius: 10,
       borderWidth: 1,
       borderColor: theme.colors.border,
       backgroundColor: theme.colors.background,
+      alignItems: 'center' as const,
     },
-    scopeItemActive: {
+    chipActive: {
       borderColor: theme.colors.primary,
       backgroundColor: theme.colors.primaryMuted,
     },
-    scopeTitle: {
-      color: theme.colors.text,
-      fontSize: theme.scaleFont(14),
-      fontWeight: '700' as const,
-      marginBottom: 2,
+    chipText: {
+      color: theme.colors.textSecondary,
+      fontSize: theme.scaleFont(12),
+      fontWeight: '600' as const,
     },
-    scopeTitleActive: {
+    chipTextActive: {
       color: theme.colors.primary,
     },
-    scopeHint: {
-      color: theme.colors.textSecondary,
-      fontSize: theme.scaleFont(11),
-      lineHeight: theme.scaleFont(16),
+    periodDetail: {
+      marginTop: 8,
+      minHeight: 44,
+      justifyContent: 'center' as const,
     },
-    periodRow: {
-      flexDirection: 'row' as const,
-      flexWrap: 'wrap' as const,
+    hScrollContent: {
       gap: 8,
-      marginBottom: 14,
+      paddingVertical: 2,
     },
-    periodChip: {
+    miniChip: {
       paddingHorizontal: 12,
       paddingVertical: 8,
       borderRadius: 999,
@@ -345,64 +391,54 @@ function createStyles(theme: AppTheme) {
       borderColor: theme.colors.border,
       backgroundColor: theme.colors.background,
     },
-    periodChipActive: {
+    miniChipActive: {
       borderColor: theme.colors.primary,
       backgroundColor: theme.colors.primaryMuted,
     },
-    periodChipText: {
-      color: theme.colors.textSecondary,
+    miniChipText: {
+      color: theme.colors.text,
       fontSize: theme.scaleFont(12),
       fontWeight: '600' as const,
     },
-    periodChipTextActive: {
+    miniChipTextActive: {
       color: theme.colors.primary,
-    },
-    pickerList: {
-      gap: 8,
-      marginBottom: 8,
-    },
-    pickerItem: {
-      paddingHorizontal: 14,
-      paddingVertical: 12,
-      borderRadius: 12,
-      borderWidth: 1,
-      borderColor: theme.colors.border,
-      backgroundColor: theme.colors.background,
-    },
-    pickerItemActive: {
-      borderColor: theme.colors.primary,
-      backgroundColor: theme.colors.primaryMuted,
-    },
-    pickerItemText: {
-      color: theme.colors.text,
-      fontSize: theme.scaleFont(14),
-    },
-    pickerItemTextActive: {
-      color: theme.colors.primary,
-      fontWeight: '700' as const,
     },
     rangeRow: {
       flexDirection: 'row' as const,
-      gap: 10,
+      gap: 8,
     },
     rangeField: {
       flex: 1,
-      gap: 6,
     },
     inputLabel: {
       color: theme.colors.textSecondary,
-      fontSize: theme.scaleFont(12),
+      fontSize: theme.scaleFont(11),
       fontWeight: '600' as const,
+      marginBottom: 4,
     },
-    input: {
+    dateInput: {
       borderWidth: 1,
       borderColor: theme.colors.border,
       borderRadius: 10,
-      paddingHorizontal: 12,
-      paddingVertical: 10,
+      paddingHorizontal: 10,
+      paddingVertical: 8,
       color: theme.colors.text,
+      fontSize: theme.scaleFont(13),
       backgroundColor: theme.colors.background,
-      fontSize: theme.scaleFont(14),
+    },
+    caption: {
+      color: theme.colors.textSecondary,
+      fontSize: theme.scaleFont(12),
+      marginTop: 6,
+      marginBottom: 4,
+    },
+    footer: {
+      borderTopWidth: 1,
+      borderTopColor: theme.colors.border,
+      paddingHorizontal: 16,
+      paddingTop: 12,
+      paddingBottom: 14,
+      backgroundColor: theme.colors.surface,
     },
     primaryButton: {
       flexDirection: 'row' as const,
@@ -411,7 +447,7 @@ function createStyles(theme: AppTheme) {
       gap: 8,
       backgroundColor: theme.colors.primary,
       borderRadius: 12,
-      paddingVertical: 14,
+      paddingVertical: 13,
     },
     primaryButtonText: {
       color: theme.colors.onPrimary,
@@ -419,9 +455,9 @@ function createStyles(theme: AppTheme) {
       fontWeight: '700' as const,
     },
     cancelButton: {
-      marginTop: 12,
+      marginTop: 8,
       alignItems: 'center' as const,
-      paddingVertical: 10,
+      paddingVertical: 6,
     },
     cancelText: {
       color: theme.colors.textSecondary,

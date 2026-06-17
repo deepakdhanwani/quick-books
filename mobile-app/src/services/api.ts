@@ -436,6 +436,14 @@ export type UserPreferences = {
   fontSize: FontSizeMode;
 };
 
+export type PlatformBranding = {
+  companyName?: string;
+  supportEmail?: string;
+  contactEmail?: string;
+  mobileNumber?: string;
+  websiteUrl?: string;
+};
+
 export type SubscriberAccountProfile = {
   id: number;
   businessName: string;
@@ -626,6 +634,8 @@ export const api = {
     }),
   getAccountProfile: (token: string) =>
     request<SubscriberAccountProfile>('/api/subscriber/account/profile', { token }),
+  getPlatformBranding: (token: string) =>
+    request<PlatformBranding>('/api/subscriber/platform-branding', { token }),
   getUserPreferences: (token: string) =>
     request<UserPreferences>('/api/subscriber/account/preferences', { token }),
   updateUserPreferences: (token: string, payload: UserPreferences) =>
@@ -1004,7 +1014,7 @@ export const api = {
     `${getApiBaseUrl()}/api/subscriber/purchases/payments/${paymentId}/proof`,
 
   getDashboard: (token: string) =>
-    request<SubscriberDashboard>('/api/subscriber/reports/dashboard', { token }),
+    request<SubscriberDashboard>('/api/subscriber/reports/dashboard', { token, timeoutMs: 45000 }),
 
   listPaymentReminders: (
     token: string,
@@ -1024,7 +1034,7 @@ export const api = {
   },
 
   getDuePaymentReminders: (token: string) =>
-    request<PaymentReminder[]>('/api/subscriber/payment-reminders/due', { token }),
+    request<PaymentReminder[]>('/api/subscriber/payment-reminders/due', { token, timeoutMs: 45000 }),
 
   getPaymentReminder: (token: string, id: number) =>
     request<PaymentReminder>(`/api/subscriber/payment-reminders/${id}`, { token }),
@@ -1087,7 +1097,7 @@ export const api = {
     ),
 
   getIntelligence: (token: string) =>
-    request<BusinessIntelligence>('/api/subscriber/reports/intelligence', { token }),
+    request<BusinessIntelligence>('/api/subscriber/reports/intelligence', { token, timeoutMs: 45000 }),
 
   getCustomerTrendsReport: (token: string, from?: string, to?: string) =>
     request<BusinessReport>(

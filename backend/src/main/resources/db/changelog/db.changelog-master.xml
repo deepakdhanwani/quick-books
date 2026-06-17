@@ -34,5 +34,6 @@
     <include file="db/changelog/changes/027-staff-rbac.xml"/>
     <include file="db/changelog/changes/028-granular-staff-rbac.xml"/>
     <include file="db/changelog/changes/029-platform-settings.xml"/>
+    <include file="db/changelog/changes/030-report-performance-indexes.xml"/>
 
 </databaseChangeLog>

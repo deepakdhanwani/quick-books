@@ -13,6 +13,7 @@ import { RefreshableScrollView } from '../components/RefreshableScrollView';
 import { api, Sale, SaleItem } from '../services/api';
 import { appAlert } from '../utils/appAlert';
 import { exportSaleDocument } from '../utils/exportSaleDocument';
+import type { PdfCompanyInfo } from '../utils/pdfDocument';
 import {
   formatCurrency,
   formatDate,
@@ -25,6 +26,7 @@ type SaleDetailScreenProps = {
   token: string;
   saleId: number;
   businessName?: string;
+  pdfCompany?: PdfCompanyInfo;
   onEdit: () => void;
   onReceivePayment: () => void;
   canEdit?: boolean;
@@ -34,6 +36,7 @@ export function SaleDetailScreen({
   token,
   saleId,
   businessName,
+  pdfCompany,
   onEdit,
   onReceivePayment,
   canEdit: canEditPermission = true,
@@ -92,8 +95,8 @@ export function SaleDetailScreen({
     setExporting(true);
     try {
       await exportSaleDocument(
-        { sale, businessName },
-        { onPdfReady: () => setExporting(false) },
+        { sale, company: pdfCompany, businessName },
+        { token, onPdfReady: () => setExporting(false) },
       );
     } catch (err) {
       appAlert('Export failed', err instanceof Error ? err.message : 'Could not export invoice');
