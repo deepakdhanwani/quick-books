@@ -45,9 +45,10 @@ const ACTIONS: QuickAction[] = [
 
 type DashboardQuickActionsProps = {
   onAction: (key: string) => void;
+  enabledKeys?: string[];
 };
 
-export function DashboardQuickActions({ onAction }: DashboardQuickActionsProps) {
+export function DashboardQuickActions({ onAction, enabledKeys }: DashboardQuickActionsProps) {
   const theme = useAppTheme();
   const styles = useThemedStyles(createStyles);
 
@@ -64,11 +65,19 @@ export function DashboardQuickActions({ onAction }: DashboardQuickActionsProps) 
     }
   };
 
+  const visibleActions = enabledKeys
+    ? ACTIONS.filter((action) => enabledKeys.includes(action.key))
+    : ACTIONS;
+
+  if (visibleActions.length === 0) {
+    return null;
+  }
+
   return (
     <View style={styles.wrap}>
       <Text style={styles.title}>Quick Actions</Text>
       <View style={styles.grid}>
-        {ACTIONS.map((action) => {
+        {visibleActions.map((action) => {
           const color = accentColor(action.accent);
           return (
             <Pressable

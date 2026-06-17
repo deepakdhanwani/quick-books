@@ -27,6 +27,7 @@ type SaleDetailScreenProps = {
   businessName?: string;
   onEdit: () => void;
   onReceivePayment: () => void;
+  canEdit?: boolean;
 };
 
 export function SaleDetailScreen({
@@ -35,6 +36,7 @@ export function SaleDetailScreen({
   businessName,
   onEdit,
   onReceivePayment,
+  canEdit: canEditPermission = true,
 }: SaleDetailScreenProps) {
   const theme = useAppTheme();
   const styles = useThemedStyles(createStyles);
@@ -82,8 +84,8 @@ export function SaleDetailScreen({
   }
 
   const statusColor = getPaymentStatusColor(sale.paymentStatus);
-  const canReceivePayment = sale.paymentStatus !== 'PAID';
-  const canEdit = sale.paymentStatus !== 'PAID';
+  const canReceivePayment = canEditPermission && sale.paymentStatus !== 'PAID';
+  const canEditSale = canEditPermission && sale.paymentStatus !== 'PAID';
 
   const handleExport = async () => {
     if (exporting) return;
@@ -184,7 +186,7 @@ export function SaleDetailScreen({
         )}
       </Card>
 
-      {canEdit ? <Button title="Edit Sale" onPress={onEdit} /> : null}
+      {canEditSale ? <Button title="Edit Sale" onPress={onEdit} /> : null}
 
       {canReceivePayment ? (
         <Button title="Receive Payment" onPress={onReceivePayment} />

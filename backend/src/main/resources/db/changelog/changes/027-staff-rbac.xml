@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <changeSet id="027-staff-rbac" author="quickbooks">
+        <addColumn tableName="subscriber_users">
+            <column name="can_manage_companies" type="BOOLEAN" defaultValueBoolean="false">
+                <constraints nullable="false"/>
+            </column>
+            <column name="can_view_dashboard" type="BOOLEAN" defaultValueBoolean="true">
+                <constraints nullable="false"/>
+            </column>
+            <column name="can_view_reports" type="BOOLEAN" defaultValueBoolean="false">
+                <constraints nullable="false"/>
+            </column>
+            <column name="can_manage_customers" type="BOOLEAN" defaultValueBoolean="false">
+                <constraints nullable="false"/>
+            </column>
+            <column name="can_manage_vendors" type="BOOLEAN" defaultValueBoolean="false">
+                <constraints nullable="false"/>
+            </column>
+            <column name="can_manage_sales" type="BOOLEAN" defaultValueBoolean="false">
+                <constraints nullable="false"/>
+            </column>
+            <column name="can_manage_purchases" type="BOOLEAN" defaultValueBoolean="false">
+                <constraints nullable="false"/>
+            </column>
+            <column name="can_manage_products" type="BOOLEAN" defaultValueBoolean="false">
+                <constraints nullable="false"/>
+            </column>
+            <column name="can_manage_reminders" type="BOOLEAN" defaultValueBoolean="false">
+                <constraints nullable="false"/>
+            </column>
+        </addColumn>
+
+        <createTable tableName="subscriber_user_companies">
+            <column name="subscriber_user_id" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="company_id" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <addPrimaryKey tableName="subscriber_user_companies"
+                       columnNames="subscriber_user_id, company_id"
+                       constraintName="pk_subscriber_user_companies"/>
+
+        <addForeignKeyConstraint baseTableName="subscriber_user_companies"
+                                 baseColumnNames="subscriber_user_id"
+                                 referencedTableName="subscriber_users"
+                                 referencedColumnNames="id"
+                                 constraintName="fk_subscriber_user_companies_user"
+                                 onDelete="CASCADE"/>
+
+        <addForeignKeyConstraint baseTableName="subscriber_user_companies"
+                                 baseColumnNames="company_id"
+                                 referencedTableName="companies"
+                                 referencedColumnNames="id"
+                                 constraintName="fk_subscriber_user_companies_company"
+                                 onDelete="CASCADE"/>
+
+        <createIndex tableName="subscriber_user_companies" indexName="idx_subscriber_user_companies_company">
+            <column name="company_id"/>
+        </createIndex>
+
+        <sql>
+            UPDATE subscriber_users
+            SET can_manage_companies = TRUE,
+                can_view_dashboard = TRUE,
+                can_view_reports = TRUE,
+                can_manage_customers = TRUE,
+                can_manage_vendors = TRUE,
+                can_manage_sales = TRUE,
+                can_manage_purchases = TRUE,
+                can_manage_products = TRUE,
+                can_manage_reminders = TRUE;
+        </sql>
+
+        <sql>
+            INSERT INTO subscriber_user_companies (subscriber_user_id, company_id)
+            SELECT su.id, c.id
+            FROM subscriber_users su
+            JOIN companies c ON c.subscriber_id = su.subscriber_id AND c.is_active = TRUE;
+        </sql>
+    </changeSet>
+
+</databaseChangeLog>

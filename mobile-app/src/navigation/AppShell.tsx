@@ -41,7 +41,14 @@ import { debugLog } from '../services/debugLog';
 import { saveCachedPreferences } from '../services/preferenceStorage';
 import { useUserPreferences } from '../theme/AppThemeContext';
 import { toUserPreferences } from '../utils/userPreferences';
-import { DrawerRoute, StackRoute } from './types';
+import { DrawerRoute, StackRoute, DRAWER_NAV_ITEMS } from './types';
+import {
+  canAccessDrawerRoute,
+  canManageCompanies as canManageCompaniesPermission,
+  canModule,
+  isSubscriberOwner,
+  resolveStaffPermissions,
+} from '../utils/staffPermissions';
 
 type AppShellProps = {
   auth: SubscriberAuthResponse;
@@ -85,9 +92,44 @@ export function AppShell({ auth, onLogout, onSubscriptionChanged }: AppShellProp
 
   const hasActiveSubscription = profile?.subscriptionStatus === 'ACTIVE';
   const requiresSubscription = profile != null && !hasActiveSubscription;
-  const isOwner =
-    (profile?.owner ?? auth.userType !== 'STAFF') &&
-    (profile?.userType ?? auth.userType ?? 'OWNER') !== 'STAFF';
+  const isOwner = isSubscriberOwner(
+    profile?.userType ?? auth.userType,
+    profile?.owner,
+  );
+  const staffPermissions = resolveStaffPermissions(
+    isOwner,
+    profile?.staffPermissions ?? auth.staffPermissions,
+  );
+  const drawerNavItems = DRAWER_NAV_ITEMS.filter((item) =>
+    canAccessDrawerRoute(item.id, staffPermissions, isOwner),
+  );
+  const allowManageCompanies = canManageCompaniesPermission(staffPermissions, isOwner);
+  const canCustomerCreate = canModule(staffPermissions, isOwner, 'customers', 'create');
+  const canCustomerEdit = canModule(staffPermissions, isOwner, 'customers', 'edit');
+  const canCustomerDelete = canModule(staffPermissions, isOwner, 'customers', 'delete');
+  const canVendorCreate = canModule(staffPermissions, isOwner, 'vendors', 'create');
+  const canVendorEdit = canModule(staffPermissions, isOwner, 'vendors', 'edit');
+  const canVendorDelete = canModule(staffPermissions, isOwner, 'vendors', 'delete');
+  const canProductCreate = canModule(staffPermissions, isOwner, 'products', 'create');
+  const canProductEdit = canModule(staffPermissions, isOwner, 'products', 'edit');
+  const canProductDelete = canModule(staffPermissions, isOwner, 'products', 'delete');
+  const canSaleCreate = canModule(staffPermissions, isOwner, 'sales', 'create');
+  const canSaleEdit = canModule(staffPermissions, isOwner, 'sales', 'edit');
+  const canPurchaseCreate = canModule(staffPermissions, isOwner, 'purchases', 'create');
+  const canPurchaseEdit = canModule(staffPermissions, isOwner, 'purchases', 'edit');
+  const canReminderCreate = canModule(staffPermissions, isOwner, 'reminders', 'create');
+  const canReminderEdit = canModule(staffPermissions, isOwner, 'reminders', 'edit');
+  const canReminderDelete = canModule(staffPermissions, isOwner, 'reminders', 'delete');
+  const canViewReports = isOwner || staffPermissions.viewReports;
+  const dashboardQuickActions = [
+    ...(canSaleCreate ? ['sale'] : []),
+    ...(canPurchaseCreate ? ['purchase'] : []),
+    ...(canCustomerCreate ? ['customer'] : []),
+    ...(canViewReports ? ['reports'] : []),
+  ];
+  const dashboardWorkspaceRoutes = drawerNavItems
+    .map((item) => item.id)
+    .filter((route) => route !== 'dashboard' && route !== 'reports' && route !== 'settings' && route !== 'reminders');
 
   const loadProfile = useCallback(
     async (isPullRefresh = false) => {
@@ -101,6 +143,9 @@ export function AppShell({ auth, onLogout, onSubscriptionChanged }: AppShellProp
           return;
         }
         setProfile(data);
+        if (data.companies?.length) {
+          setCompanies(data.companies);
+        }
         const nextPreferences = toUserPreferences(data);
         setPreferences(nextPreferences);
         await saveCachedPreferences(nextPreferences);
@@ -122,6 +167,12 @@ export function AppShell({ auth, onLogout, onSubscriptionChanged }: AppShellProp
   }, [loadProfile]);
 
   useEffect(() => {
+    if (!drawerNavItems.some((item) => item.id === drawerRoute)) {
+      setDrawerRoute(drawerNavItems[0]?.id ?? 'settings');
+    }
+  }, [drawerNavItems, drawerRoute]);
+
+  useEffect(() => {
     isActiveRef.current = true;
     return () => {
       isActiveRef.current = false;
@@ -136,11 +187,6 @@ export function AppShell({ auth, onLogout, onSubscriptionChanged }: AppShellProp
   useEffect(() => {
     setCompanies(auth.companies ?? []);
   }, [auth.companies]);
-
-  useEffect(() => {
-    void loadProfile();
-    void loadCompanyBusinessTypes();
-  }, [auth.token, loadCompanyBusinessTypes, loadProfile]);
 
   const loadCompanies = useCallback(async () => {
     try {
@@ -162,6 +208,11 @@ export function AppShell({ auth, onLogout, onSubscriptionChanged }: AppShellProp
       return [] as CompanyBusinessTypeOption[];
     }
   }, [auth.token]);
+
+  useEffect(() => {
+    void loadProfile();
+    void loadCompanyBusinessTypes();
+  }, [auth.token, loadCompanyBusinessTypes, loadProfile]);
 
   const handleSignOut = async () => {
     isActiveRef.current = false;
@@ -787,6 +838,9 @@ export function AppShell({ auth, onLogout, onSubscriptionChanged }: AppShellProp
           onDeleted={closeStack}
           onOpenSale={openSaleDetail}
           onCreateReminder={() => openCreateReminderForCustomer(selectedCustomerId)}
+          canEdit={canCustomerEdit}
+          canDelete={canCustomerDelete}
+          canCreateReminder={canReminderCreate}
         />
       );
     }
@@ -810,6 +864,8 @@ export function AppShell({ auth, onLogout, onSubscriptionChanged }: AppShellProp
           onEdit={() => openEditVendor(selectedVendorId)}
           onDeleted={closeStack}
           onOpenPurchase={openPurchaseDetail}
+          canEdit={canVendorEdit}
+          canDelete={canVendorDelete}
         />
       );
     }
@@ -831,6 +887,8 @@ export function AppShell({ auth, onLogout, onSubscriptionChanged }: AppShellProp
           productId={selectedProductId}
           onEdit={() => openEditProduct(selectedProductId)}
           onDeleted={closeStack}
+          canEdit={canProductEdit}
+          canDelete={canProductDelete}
         />
       );
     }
@@ -853,6 +911,7 @@ export function AppShell({ auth, onLogout, onSubscriptionChanged }: AppShellProp
           businessName={profile?.businessName}
           onEdit={() => openEditSale(selectedSaleId)}
           onReceivePayment={() => openReceivePayment(selectedSaleId)}
+          canEdit={canSaleEdit}
         />
       );
     }
@@ -885,6 +944,7 @@ export function AppShell({ auth, onLogout, onSubscriptionChanged }: AppShellProp
           businessName={profile?.businessName}
           onEdit={() => openEditPurchase(selectedPurchaseId)}
           onMakePayment={() => openMakePayment(selectedPurchaseId)}
+          canEdit={canPurchaseEdit}
         />
       );
     }
@@ -931,16 +991,27 @@ export function AppShell({ auth, onLogout, onSubscriptionChanged }: AppShellProp
           onNewSale={openCreateSale}
           onNewPurchase={openCreatePurchase}
           onAddCustomer={openCreateCustomer}
-          onOpenReports={() => navigateDrawer('reports')}
+          onOpenReports={canViewReports ? () => navigateDrawer('reports') : undefined}
           onNavigate={navigateDrawer}
           onOpenReminders={() => navigateDrawer('reminders')}
           onCreateReminder={openCreateReminder}
-          onSnoozeReminder={async (reminderId, snoozedUntil) => {
-            await api.snoozePaymentReminder(auth.token, reminderId, { snoozedUntil });
-          }}
-          onCompleteReminder={async (reminderId) => {
-            await api.completePaymentReminder(auth.token, reminderId);
-          }}
+          quickActionKeys={dashboardQuickActions}
+          workspaceRoutes={dashboardWorkspaceRoutes}
+          canEditReminders={canReminderEdit}
+          onSnoozeReminder={
+            canReminderEdit
+              ? async (reminderId, snoozedUntil) => {
+                  await api.snoozePaymentReminder(auth.token, reminderId, { snoozedUntil });
+                }
+              : undefined
+          }
+          onCompleteReminder={
+            canReminderEdit
+              ? async (reminderId) => {
+                  await api.completePaymentReminder(auth.token, reminderId);
+                }
+              : undefined
+          }
         />
       );
     }
@@ -962,6 +1033,7 @@ export function AppShell({ auth, onLogout, onSubscriptionChanged }: AppShellProp
           token={auth.token}
           onAddCustomer={openCreateCustomer}
           onOpenCustomer={openCustomerDetail}
+          canCreate={canCustomerCreate}
         />
       );
     }
@@ -972,6 +1044,7 @@ export function AppShell({ auth, onLogout, onSubscriptionChanged }: AppShellProp
           token={auth.token}
           onAddVendor={openCreateVendor}
           onOpenVendor={openVendorDetail}
+          canCreate={canVendorCreate}
         />
       );
     }
@@ -982,6 +1055,7 @@ export function AppShell({ auth, onLogout, onSubscriptionChanged }: AppShellProp
           token={auth.token}
           onAddProduct={openCreateProduct}
           onOpenProduct={openProductDetail}
+          canCreate={canProductCreate}
         />
       );
     }
@@ -992,6 +1066,7 @@ export function AppShell({ auth, onLogout, onSubscriptionChanged }: AppShellProp
           token={auth.token}
           onAddSale={openCreateSale}
           onOpenSale={openSaleDetail}
+          canCreate={canSaleCreate}
         />
       );
     }
@@ -1002,6 +1077,7 @@ export function AppShell({ auth, onLogout, onSubscriptionChanged }: AppShellProp
           token={auth.token}
           onAddPurchase={openCreatePurchase}
           onOpenPurchase={openPurchaseDetail}
+          canCreate={canPurchaseCreate}
         />
       );
     }
@@ -1012,6 +1088,9 @@ export function AppShell({ auth, onLogout, onSubscriptionChanged }: AppShellProp
           token={auth.token}
           onAddReminder={openCreateReminder}
           onEditReminder={openEditReminder}
+          canCreate={canReminderCreate}
+          canEdit={canReminderEdit}
+          canDelete={canReminderDelete}
         />
       );
     }
@@ -1045,6 +1124,8 @@ export function AppShell({ auth, onLogout, onSubscriptionChanged }: AppShellProp
       businessTypes={companyBusinessTypes}
       activeCompanyId={activeCompanyId}
       switchingCompany={switchingCompany}
+      navItems={drawerNavItems}
+      canManageCompanies={allowManageCompanies}
       onClose={closeDrawer}
       onNavigate={navigateDrawer}
       onSwitchCompany={switchCompany}

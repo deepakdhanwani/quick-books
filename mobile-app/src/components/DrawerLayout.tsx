@@ -15,7 +15,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { DRAWER_NAV_ITEMS, DrawerRoute } from '../navigation/types';
+import { DRAWER_NAV_ITEMS, DrawerNavItem, DrawerRoute } from '../navigation/types';
 import { MenuNavItem } from './MenuNavItem';
 import { CompanyBusinessTypeOption, CompanyOption, SubscriberAccountProfile } from '../services/api';
 
@@ -29,6 +29,8 @@ type DrawerLayoutProps = {
   businessTypes: CompanyBusinessTypeOption[];
   activeCompanyId?: number;
   switchingCompany?: boolean;
+  navItems?: DrawerNavItem[];
+  canManageCompanies?: boolean;
   onClose: () => void;
   onNavigate: (route: DrawerRoute) => void;
   onSwitchCompany: (companyId: number) => void | Promise<void>;
@@ -45,6 +47,8 @@ export function DrawerLayout({
   businessTypes,
   activeCompanyId,
   switchingCompany = false,
+  navItems = DRAWER_NAV_ITEMS,
+  canManageCompanies = true,
   onClose,
   onNavigate,
   onSwitchCompany,
@@ -168,6 +172,7 @@ export function DrawerLayout({
                     );
                   })}
 
+                  {canManageCompanies ? (
                   <Pressable
                     style={styles.addCompanyButton}
                     onPress={() =>
@@ -187,8 +192,9 @@ export function DrawerLayout({
                     <Ionicons name="add-circle-outline" size={16} color={theme.colors.primary} />
                     <Text style={styles.addCompanyText}>Add company</Text>
                   </Pressable>
+                  ) : null}
 
-                  {creating ? (
+                  {creating && canManageCompanies ? (
                     <View style={styles.createCompanyBox}>
                       <TextInput
                         style={styles.createCompanyInput}
@@ -264,7 +270,7 @@ export function DrawerLayout({
             </View>
 
             <ScrollView style={styles.menuScroll} showsVerticalScrollIndicator={false}>
-              {DRAWER_NAV_ITEMS.map((item) => (
+                  {navItems.map((item) => (
                 <MenuNavItem
                   key={item.id}
                   item={item}

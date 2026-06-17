@@ -2,6 +2,7 @@ package com.quickbooks.dto.auth;
 
 import com.quickbooks.entity.enums.SubscriptionStatus;
 import com.quickbooks.dto.company.CompanyResponse;
+import com.quickbooks.dto.subscriberuser.StaffPermissionsResponse;
 
 import java.util.List;
 
@@ -18,6 +19,7 @@ public class AuthResponse {
     private Long staffUserId;
     private Long activeCompanyId;
     private List<CompanyResponse> companies;
+    private StaffPermissionsResponse staffPermissions;
 
     public AuthResponse() {}
 
@@ -49,4 +51,6 @@ public class AuthResponse {
     public void setActiveCompanyId(Long activeCompanyId) { this.activeCompanyId = activeCompanyId; }
     public List<CompanyResponse> getCompanies() { return companies; }
     public void setCompanies(List<CompanyResponse> companies) { this.companies = companies; }
+    public StaffPermissionsResponse getStaffPermissions() { return staffPermissions; }
+    public void setStaffPermissions(StaffPermissionsResponse staffPermissions) { this.staffPermissions = staffPermissions; }
 }

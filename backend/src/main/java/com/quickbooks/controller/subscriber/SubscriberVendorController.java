@@ -12,6 +12,7 @@ import com.quickbooks.dto.ledger.PartyLedgerPageResponse;
 import com.quickbooks.dto.ledger.PartyLedgerSummaryResponse;
 import com.quickbooks.service.PartyLedgerService;
 import com.quickbooks.service.PurchaseService;
+import com.quickbooks.service.StaffAccessService;
 import com.quickbooks.service.VendorService;
 import jakarta.validation.Valid;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -28,13 +29,16 @@ public class SubscriberVendorController {
     private final VendorService vendorService;
     private final PurchaseService purchaseService;
     private final PartyLedgerService partyLedgerService;
+    private final StaffAccessService staffAccessService;
 
     public SubscriberVendorController(VendorService vendorService,
                                       PurchaseService purchaseService,
-                                      PartyLedgerService partyLedgerService) {
+                                      PartyLedgerService partyLedgerService,
+                                      StaffAccessService staffAccessService) {
         this.vendorService = vendorService;
         this.purchaseService = purchaseService;
         this.partyLedgerService = partyLedgerService;
+        this.staffAccessService = staffAccessService;
     }
 
     @GetMapping
@@ -44,18 +48,21 @@ public class SubscriberVendorController {
             @RequestParam(defaultValue = "20") int size,
             @RequestParam(required = false) Boolean active,
             @RequestParam(required = false) String search) {
+        staffAccessService.requireVendorPicker(principal);
         return vendorService.findPage(principal.getId(), principal.getCompanyId(), page, size, active, search);
     }
 
     @GetMapping("/{id}")
     public VendorResponse get(@AuthenticationPrincipal UserPrincipal principal,
                               @PathVariable Long id) {
+        staffAccessService.requireVendorView(principal);
         return vendorService.getById(principal.getId(), principal.getCompanyId(), id);
     }
 
     @GetMapping("/{id}/account-summary")
     public PartyLedgerSummaryResponse accountSummary(@AuthenticationPrincipal UserPrincipal principal,
                                                      @PathVariable Long id) {
+        staffAccessService.requireVendorView(principal);
         return partyLedgerService.getVendorAccountSummary(principal.getId(), principal.getCompanyId(), id);
     }
 
@@ -67,6 +74,7 @@ public class SubscriberVendorController {
             @RequestParam(defaultValue = "20") int size,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fromDate,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate toDate) {
+        staffAccessService.requireVendorView(principal);
         return partyLedgerService.getVendorLedger(principal.getId(), principal.getCompanyId(), id, page, size, fromDate, toDate);
     }
 
@@ -77,12 +85,14 @@ public class SubscriberVendorController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
             @RequestParam(defaultValue = "ALL") PaymentListFilter paymentFilter) {
+        staffAccessService.requirePurchaseView(principal);
         return purchaseService.findPageByVendor(principal.getId(), principal.getCompanyId(), id, page, size, paymentFilter);
     }
 
     @PostMapping
     public VendorResponse create(@AuthenticationPrincipal UserPrincipal principal,
                                  @Valid @RequestBody CreateVendorRequest request) {
+        staffAccessService.requireVendorCreate(principal);
         return vendorService.create(principal.getId(), principal.getCompanyId(), request);
     }
 
@@ -90,6 +100,7 @@ public class SubscriberVendorController {
     public VendorResponse update(@AuthenticationPrincipal UserPrincipal principal,
                                  @PathVariable Long id,
                                  @Valid @RequestBody UpdateVendorRequest request) {
+        staffAccessService.requireVendorEdit(principal);
         return vendorService.update(principal.getId(), principal.getCompanyId(), id, request);
     }
 
@@ -97,6 +108,7 @@ public class SubscriberVendorController {
     public VendorResponse updateActive(@AuthenticationPrincipal UserPrincipal principal,
                                        @PathVariable Long id,
                                        @Valid @RequestBody UpdateVendorActiveRequest request) {
+        staffAccessService.requireVendorEdit(principal);
         return vendorService.updateActive(principal.getId(), principal.getCompanyId(), id, request);
     }
 
@@ -104,6 +116,7 @@ public class SubscriberVendorController {
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void delete(@AuthenticationPrincipal UserPrincipal principal,
                        @PathVariable Long id) {
+        staffAccessService.requireVendorDelete(principal);
         vendorService.delete(principal.getId(), principal.getCompanyId(), id);
     }
 }

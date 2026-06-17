@@ -17,6 +17,8 @@ import com.quickbooks.entity.SubscriberUser;
 import com.quickbooks.entity.enums.ActorType;
 import com.quickbooks.entity.enums.SubscriptionRecordStatus;
 import com.quickbooks.entity.enums.SubscriptionStatus;
+import com.quickbooks.dto.subscriberuser.StaffPermissionsResponse;
+import com.quickbooks.security.StaffPermissions;
 import com.quickbooks.security.UserPrincipal;
 import com.quickbooks.repository.SubscriberRepository;
 import com.quickbooks.repository.SubscriberSubscriptionRepository;
@@ -44,6 +46,7 @@ public class SubscriberService {
     private final SubscriberSubscriptionService subscriberSubscriptionService;
     private final BusinessTypeService businessTypeService;
     private final CompanyService companyService;
+    private final StaffAccessService staffAccessService;
     private final PasswordEncoder passwordEncoder;
     private final PinGenerator pinGenerator;
 
@@ -53,6 +56,7 @@ public class SubscriberService {
                              SubscriberSubscriptionService subscriberSubscriptionService,
                              BusinessTypeService businessTypeService,
                              CompanyService companyService,
+                             StaffAccessService staffAccessService,
                              PasswordEncoder passwordEncoder,
                              PinGenerator pinGenerator) {
         this.subscriberRepository = subscriberRepository;
@@ -61,6 +65,7 @@ public class SubscriberService {
         this.subscriberSubscriptionService = subscriberSubscriptionService;
         this.businessTypeService = businessTypeService;
         this.companyService = companyService;
+        this.staffAccessService = staffAccessService;
         this.passwordEncoder = passwordEncoder;
         this.pinGenerator = pinGenerator;
     }
@@ -119,6 +124,18 @@ public class SubscriberService {
         } else {
             response.setTheme(subscriber.getThemeMode());
             response.setFontSize(subscriber.getFontSize());
+        }
+
+        var defaultCompany = companyService.ensureDefaultCompany(id, subscriber.getBusinessName());
+        if (principal != null && principal.getActorType() == ActorType.STAFF) {
+            StaffPermissions permissions = staffAccessService.loadForStaff(id, principal.getActorId());
+            response.setStaffPermissions(StaffPermissionsResponse.from(permissions));
+            response.setCompanies(companyService.list(id, defaultCompany.getId()).stream()
+                    .filter(company -> permissions.canAccessCompany(company.getId()))
+                    .toList());
+        } else {
+            response.setStaffPermissions(StaffPermissionsResponse.ownerDefaults());
+            response.setCompanies(companyService.list(id, defaultCompany.getId()));
         }
 
         if (subscriber.getSubscriptionStatus() == SubscriptionStatus.ACTIVE) {

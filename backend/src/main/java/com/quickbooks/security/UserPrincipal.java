@@ -13,6 +13,8 @@ public class UserPrincipal {
     private final String actorPin;
     private Long companyId;
 
+    private StaffPermissions staffPermissions;
+
     public UserPrincipal(Long subscriberId,
                          String identifier,
                          UserRole role,
@@ -77,4 +79,14 @@ public class UserPrincipal {
     public String getActorPin() { return actorPin; }
     public Long getCompanyId() { return companyId; }
     public void setCompanyId(Long companyId) { this.companyId = companyId; }
+    public StaffPermissions getStaffPermissions() { return staffPermissions; }
+    public void setStaffPermissions(StaffPermissions staffPermissions) { this.staffPermissions = staffPermissions; }
+
+    public boolean isOwner() {
+        return actorType == ActorType.OWNER;
+    }
+
+    public boolean isStaff() {
+        return actorType == ActorType.STAFF;
+    }
 }

@@ -5,8 +5,10 @@ import com.quickbooks.dto.subscriberuser.SubscriberUserResponse;
 import com.quickbooks.dto.subscriberuser.UpdateSubscriberUserRequest;
 import com.quickbooks.entity.Subscriber;
 import com.quickbooks.entity.SubscriberUser;
+import com.quickbooks.entity.SubscriberUserCompany;
 import com.quickbooks.entity.enums.AuditAction;
 import com.quickbooks.entity.enums.AuditEntityType;
+import com.quickbooks.repository.SubscriberUserCompanyRepository;
 import com.quickbooks.repository.SubscriberUserRepository;
 import com.quickbooks.util.PinGenerator;
 import com.quickbooks.util.PinValidator;
@@ -22,18 +24,24 @@ import java.util.List;
 public class SubscriberUserService {
 
     private final SubscriberUserRepository subscriberUserRepository;
+    private final SubscriberUserCompanyRepository subscriberUserCompanyRepository;
     private final SubscriberService subscriberService;
+    private final StaffAccessService staffAccessService;
     private final PasswordEncoder passwordEncoder;
     private final PinGenerator pinGenerator;
     private final AuditLogService auditLogService;
 
     public SubscriberUserService(SubscriberUserRepository subscriberUserRepository,
+                                 SubscriberUserCompanyRepository subscriberUserCompanyRepository,
                                  SubscriberService subscriberService,
+                                 StaffAccessService staffAccessService,
                                  PasswordEncoder passwordEncoder,
                                  PinGenerator pinGenerator,
                                  AuditLogService auditLogService) {
         this.subscriberUserRepository = subscriberUserRepository;
+        this.subscriberUserCompanyRepository = subscriberUserCompanyRepository;
         this.subscriberService = subscriberService;
+        this.staffAccessService = staffAccessService;
         this.passwordEncoder = passwordEncoder;
         this.pinGenerator = pinGenerator;
         this.auditLogService = auditLogService;
@@ -42,13 +50,13 @@ public class SubscriberUserService {
     @Transactional(readOnly = true)
     public List<SubscriberUserResponse> list(Long subscriberId) {
         return subscriberUserRepository.findBySubscriberIdOrderByNameAsc(subscriberId).stream()
-                .map(SubscriberUserResponse::from)
+                .map(this::toResponse)
                 .toList();
     }
 
     @Transactional(readOnly = true)
     public SubscriberUserResponse getById(Long subscriberId, Long userId) {
-        return SubscriberUserResponse.from(getOwnedUser(subscriberId, userId));
+        return toResponse(getOwnedUser(subscriberId, userId));
     }
 
     @Transactional
@@ -65,8 +73,9 @@ public class SubscriberUserService {
         user.setActive(true);
 
         SubscriberUser saved = subscriberUserRepository.save(user);
+        staffAccessService.applyPermissions(subscriberId, saved, request.getPermissions());
         auditLogService.log(AuditAction.CREATE, AuditEntityType.SUBSCRIBER_USER, saved.getId(), saved.getName());
-        return SubscriberUserResponse.from(saved);
+        return toResponse(saved);
     }
 
     @Transactional
@@ -76,10 +85,13 @@ public class SubscriberUserService {
         if (request.getActive() != null) {
             user.setActive(request.getActive());
         }
+        if (request.getPermissions() != null) {
+            staffAccessService.applyPermissions(subscriberId, user, request.getPermissions());
+        }
 
         SubscriberUser saved = subscriberUserRepository.save(user);
         auditLogService.log(AuditAction.UPDATE, AuditEntityType.SUBSCRIBER_USER, saved.getId(), saved.getName());
-        return SubscriberUserResponse.from(saved);
+        return toResponse(saved);
     }
 
     @Transactional
@@ -91,7 +103,7 @@ public class SubscriberUserService {
 
         SubscriberUser saved = subscriberUserRepository.save(user);
         auditLogService.log(AuditAction.UPDATE, AuditEntityType.SUBSCRIBER_USER, saved.getId(), "PIN updated for " + saved.getName());
-        return SubscriberUserResponse.from(saved);
+        return toResponse(saved);
     }
 
     @Transactional
@@ -103,14 +115,22 @@ public class SubscriberUserService {
 
         SubscriberUser saved = subscriberUserRepository.save(user);
         auditLogService.log(AuditAction.UPDATE, AuditEntityType.SUBSCRIBER_USER, saved.getId(), "PIN reset for " + saved.getName());
-        return SubscriberUserResponse.from(saved);
+        return toResponse(saved);
     }
 
     @Transactional
     public void delete(Long subscriberId, Long userId) {
         SubscriberUser user = getOwnedUser(subscriberId, userId);
         auditLogService.log(AuditAction.DELETE, AuditEntityType.SUBSCRIBER_USER, user.getId(), user.getName());
+        subscriberUserCompanyRepository.deleteBySubscriberUserId(userId);
         subscriberUserRepository.delete(user);
+    }
+
+    private SubscriberUserResponse toResponse(SubscriberUser user) {
+        List<Long> companyIds = subscriberUserCompanyRepository.findBySubscriberUserIdOrderByCompanyIdAsc(user.getId()).stream()
+                .map(SubscriberUserCompany::getCompanyId)
+                .toList();
+        return SubscriberUserResponse.from(user, companyIds);
     }
 
     private SubscriberUser getOwnedUser(Long subscriberId, Long userId) {

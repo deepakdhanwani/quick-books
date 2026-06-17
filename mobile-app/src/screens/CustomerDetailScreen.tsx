@@ -56,6 +56,9 @@ type CustomerDetailScreenProps = {
   onDeleted: () => void;
   onOpenSale: (saleId: number) => void;
   onCreateReminder: () => void;
+  canEdit?: boolean;
+  canDelete?: boolean;
+  canCreateReminder?: boolean;
 };
 
 function getSubtitle(customer: Customer) {
@@ -73,6 +76,9 @@ export function CustomerDetailScreen({
   onDeleted,
   onOpenSale,
   onCreateReminder,
+  canEdit = true,
+  canDelete = true,
+  canCreateReminder = true,
 }: CustomerDetailScreenProps) {
   const theme = useAppTheme();
   const styles = useThemedStyles(createStyles);
@@ -546,7 +552,7 @@ export function CustomerDetailScreen({
           <Switch
             value={customer.active}
             onValueChange={handleToggleActive}
-            disabled={togglingActive}
+            disabled={togglingActive || !canEdit}
             trackColor={{ false: theme.colors.border, true: 'rgba(34, 197, 94, 0.35)' }}
             thumbColor={customer.active ? theme.colors.success : theme.colors.textSecondary}
           />
@@ -554,12 +560,16 @@ export function CustomerDetailScreen({
       </Card>
 
       <View style={styles.actions}>
-        <Button title="Create Reminder" variant="secondary" onPress={onCreateReminder} />
-        <Button title="Edit Customer" onPress={onEdit} />
-        <Pressable style={styles.deleteButton} onPress={handleDelete}>
-          <Ionicons name="trash-outline" size={18} color={theme.colors.error} />
-          <Text style={styles.deleteText}>Delete Customer</Text>
-        </Pressable>
+        {canCreateReminder ? (
+          <Button title="Create Reminder" variant="secondary" onPress={onCreateReminder} />
+        ) : null}
+        {canEdit ? <Button title="Edit Customer" onPress={onEdit} /> : null}
+        {canDelete ? (
+          <Pressable style={styles.deleteButton} onPress={handleDelete}>
+            <Ionicons name="trash-outline" size={18} color={theme.colors.error} />
+            <Text style={styles.deleteText}>Delete Customer</Text>
+          </Pressable>
+        ) : null}
       </View>
 
       {error ? <Text style={styles.error}>{error}</Text> : null}

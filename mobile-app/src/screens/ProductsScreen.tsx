@@ -25,13 +25,14 @@ type ProductsScreenProps = {
   token: string;
   onAddProduct: () => void;
   onOpenProduct: (id: number) => void;
+  canCreate?: boolean;
 };
 
 function getAvatarColor(active: boolean, colors: AppTheme["colors"]) {
   return active ? colors.success : colors.textSecondary;
 }
 
-export function ProductsScreen({ token, onAddProduct, onOpenProduct }: ProductsScreenProps) {
+export function ProductsScreen({ token, onAddProduct, onOpenProduct, canCreate = true }: ProductsScreenProps) {
   const theme = useAppTheme();
   const styles = useThemedStyles(createStyles);
 
@@ -169,9 +170,11 @@ export function ProductsScreen({ token, onAddProduct, onOpenProduct }: ProductsS
               placeholderTextColor={theme.colors.textSecondary}
             />
           </View>
-          <Pressable style={styles.addButton} onPress={onAddProduct}>
-            <Ionicons name="add" size={24} color={theme.colors.onPrimary} />
-          </Pressable>
+          {canCreate ? (
+            <Pressable style={styles.addButton} onPress={onAddProduct}>
+              <Ionicons name="add" size={24} color={theme.colors.onPrimary} />
+            </Pressable>
+          ) : null}
         </View>
         <StatusFilterChips value={statusFilter} onChange={setStatusFilter} />
       </View>

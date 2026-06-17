@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <changeSet id="028-granular-staff-rbac" author="quickbooks">
+        <addColumn tableName="subscriber_users">
+            <column name="companies_create" type="BOOLEAN" defaultValueBoolean="false"><constraints nullable="false"/></column>
+            <column name="companies_edit" type="BOOLEAN" defaultValueBoolean="false"><constraints nullable="false"/></column>
+            <column name="companies_delete" type="BOOLEAN" defaultValueBoolean="false"><constraints nullable="false"/></column>
+            <column name="customers_view" type="BOOLEAN" defaultValueBoolean="false"><constraints nullable="false"/></column>
+            <column name="customers_create" type="BOOLEAN" defaultValueBoolean="false"><constraints nullable="false"/></column>
+            <column name="customers_edit" type="BOOLEAN" defaultValueBoolean="false"><constraints nullable="false"/></column>
+            <column name="customers_delete" type="BOOLEAN" defaultValueBoolean="false"><constraints nullable="false"/></column>
+            <column name="vendors_view" type="BOOLEAN" defaultValueBoolean="false"><constraints nullable="false"/></column>
+            <column name="vendors_create" type="BOOLEAN" defaultValueBoolean="false"><constraints nullable="false"/></column>
+            <column name="vendors_edit" type="BOOLEAN" defaultValueBoolean="false"><constraints nullable="false"/></column>
+            <column name="vendors_delete" type="BOOLEAN" defaultValueBoolean="false"><constraints nullable="false"/></column>
+            <column name="sales_view" type="BOOLEAN" defaultValueBoolean="false"><constraints nullable="false"/></column>
+            <column name="sales_create" type="BOOLEAN" defaultValueBoolean="false"><constraints nullable="false"/></column>
+            <column name="sales_edit" type="BOOLEAN" defaultValueBoolean="false"><constraints nullable="false"/></column>
+            <column name="sales_delete" type="BOOLEAN" defaultValueBoolean="false"><constraints nullable="false"/></column>
+            <column name="purchases_view" type="BOOLEAN" defaultValueBoolean="false"><constraints nullable="false"/></column>
+            <column name="purchases_create" type="BOOLEAN" defaultValueBoolean="false"><constraints nullable="false"/></column>
+            <column name="purchases_edit" type="BOOLEAN" defaultValueBoolean="false"><constraints nullable="false"/></column>
+            <column name="purchases_delete" type="BOOLEAN" defaultValueBoolean="false"><constraints nullable="false"/></column>
+            <column name="products_view" type="BOOLEAN" defaultValueBoolean="false"><constraints nullable="false"/></column>
+            <column name="products_create" type="BOOLEAN" defaultValueBoolean="false"><constraints nullable="false"/></column>
+            <column name="products_edit" type="BOOLEAN" defaultValueBoolean="false"><constraints nullable="false"/></column>
+            <column name="products_delete" type="BOOLEAN" defaultValueBoolean="false"><constraints nullable="false"/></column>
+            <column name="reminders_view" type="BOOLEAN" defaultValueBoolean="false"><constraints nullable="false"/></column>
+            <column name="reminders_create" type="BOOLEAN" defaultValueBoolean="false"><constraints nullable="false"/></column>
+            <column name="reminders_edit" type="BOOLEAN" defaultValueBoolean="false"><constraints nullable="false"/></column>
+            <column name="reminders_delete" type="BOOLEAN" defaultValueBoolean="false"><constraints nullable="false"/></column>
+        </addColumn>
+
+        <sql>
+            UPDATE subscriber_users SET
+                companies_create = can_manage_companies,
+                companies_edit = can_manage_companies,
+                companies_delete = can_manage_companies,
+                customers_view = can_manage_customers,
+                customers_create = can_manage_customers,
+                customers_edit = can_manage_customers,
+                customers_delete = can_manage_customers,
+                vendors_view = can_manage_vendors,
+                vendors_create = can_manage_vendors,
+                vendors_edit = can_manage_vendors,
+                vendors_delete = can_manage_vendors,
+                sales_view = can_manage_sales,
+                sales_create = can_manage_sales,
+                sales_edit = can_manage_sales,
+                sales_delete = can_manage_sales,
+                purchases_view = can_manage_purchases,
+                purchases_create = can_manage_purchases,
+                purchases_edit = can_manage_purchases,
+                purchases_delete = can_manage_purchases,
+                products_view = can_manage_products,
+                products_create = can_manage_products,
+                products_edit = can_manage_products,
+                products_delete = can_manage_products,
+                reminders_view = can_manage_reminders,
+                reminders_create = can_manage_reminders,
+                reminders_edit = can_manage_reminders,
+                reminders_delete = can_manage_reminders;
+        </sql>
+
+        <dropColumn tableName="subscriber_users" columnName="can_manage_companies"/>
+        <dropColumn tableName="subscriber_users" columnName="can_manage_customers"/>
+        <dropColumn tableName="subscriber_users" columnName="can_manage_vendors"/>
+        <dropColumn tableName="subscriber_users" columnName="can_manage_sales"/>
+        <dropColumn tableName="subscriber_users" columnName="can_manage_purchases"/>
+        <dropColumn tableName="subscriber_users" columnName="can_manage_products"/>
+        <dropColumn tableName="subscriber_users" columnName="can_manage_reminders"/>
+    </changeSet>
+
+</databaseChangeLog>

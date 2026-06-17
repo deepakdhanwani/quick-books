@@ -18,7 +18,7 @@ import {
 } from '../services/api';
 import { getDetectedDevServerHost } from '../services/apiDiscovery';
 type LoginScreenProps = {
-  onLogin: (response: SubscriberAuthResponse) => void;
+  onLogin: (response: SubscriberAuthResponse) => void | Promise<void>;
 };
 
 export function LoginScreen({ onLogin }: LoginScreenProps) {
@@ -92,7 +92,7 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
     try {
       const response = await api.subscriberLogin(phone, loginPin);
       const selectedCompanyId = response.activeCompanyId ?? response.companies?.[0]?.id;
-      onLogin({ ...response, activeCompanyId: selectedCompanyId });
+      await onLogin({ ...response, activeCompanyId: selectedCompanyId });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Login failed');
     } finally {

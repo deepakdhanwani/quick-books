@@ -51,6 +51,8 @@ type VendorDetailScreenProps = {
   onEdit: () => void;
   onDeleted: () => void;
   onOpenPurchase: (purchaseId: number) => void;
+  canEdit?: boolean;
+  canDelete?: boolean;
 };
 
 function getSubtitle(vendor: Vendor) {
@@ -64,6 +66,8 @@ export function VendorDetailScreen({
   onEdit,
   onDeleted,
   onOpenPurchase,
+  canEdit = true,
+  canDelete = true,
 }: VendorDetailScreenProps) {
   const theme = useAppTheme();
   const styles = useThemedStyles(createStyles);
@@ -523,7 +527,7 @@ export function VendorDetailScreen({
           <Switch
             value={vendor.active}
             onValueChange={handleToggleActive}
-            disabled={togglingActive}
+            disabled={togglingActive || !canEdit}
             trackColor={{ false: theme.colors.border, true: 'rgba(34, 197, 94, 0.35)' }}
             thumbColor={vendor.active ? theme.colors.success : theme.colors.textSecondary}
           />
@@ -531,11 +535,13 @@ export function VendorDetailScreen({
       </Card>
 
       <View style={styles.actions}>
-        <Button title="Edit Vendor" onPress={onEdit} />
-        <Pressable style={styles.deleteButton} onPress={handleDelete}>
-          <Ionicons name="trash-outline" size={18} color={theme.colors.error} />
-          <Text style={styles.deleteText}>Delete Vendor</Text>
-        </Pressable>
+        {canEdit ? <Button title="Edit Vendor" onPress={onEdit} /> : null}
+        {canDelete ? (
+          <Pressable style={styles.deleteButton} onPress={handleDelete}>
+            <Ionicons name="trash-outline" size={18} color={theme.colors.error} />
+            <Text style={styles.deleteText}>Delete Vendor</Text>
+          </Pressable>
+        ) : null}
       </View>
 
       {error ? <Text style={styles.error}>{error}</Text> : null}

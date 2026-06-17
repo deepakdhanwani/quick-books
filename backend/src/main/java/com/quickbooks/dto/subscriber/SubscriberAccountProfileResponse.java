@@ -1,5 +1,7 @@
 package com.quickbooks.dto.subscriber;
 
+import com.quickbooks.dto.company.CompanyResponse;
+import com.quickbooks.dto.subscriberuser.StaffPermissionsResponse;
 import com.quickbooks.entity.Subscriber;
 import com.quickbooks.entity.enums.AppFontSize;
 import com.quickbooks.entity.enums.AppTheme;
@@ -7,6 +9,7 @@ import com.quickbooks.entity.enums.SubscriptionStatus;
 
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
+import java.util.List;
 
 public class SubscriberAccountProfileResponse {
 
@@ -27,6 +30,8 @@ public class SubscriberAccountProfileResponse {
     private boolean owner = true;
     private AppTheme theme;
     private AppFontSize fontSize;
+    private List<CompanyResponse> companies;
+    private StaffPermissionsResponse staffPermissions;
 
     public static SubscriberAccountProfileResponse from(Subscriber subscriber) {
         SubscriberAccountProfileResponse response = new SubscriberAccountProfileResponse();
@@ -79,4 +84,8 @@ public class SubscriberAccountProfileResponse {
     public void setTheme(AppTheme theme) { this.theme = theme; }
     public AppFontSize getFontSize() { return fontSize; }
     public void setFontSize(AppFontSize fontSize) { this.fontSize = fontSize; }
+    public List<CompanyResponse> getCompanies() { return companies; }
+    public void setCompanies(List<CompanyResponse> companies) { this.companies = companies; }
+    public StaffPermissionsResponse getStaffPermissions() { return staffPermissions; }
+    public void setStaffPermissions(StaffPermissionsResponse staffPermissions) { this.staffPermissions = staffPermissions; }
 }

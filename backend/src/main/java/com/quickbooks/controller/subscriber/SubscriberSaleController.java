@@ -9,6 +9,7 @@ import com.quickbooks.entity.enums.PaymentMode;
 import com.quickbooks.entity.enums.PaymentSettlementType;
 import com.quickbooks.security.UserPrincipal;
 import com.quickbooks.service.SaleService;
+import com.quickbooks.service.StaffAccessService;
 import jakarta.validation.Valid;
 import org.springframework.core.io.Resource;
 import org.springframework.http.HttpHeaders;
@@ -26,9 +27,11 @@ import java.time.LocalDate;
 public class SubscriberSaleController {
 
     private final SaleService saleService;
+    private final StaffAccessService staffAccessService;
 
-    public SubscriberSaleController(SaleService saleService) {
+    public SubscriberSaleController(SaleService saleService, StaffAccessService staffAccessService) {
         this.saleService = saleService;
+        this.staffAccessService = staffAccessService;
     }
 
     @GetMapping
@@ -40,23 +43,27 @@ public class SubscriberSaleController {
             @RequestParam(required = false) PaymentListFilter paymentFilter,
             @RequestParam(required = false) LocalDate fromDate,
             @RequestParam(required = false) LocalDate toDate) {
+        staffAccessService.requireSaleView(principal);
         return saleService.findPage(principal.getId(), principal.getCompanyId(), page, size, search, paymentFilter, fromDate, toDate);
     }
 
     @GetMapping("/next-invoice-number")
     public NextInvoiceNumberResponse nextInvoiceNumber(@AuthenticationPrincipal UserPrincipal principal) {
+        staffAccessService.requireSaleCreate(principal);
         return saleService.getNextInvoiceNumber(principal.getId(), principal.getCompanyId());
     }
 
     @GetMapping("/{id}")
     public SaleResponse get(@AuthenticationPrincipal UserPrincipal principal,
                               @PathVariable Long id) {
+        staffAccessService.requireSaleView(principal);
         return saleService.getById(principal.getId(), principal.getCompanyId(), id);
     }
 
     @PostMapping
     public SaleResponse create(@AuthenticationPrincipal UserPrincipal principal,
                                @Valid @RequestBody CreateSaleRequest request) {
+        staffAccessService.requireSaleCreate(principal);
         return saleService.create(principal.getId(), principal.getCompanyId(), request);
     }
 
@@ -64,6 +71,7 @@ public class SubscriberSaleController {
     public SaleResponse update(@AuthenticationPrincipal UserPrincipal principal,
                                @PathVariable Long id,
                                @Valid @RequestBody CreateSaleRequest request) {
+        staffAccessService.requireSaleEdit(principal);
         return saleService.update(principal.getId(), principal.getCompanyId(), id, request);
     }
 
@@ -77,6 +85,7 @@ public class SubscriberSaleController {
                                        @RequestParam(required = false) String paymentDetails,
                                        @RequestParam(required = false) String notes,
                                        @RequestPart(value = "proof", required = false) MultipartFile proof) {
+        staffAccessService.requireSaleEdit(principal);
         return saleService.receivePayment(
                 principal.getId(),
                 principal.getCompanyId(),
@@ -94,6 +103,7 @@ public class SubscriberSaleController {
     @GetMapping("/payments/{paymentId}/proof")
     public ResponseEntity<Resource> downloadProof(@AuthenticationPrincipal UserPrincipal principal,
                                                   @PathVariable Long paymentId) {
+        staffAccessService.requireSaleView(principal);
         Resource resource = saleService.getPaymentProof(principal.getId(), principal.getCompanyId(), paymentId);
         String fileName = saleService.getPaymentProofFileName(principal.getId(), principal.getCompanyId(), paymentId);
         String contentType = saleService.getPaymentProofContentType(principal.getId(), principal.getCompanyId(), paymentId);

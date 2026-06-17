@@ -37,9 +37,10 @@ type SalesScreenProps = {
   token: string;
   onAddSale: () => void;
   onOpenSale: (id: number) => void;
+  canCreate?: boolean;
 };
 
-export function SalesScreen({ token, onAddSale, onOpenSale }: SalesScreenProps) {
+export function SalesScreen({ token, onAddSale, onOpenSale, canCreate = true }: SalesScreenProps) {
   const theme = useAppTheme();
   const styles = useThemedStyles(createStyles);
 
@@ -183,9 +184,11 @@ export function SalesScreen({ token, onAddSale, onOpenSale }: SalesScreenProps) 
             onApply={setDateFilter}
             onClear={() => setDateFilter(getClearedDateFilter())}
           />
-          <Pressable style={styles.addButton} onPress={onAddSale}>
-            <Ionicons name="add" size={24} color={theme.colors.onPrimary} />
-          </Pressable>
+          {canCreate ? (
+            <Pressable style={styles.addButton} onPress={onAddSale}>
+              <Ionicons name="add" size={24} color={theme.colors.onPrimary} />
+            </Pressable>
+          ) : null}
         </View>
         <PaymentListFilterChips value={paymentFilter} onChange={setPaymentFilter} />
         <TransactionDateFilterSummary value={dateFilter} />

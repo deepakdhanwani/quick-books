@@ -4,7 +4,7 @@ import { ActivityIndicator, View } from 'react-native';
 import { AlertProvider } from './src/components/AlertProvider';
 import { AppShell } from './src/navigation/AppShell';
 import { LoginScreen } from './src/screens/LoginScreen';
-import { api, initApiBaseUrl, setActiveCompanyId, SubscriberAuthResponse } from './src/services/api';
+import { api, ApiRequestError, initApiBaseUrl, setActiveCompanyId, SubscriberAuthResponse } from './src/services/api';
 import { initDebugLog } from './src/services/debugLog';
 import { clearAuthSession, loadAuthSession, saveAuthSession } from './src/services/authStorage';
 import { loadCachedPreferences, saveCachedPreferences } from './src/services/preferenceStorage';
@@ -61,6 +61,44 @@ function AppContent({
   );
 }
 
+function buildAuthFromLogin(response: SubscriberAuthResponse): SubscriberAuthResponse {
+  const selectedCompanyId = response.activeCompanyId ?? response.companies?.[0]?.id;
+  return {
+    ...response,
+    activeCompanyId: selectedCompanyId,
+    userType: response.userType ?? 'OWNER',
+  };
+}
+
+async function enrichAuthFromProfile(
+  auth: SubscriberAuthResponse,
+): Promise<{ auth: SubscriberAuthResponse; preferences: UserPreferences }> {
+  const profile = await api.getAccountProfile(auth.token);
+  const preferences = toUserPreferences(profile);
+  await saveCachedPreferences(preferences);
+
+  const enriched: SubscriberAuthResponse = {
+    ...auth,
+    subscriptionStatus: profile.subscriptionStatus,
+    requiresSubscription: profile.subscriptionStatus !== 'ACTIVE',
+    userName: profile.loggedInUserName ?? auth.userName,
+    userType: profile.userType ?? auth.userType,
+    canChangePin: profile.canChangePin ?? auth.canChangePin,
+    staffPermissions: profile.staffPermissions ?? auth.staffPermissions,
+    companies: profile.companies ?? auth.companies,
+    activeCompanyId:
+      profile.companies?.find((company) => company.id === auth.activeCompanyId)?.id
+      ?? profile.companies?.[0]?.id
+      ?? auth.activeCompanyId,
+  };
+  await saveAuthSession(enriched);
+  return { auth: enriched, preferences };
+}
+
+function shouldClearStoredSession(error: unknown) {
+  return error instanceof ApiRequestError && error.status === 401;
+}
+
 export default function App() {
   const [auth, setAuth] = useState<SubscriberAuthResponse | null>(null);
   const [ready, setReady] = useState(false);
@@ -86,26 +124,22 @@ export default function App() {
 
       const storedAuth = await loadAuthSession();
       if (storedAuth) {
-        try {
-          const profile = await api.getAccountProfile(storedAuth.token);
-          const preferences = toUserPreferences(profile);
-          await saveCachedPreferences(preferences);
-          setInitialPreferences(preferences);
+        setAuth(storedAuth);
+        setActiveCompanyId(storedAuth.activeCompanyId);
 
-          const refreshedAuth: SubscriberAuthResponse = {
-            ...storedAuth,
-            subscriptionStatus: profile.subscriptionStatus,
-            requiresSubscription: profile.subscriptionStatus !== 'ACTIVE',
-            userName: profile.loggedInUserName ?? storedAuth.userName,
-            userType: profile.userType ?? storedAuth.userType,
-            canChangePin: profile.canChangePin ?? storedAuth.canChangePin,
-          };
-          await saveAuthSession(refreshedAuth);
-          setAuth(refreshedAuth);
-          setActiveCompanyId(refreshedAuth.activeCompanyId);
-        } catch {
-          await clearAuthSession();
-        }
+        void enrichAuthFromProfile(storedAuth)
+          .then(({ auth: refreshedAuth, preferences }) => {
+            setInitialPreferences(preferences);
+            setAuth(refreshedAuth);
+            setActiveCompanyId(refreshedAuth.activeCompanyId);
+          })
+          .catch(async (error) => {
+            if (shouldClearStoredSession(error)) {
+              await clearAuthSession();
+              setActiveCompanyId(null);
+              setAuth(null);
+            }
+          });
       }
 
       setReady(true);
@@ -132,21 +166,24 @@ export default function App() {
 
   const handleLogin = async (response: SubscriberAuthResponse) => {
     isLoggingOutRef.current = false;
-    const selectedCompanyId = response.activeCompanyId ?? response.companies?.[0]?.id;
-    const normalizedResponse = { ...response, activeCompanyId: selectedCompanyId };
-    setActiveCompanyId(selectedCompanyId);
+    const normalizedResponse = buildAuthFromLogin(response);
+
+    setActiveCompanyId(normalizedResponse.activeCompanyId);
     await saveAuthSession(normalizedResponse);
-
-    try {
-      const profile = await api.getAccountProfile(normalizedResponse.token);
-      const preferences = toUserPreferences(profile);
-      await saveCachedPreferences(preferences);
-      setInitialPreferences(preferences);
-    } catch {
-      // Keep cached/default preferences if profile fetch fails right after login.
-    }
-
     setAuth(normalizedResponse);
+
+    void enrichAuthFromProfile(normalizedResponse)
+      .then(({ auth: enriched, preferences }) => {
+        if (isLoggingOutRef.current) {
+          return;
+        }
+        setInitialPreferences(preferences);
+        setAuth(enriched);
+        setActiveCompanyId(enriched.activeCompanyId);
+      })
+      .catch(() => {
+        // Profile refresh failed; the login session is already active.
+      });
   };
 
   return (

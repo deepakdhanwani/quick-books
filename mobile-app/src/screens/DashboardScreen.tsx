@@ -36,6 +36,9 @@ type DashboardScreenProps = {
   onCreateReminder?: () => void;
   onSnoozeReminder?: (reminderId: number, snoozedUntil: string) => void | Promise<void>;
   onCompleteReminder?: (reminderId: number) => void | Promise<void>;
+  quickActionKeys?: string[];
+  workspaceRoutes?: DrawerRoute[];
+  canEditReminders?: boolean;
 };
 
 export function DashboardScreen({
@@ -53,6 +56,9 @@ export function DashboardScreen({
   onCreateReminder,
   onSnoozeReminder,
   onCompleteReminder,
+  quickActionKeys,
+  workspaceRoutes,
+  canEditReminders = true,
 }: DashboardScreenProps) {
   const theme = useAppTheme();
   const styles = useThemedStyles(createStyles);
@@ -205,7 +211,7 @@ export function DashboardScreen({
       value: String(dashboard?.purchaseCount ?? 0),
       icon: 'document-text-outline' as const,
     },
-  ];
+  ].filter((tile) => !workspaceRoutes || workspaceRoutes.includes(tile.route));
 
   return (
     <RefreshableScrollView
@@ -249,8 +255,8 @@ export function DashboardScreen({
           <DashboardRemindersCard
             reminders={dueReminders}
             onViewAll={onOpenReminders}
-            onSnooze={setSnoozeTarget}
-            onComplete={handleCompleteReminder}
+            onSnooze={canEditReminders ? setSnoozeTarget : undefined}
+            onComplete={canEditReminders ? handleCompleteReminder : undefined}
           />
 
           <MonthPerformanceCard
@@ -281,24 +287,28 @@ export function DashboardScreen({
         </>
       )}
 
-      <DashboardQuickActions onAction={handleQuickAction} />
+      {quickActionKeys && quickActionKeys.length > 0 ? (
+        <DashboardQuickActions enabledKeys={quickActionKeys} onAction={handleQuickAction} />
+      ) : null}
 
       {onNavigate ? (
         <WorkspaceTiles tiles={workspaceTiles} onNavigate={onNavigate} />
       ) : null}
 
-      <Pressable style={styles.reportsCard} onPress={onOpenReports}>
-        <View style={styles.reportsIcon}>
-          <Ionicons name="analytics-outline" size={24} color={theme.colors.primary} />
-        </View>
-        <View style={styles.reportsText}>
-          <Text style={styles.reportsTitle}>Open Business Intelligence</Text>
-          <Text style={styles.reportsBody}>
-            Forecasts, customer and vendor trends, cash outlook, and actionable recommendations.
-          </Text>
-        </View>
-        <Ionicons name="arrow-forward-circle" size={28} color={theme.colors.primary} />
-      </Pressable>
+      {onOpenReports ? (
+        <Pressable style={styles.reportsCard} onPress={onOpenReports}>
+          <View style={styles.reportsIcon}>
+            <Ionicons name="analytics-outline" size={24} color={theme.colors.primary} />
+          </View>
+          <View style={styles.reportsText}>
+            <Text style={styles.reportsTitle}>Open Business Intelligence</Text>
+            <Text style={styles.reportsBody}>
+              Forecasts, customer and vendor trends, cash outlook, and actionable recommendations.
+            </Text>
+          </View>
+          <Ionicons name="arrow-forward-circle" size={28} color={theme.colors.primary} />
+        </Pressable>
+      ) : null}
 
       <SnoozeReminderModal
         visible={snoozeTarget != null}

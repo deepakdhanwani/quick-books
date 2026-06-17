@@ -31,6 +31,9 @@ type PaymentRemindersScreenProps = {
   token: string;
   onAddReminder: () => void;
   onEditReminder: (id: number) => void;
+  canCreate?: boolean;
+  canEdit?: boolean;
+  canDelete?: boolean;
 };
 
 function getStatusLabel(reminder: PaymentReminder) {
@@ -53,6 +56,9 @@ export function PaymentRemindersScreen({
   token,
   onAddReminder,
   onEditReminder,
+  canCreate = true,
+  canEdit = true,
+  canDelete = true,
 }: PaymentRemindersScreenProps) {
   const theme = useAppTheme();
   const styles = useThemedStyles(createStyles);
@@ -199,7 +205,7 @@ export function PaymentRemindersScreen({
 
     return (
       <Card style={styles.card}>
-        <Pressable onPress={() => !isClosed && onEditReminder(item.id)}>
+        <Pressable onPress={() => !isClosed && canEdit && onEditReminder(item.id)}>
           <View style={styles.cardHeader}>
             <View style={styles.cardMain}>
               <Text style={styles.customerName}>{item.customerName}</Text>
@@ -212,26 +218,32 @@ export function PaymentRemindersScreen({
               ) : null}
               {item.notes ? <Text style={styles.notes}>{item.notes}</Text> : null}
             </View>
-            {!isClosed ? (
+            {!isClosed && canEdit ? (
               <Ionicons name="create-outline" size={20} color={theme.colors.textSecondary} />
             ) : null}
           </View>
         </Pressable>
 
-        {!isClosed ? (
+        {!isClosed && (canEdit || canDelete) ? (
           <View style={styles.actions}>
-            <Pressable style={styles.actionChip} onPress={() => setSnoozeTarget(item)}>
-              <Ionicons name="time-outline" size={16} color={theme.colors.primary} />
-              <Text style={styles.actionChipText}>Snooze</Text>
-            </Pressable>
-            <Pressable style={styles.actionChip} onPress={() => handleComplete(item)}>
-              <Ionicons name="checkmark-circle-outline" size={16} color={theme.colors.success} />
-              <Text style={styles.actionChipText}>Done</Text>
-            </Pressable>
-            <Pressable style={styles.actionChip} onPress={() => handleDelete(item)}>
-              <Ionicons name="trash-outline" size={16} color={theme.colors.error} />
-              <Text style={[styles.actionChipText, { color: theme.colors.error }]}>Delete</Text>
-            </Pressable>
+            {canEdit ? (
+              <Pressable style={styles.actionChip} onPress={() => setSnoozeTarget(item)}>
+                <Ionicons name="time-outline" size={16} color={theme.colors.primary} />
+                <Text style={styles.actionChipText}>Snooze</Text>
+              </Pressable>
+            ) : null}
+            {canEdit ? (
+              <Pressable style={styles.actionChip} onPress={() => handleComplete(item)}>
+                <Ionicons name="checkmark-circle-outline" size={16} color={theme.colors.success} />
+                <Text style={styles.actionChipText}>Done</Text>
+              </Pressable>
+            ) : null}
+            {canDelete ? (
+              <Pressable style={styles.actionChip} onPress={() => handleDelete(item)}>
+                <Ionicons name="trash-outline" size={16} color={theme.colors.error} />
+                <Text style={[styles.actionChipText, { color: theme.colors.error }]}>Delete</Text>
+              </Pressable>
+            ) : null}
           </View>
         ) : null}
       </Card>
@@ -258,10 +270,12 @@ export function PaymentRemindersScreen({
           })}
         </View>
 
-        <Pressable style={styles.addButton} onPress={onAddReminder}>
-          <Ionicons name="add" size={22} color={theme.colors.onPrimary} />
-          <Text style={styles.addButtonText}>New reminder</Text>
-        </Pressable>
+        {canCreate ? (
+          <Pressable style={styles.addButton} onPress={onAddReminder}>
+            <Ionicons name="add" size={22} color={theme.colors.onPrimary} />
+            <Text style={styles.addButtonText}>New reminder</Text>
+          </Pressable>
+        ) : null}
       </View>
 
       {error ? <Text style={styles.error}>{error}</Text> : null}

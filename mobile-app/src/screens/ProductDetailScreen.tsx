@@ -23,6 +23,8 @@ type ProductDetailScreenProps = {
   productId: number;
   onEdit: () => void;
   onDeleted: () => void;
+  canEdit?: boolean;
+  canDelete?: boolean;
 };
 
 export function ProductDetailScreen({
@@ -30,6 +32,8 @@ export function ProductDetailScreen({
   productId,
   onEdit,
   onDeleted,
+  canEdit = true,
+  canDelete = true,
 }: ProductDetailScreenProps) {
   const theme = useAppTheme();
   const styles = useThemedStyles(createStyles);
@@ -158,18 +162,20 @@ export function ProductDetailScreen({
           <Switch
             value={product.active}
             onValueChange={handleToggleActive}
-            disabled={togglingActive}
+            disabled={togglingActive || !canEdit}
             trackColor={{ false: theme.colors.border, true: theme.colors.primary }}
             thumbColor={theme.colors.text}
           />
         </View>
       </Card>
 
-      <Button title="Edit Product" onPress={onEdit} />
-      <Pressable style={styles.deleteButton} onPress={handleDelete}>
-        <Ionicons name="trash-outline" size={18} color={theme.colors.error} />
-        <Text style={styles.deleteText}>Delete Product</Text>
-      </Pressable>
+      {canEdit ? <Button title="Edit Product" onPress={onEdit} /> : null}
+      {canDelete ? (
+        <Pressable style={styles.deleteButton} onPress={handleDelete}>
+          <Ionicons name="trash-outline" size={18} color={theme.colors.error} />
+          <Text style={styles.deleteText}>Delete Product</Text>
+        </Pressable>
+      ) : null}
     </RefreshableScrollView>
   );
 }

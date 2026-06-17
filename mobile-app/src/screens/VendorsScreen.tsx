@@ -26,6 +26,7 @@ type VendorsScreenProps = {
   token: string;
   onAddVendor: () => void;
   onOpenVendor: (id: number) => void;
+  canCreate?: boolean;
 };
 
 function getContactSubtitle(vendor: Vendor) {
@@ -36,7 +37,7 @@ function getAvatarColor(active: boolean, colors: AppTheme["colors"]) {
   return active ? colors.success : colors.textSecondary;
 }
 
-export function VendorsScreen({ token, onAddVendor, onOpenVendor }: VendorsScreenProps) {
+export function VendorsScreen({ token, onAddVendor, onOpenVendor, canCreate = true }: VendorsScreenProps) {
   const theme = useAppTheme();
   const styles = useThemedStyles(createStyles);
 
@@ -188,14 +189,16 @@ export function VendorsScreen({ token, onAddVendor, onOpenVendor }: VendorsScree
               placeholderTextColor={theme.colors.textSecondary}
             />
           </View>
-          <Pressable
-            style={styles.addButton}
-            onPress={onAddVendor}
-            accessibilityLabel="Add vendor"
-            accessibilityRole="button"
-          >
-            <Ionicons name="add" size={24} color={theme.colors.onPrimary} />
-          </Pressable>
+          {canCreate ? (
+            <Pressable
+              style={styles.addButton}
+              onPress={onAddVendor}
+              accessibilityLabel="Add vendor"
+              accessibilityRole="button"
+            >
+              <Ionicons name="add" size={24} color={theme.colors.onPrimary} />
+            </Pressable>
+          ) : null}
         </View>
         <StatusFilterChips value={statusFilter} onChange={setStatusFilter} />
       </View>

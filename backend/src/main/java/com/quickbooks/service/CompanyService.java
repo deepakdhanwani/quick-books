@@ -11,6 +11,8 @@ import com.quickbooks.entity.enums.SubscriptionRecordStatus;
 import com.quickbooks.repository.CompanyRepository;
 import com.quickbooks.repository.SubscriberRepository;
 import com.quickbooks.repository.SubscriberSubscriptionRepository;
+import com.quickbooks.security.UserPrincipal;
+import com.quickbooks.security.StaffPermissions;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -64,6 +66,21 @@ public class CompanyService {
     public List<CompanyResponse> list(Long subscriberId, Long selectedCompanyId) {
         return companyRepository.findBySubscriberIdAndActiveTrueOrderByNameAsc(subscriberId).stream()
                 .map(company -> CompanyResponse.from(company, selectedCompanyId))
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<CompanyResponse> listForPrincipal(UserPrincipal principal) {
+        List<CompanyResponse> companies = list(principal.getSubscriberId(), principal.getCompanyId());
+        if (principal.getActorType() == com.quickbooks.entity.enums.ActorType.OWNER) {
+            return companies;
+        }
+        StaffPermissions permissions = principal.getStaffPermissions();
+        if (permissions == null) {
+            return List.of();
+        }
+        return companies.stream()
+                .filter(company -> permissions.canAccessCompany(company.getId()))
                 .toList();
     }
 

@@ -37,9 +37,10 @@ type PurchasesScreenProps = {
   token: string;
   onAddPurchase: () => void;
   onOpenPurchase: (id: number) => void;
+  canCreate?: boolean;
 };
 
-export function PurchasesScreen({ token, onAddPurchase, onOpenPurchase }: PurchasesScreenProps) {
+export function PurchasesScreen({ token, onAddPurchase, onOpenPurchase, canCreate = true }: PurchasesScreenProps) {
   const theme = useAppTheme();
   const styles = useThemedStyles(createStyles);
 
@@ -183,9 +184,11 @@ export function PurchasesScreen({ token, onAddPurchase, onOpenPurchase }: Purcha
             onApply={setDateFilter}
             onClear={() => setDateFilter(getClearedDateFilter())}
           />
-          <Pressable style={styles.addButton} onPress={onAddPurchase}>
-            <Ionicons name="add" size={24} color={theme.colors.onPrimary} />
-          </Pressable>
+          {canCreate ? (
+            <Pressable style={styles.addButton} onPress={onAddPurchase}>
+              <Ionicons name="add" size={24} color={theme.colors.onPrimary} />
+            </Pressable>
+          ) : null}
         </View>
         <PaymentListFilterChips value={paymentFilter} onChange={setPaymentFilter} />
         <TransactionDateFilterSummary value={dateFilter} />

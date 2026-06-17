@@ -3,13 +3,15 @@ import { useAppTheme } from '../theme/AppThemeContext';
 import type { AppTheme } from '../theme/types';
 import { useThemedStyles } from '../theme/useThemedStyles';
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
 import { Input } from '../components/Input';
 import { RefreshableScrollView } from '../components/RefreshableScrollView';
-import { api, TeamUser } from '../services/api';
+import { TeamUserPermissionsEditor } from '../components/TeamUserPermissionsEditor';
+import { api, CompanyOption, TeamUser } from '../services/api';
 import { appAlert } from '../utils/appAlert';
+import { DEFAULT_NEW_STAFF_PERMISSIONS } from '../utils/staffPermissions';
 
 type TeamUserDetailScreenProps = {
   token: string;
@@ -30,18 +32,25 @@ export function TeamUserDetailScreen({
   const styles = useThemedStyles(createStyles);
 
   const [user, setUser] = useState<TeamUser | null>(null);
+  const [companies, setCompanies] = useState<CompanyOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [name, setName] = useState('');
+  const [permissions, setPermissions] = useState(DEFAULT_NEW_STAFF_PERMISSIONS);
   const [newPin, setNewPin] = useState('');
   const [saving, setSaving] = useState(false);
 
   const loadUser = useCallback(async () => {
     setError('');
     try {
-      const response = await api.getTeamUser(token, userId);
+      const [response, companyList] = await Promise.all([
+        api.getTeamUser(token, userId),
+        api.listCompanies(token),
+      ]);
       setUser(response);
       setName(response.name);
+      setPermissions(response.permissions);
+      setCompanies(companyList);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not load user');
     } finally {
@@ -60,12 +69,21 @@ export function TeamUserDetailScreen({
 
   const handleSave = async () => {
     if (!user) return;
+    if (permissions.companyIds.length === 0) {
+      setError('Select at least one company');
+      return;
+    }
     setSaving(true);
     setError('');
     try {
-      const updated = await api.updateTeamUser(token, userId, { name: name.trim(), active: user.active });
+      const updated = await api.updateTeamUser(token, userId, {
+        name: name.trim(),
+        active: user.active,
+        permissions,
+      });
       setUser(updated);
-      await appAlert('Saved', 'User details updated.');
+      setPermissions(updated.permissions);
+      await appAlert('Saved', 'User access updated.');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not update user');
     } finally {
@@ -80,6 +98,7 @@ export function TeamUserDetailScreen({
       const updated = await api.updateTeamUser(token, userId, {
         name: user.name,
         active: !user.active,
+        permissions: user.permissions,
       });
       setUser(updated);
     } catch (err) {
@@ -164,10 +183,18 @@ export function TeamUserDetailScreen({
           <Text style={styles.pinLabel}>Current PIN</Text>
           <Text style={styles.pinValue}>{user?.loginPin ?? '—'}</Text>
         </View>
-        <Button title="Save Changes" onPress={handleSave} loading={saving} />
       </Card>
 
-      <Card style={styles.sectionCard}>
+      <Card>
+        <TeamUserPermissionsEditor
+          companies={companies}
+          value={permissions}
+          onChange={setPermissions}
+        />
+        <Button title="Save Access" onPress={handleSave} loading={saving} />
+      </Card>
+
+      <Card>
         <Text style={styles.sectionTitle}>Assign New PIN</Text>
         <Input
           label="New PIN"
@@ -182,7 +209,7 @@ export function TeamUserDetailScreen({
         <Button title="Generate Random PIN" onPress={handleResetPin} loading={saving} variant="secondary" />
       </Card>
 
-      <Card style={styles.sectionCard}>
+      <Card>
         <Pressable style={styles.toggleRow} onPress={handleToggleActive}>
           <Text style={styles.toggleLabel}>{user?.active ? 'Deactivate User' : 'Activate User'}</Text>
           <Ionicons
@@ -200,17 +227,20 @@ export function TeamUserDetailScreen({
 
 function createStyles(theme: AppTheme) {
   return {
-  container: { flex: 1 },
-  content: { padding: 20, gap: 16 },
-  loading: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  sectionCard: { marginTop: 0 },
-  sectionTitle: { color: theme.colors.text, fontWeight: '700', fontSize: theme.scaleFont(15), marginBottom: 12 },
-  pinRow: { marginBottom: 16 },
-  pinLabel: { color: theme.colors.textSecondary, fontSize: theme.scaleFont(12), marginBottom: 4 },
-  pinValue: { color: theme.colors.text, fontSize: theme.scaleFont(16), fontWeight: '600' },
-  toggleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  toggleLabel: { color: theme.colors.text, fontSize: theme.scaleFont(15), fontWeight: '600' },
-  error: { color: theme.colors.error, marginBottom: 8 },
-
+    container: { flex: 1 },
+    content: { padding: 20, gap: 16 },
+    loading: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+    sectionTitle: {
+      color: theme.colors.text,
+      fontWeight: '700',
+      fontSize: theme.scaleFont(15),
+      marginBottom: 12,
+    },
+    pinRow: { marginBottom: 8 },
+    pinLabel: { color: theme.colors.textSecondary, fontSize: theme.scaleFont(12), marginBottom: 4 },
+    pinValue: { color: theme.colors.text, fontSize: theme.scaleFont(16), fontWeight: '600' },
+    toggleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+    toggleLabel: { color: theme.colors.text, fontSize: theme.scaleFont(15), fontWeight: '600' },
+    error: { color: theme.colors.error, marginBottom: 8 },
   };
 }

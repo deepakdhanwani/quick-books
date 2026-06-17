@@ -3,6 +3,8 @@ package com.quickbooks.service;
 import com.quickbooks.dto.auth.AdminLoginRequest;
 import com.quickbooks.dto.auth.AuthResponse;
 import com.quickbooks.dto.auth.SubscriberLoginRequest;
+import com.quickbooks.dto.company.CompanyResponse;
+import com.quickbooks.dto.subscriberuser.StaffPermissionsResponse;
 import com.quickbooks.entity.Admin;
 import com.quickbooks.entity.Subscriber;
 import com.quickbooks.entity.SubscriberUser;
@@ -12,12 +14,15 @@ import com.quickbooks.repository.AdminRepository;
 import com.quickbooks.repository.SubscriberRepository;
 import com.quickbooks.repository.SubscriberUserRepository;
 import com.quickbooks.security.JwtService;
+import com.quickbooks.security.StaffPermissions;
 import com.quickbooks.security.UserPrincipal;
 import com.quickbooks.security.UserRole;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
+
+import java.util.List;
 
 @Service
 public class AuthService {
@@ -29,6 +34,7 @@ public class AuthService {
     private final JwtService jwtService;
     private final SubscriberSubscriptionService subscriberSubscriptionService;
     private final CompanyService companyService;
+    private final StaffAccessService staffAccessService;
 
     public AuthService(AdminRepository adminRepository,
                        SubscriberRepository subscriberRepository,
@@ -36,7 +42,8 @@ public class AuthService {
                        PasswordEncoder passwordEncoder,
                        JwtService jwtService,
                        SubscriberSubscriptionService subscriberSubscriptionService,
-                       CompanyService companyService) {
+                       CompanyService companyService,
+                       StaffAccessService staffAccessService) {
         this.adminRepository = adminRepository;
         this.subscriberRepository = subscriberRepository;
         this.subscriberUserRepository = subscriberUserRepository;
@@ -44,6 +51,7 @@ public class AuthService {
         this.jwtService = jwtService;
         this.subscriberSubscriptionService = subscriberSubscriptionService;
         this.companyService = companyService;
+        this.staffAccessService = staffAccessService;
     }
 
     public AuthResponse adminLogin(AdminLoginRequest request) {
@@ -87,9 +95,21 @@ public class AuthService {
         if (principal.getActorType() == ActorType.STAFF) {
             response.setStaffUserId(principal.getActorId());
         }
+
         var defaultCompany = companyService.ensureDefaultCompany(subscriber.getId(), subscriber.getBusinessName());
-        response.setActiveCompanyId(defaultCompany.getId());
-        response.setCompanies(companyService.list(subscriber.getId(), defaultCompany.getId()));
+        if (principal.getActorType() == ActorType.OWNER) {
+            response.setStaffPermissions(StaffPermissionsResponse.ownerDefaults());
+            response.setCompanies(companyService.list(subscriber.getId(), defaultCompany.getId()));
+            response.setActiveCompanyId(defaultCompany.getId());
+        } else {
+            StaffPermissions permissions = staffAccessService.loadForStaff(subscriber.getId(), principal.getActorId());
+            List<CompanyResponse> companies = companyService.list(subscriber.getId(), defaultCompany.getId()).stream()
+                    .filter(company -> permissions.canAccessCompany(company.getId()))
+                    .toList();
+            response.setStaffPermissions(StaffPermissionsResponse.from(permissions));
+            response.setCompanies(companies);
+            response.setActiveCompanyId(companies.isEmpty() ? null : companies.get(0).getId());
+        }
         return response;
     }
 

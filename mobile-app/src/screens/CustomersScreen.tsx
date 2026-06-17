@@ -26,6 +26,7 @@ type CustomersScreenProps = {
   token: string;
   onAddCustomer: () => void;
   onOpenCustomer: (id: number) => void;
+  canCreate?: boolean;
 };
 
 function getContactSubtitle(customer: Customer) {
@@ -39,7 +40,7 @@ function getAvatarColor(active: boolean, colors: AppTheme['colors']) {
   return active ? colors.success : colors.textSecondary;
 }
 
-export function CustomersScreen({ token, onAddCustomer, onOpenCustomer }: CustomersScreenProps) {
+export function CustomersScreen({ token, onAddCustomer, onOpenCustomer, canCreate = true }: CustomersScreenProps) {
   const theme = useAppTheme();
   const styles = useThemedStyles(createStyles);
 
@@ -203,14 +204,16 @@ export function CustomersScreen({ token, onAddCustomer, onOpenCustomer }: Custom
               placeholderTextColor={theme.colors.textSecondary}
             />
           </View>
-          <Pressable
-            style={styles.addButton}
-            onPress={onAddCustomer}
-            accessibilityLabel="Add customer"
-            accessibilityRole="button"
-          >
-            <Ionicons name="add" size={24} color={theme.colors.onPrimary} />
-          </Pressable>
+          {canCreate ? (
+            <Pressable
+              style={styles.addButton}
+              onPress={onAddCustomer}
+              accessibilityLabel="Add customer"
+              accessibilityRole="button"
+            >
+              <Ionicons name="add" size={24} color={theme.colors.onPrimary} />
+            </Pressable>
+          ) : null}
         </View>
         <StatusFilterChips value={statusFilter} onChange={setStatusFilter} />
       </View>

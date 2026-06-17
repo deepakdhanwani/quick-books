@@ -31,5 +31,7 @@
     <include file="db/changelog/changes/024-company-business-type.xml"/>
     <include file="db/changelog/changes/025-company-data-isolation.xml"/>
     <include file="db/changelog/changes/026-request-logs.xml"/>
+    <include file="db/changelog/changes/027-staff-rbac.xml"/>
+    <include file="db/changelog/changes/028-granular-staff-rbac.xml"/>
 
 </databaseChangeLog>

@@ -9,6 +9,7 @@ import com.quickbooks.entity.enums.PaymentMode;
 import com.quickbooks.entity.enums.PaymentSettlementType;
 import com.quickbooks.security.UserPrincipal;
 import com.quickbooks.service.PurchaseService;
+import com.quickbooks.service.StaffAccessService;
 import jakarta.validation.Valid;
 import org.springframework.core.io.Resource;
 import org.springframework.http.HttpHeaders;
@@ -26,9 +27,12 @@ import java.time.LocalDate;
 public class SubscriberPurchaseController {
 
     private final PurchaseService purchaseService;
+    private final StaffAccessService staffAccessService;
 
-    public SubscriberPurchaseController(PurchaseService purchaseService) {
+    public SubscriberPurchaseController(PurchaseService purchaseService,
+                                          StaffAccessService staffAccessService) {
         this.purchaseService = purchaseService;
+        this.staffAccessService = staffAccessService;
     }
 
     @GetMapping
@@ -40,23 +44,27 @@ public class SubscriberPurchaseController {
             @RequestParam(required = false) PaymentListFilter paymentFilter,
             @RequestParam(required = false) LocalDate fromDate,
             @RequestParam(required = false) LocalDate toDate) {
+        staffAccessService.requirePurchaseView(principal);
         return purchaseService.findPage(principal.getId(), principal.getCompanyId(), page, size, search, paymentFilter, fromDate, toDate);
     }
 
     @GetMapping("/next-bill-number")
     public NextBillNumberResponse nextBillNumber(@AuthenticationPrincipal UserPrincipal principal) {
+        staffAccessService.requirePurchaseCreate(principal);
         return purchaseService.getNextBillNumber(principal.getId(), principal.getCompanyId());
     }
 
     @GetMapping("/{id}")
     public PurchaseResponse get(@AuthenticationPrincipal UserPrincipal principal,
                                 @PathVariable Long id) {
+        staffAccessService.requirePurchaseView(principal);
         return purchaseService.getById(principal.getId(), principal.getCompanyId(), id);
     }
 
     @PostMapping
     public PurchaseResponse create(@AuthenticationPrincipal UserPrincipal principal,
                                    @Valid @RequestBody CreatePurchaseRequest request) {
+        staffAccessService.requirePurchaseCreate(principal);
         return purchaseService.create(principal.getId(), principal.getCompanyId(), request);
     }
 
@@ -64,6 +72,7 @@ public class SubscriberPurchaseController {
     public PurchaseResponse update(@AuthenticationPrincipal UserPrincipal principal,
                                    @PathVariable Long id,
                                    @Valid @RequestBody CreatePurchaseRequest request) {
+        staffAccessService.requirePurchaseEdit(principal);
         return purchaseService.update(principal.getId(), principal.getCompanyId(), id, request);
     }
 
@@ -77,6 +86,7 @@ public class SubscriberPurchaseController {
                                         @RequestParam(required = false) String paymentDetails,
                                         @RequestParam(required = false) String notes,
                                         @RequestPart(value = "proof", required = false) MultipartFile proof) {
+        staffAccessService.requirePurchaseEdit(principal);
         return purchaseService.makePayment(
                 principal.getId(),
                 principal.getCompanyId(),
@@ -94,6 +104,7 @@ public class SubscriberPurchaseController {
     @GetMapping("/payments/{paymentId}/proof")
     public ResponseEntity<Resource> downloadProof(@AuthenticationPrincipal UserPrincipal principal,
                                                   @PathVariable Long paymentId) {
+        staffAccessService.requirePurchaseView(principal);
         Resource resource = purchaseService.getPaymentProof(principal.getId(), principal.getCompanyId(), paymentId);
         String fileName = purchaseService.getPaymentProofFileName(principal.getId(), principal.getCompanyId(), paymentId);
         String contentType = purchaseService.getPaymentProofContentType(principal.getId(), principal.getCompanyId(), paymentId);

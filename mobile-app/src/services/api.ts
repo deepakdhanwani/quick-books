@@ -26,7 +26,18 @@ type RequestOptions = {
   body?: unknown;
   token?: string | null;
   companyId?: number | null;
+  timeoutMs?: number;
 };
+
+export class ApiRequestError extends Error {
+  readonly status?: number;
+
+  constructor(message: string, status?: number) {
+    super(message);
+    this.name = 'ApiRequestError';
+    this.status = status;
+  }
+}
 
 let activeCompanyId: number | null = null;
 
@@ -76,14 +87,24 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
   }
 
   let response: Response;
+  const timeoutMs = options.timeoutMs ?? 20000;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
   try {
     response = await fetch(url, {
       method,
       headers,
       body: options.body ? JSON.stringify(options.body) : undefined,
+      signal: controller.signal,
     });
   } catch (err) {
-    const detail = err instanceof Error ? err.message : 'Network request failed';
+    const detail =
+      err instanceof Error && err.name === 'AbortError'
+        ? `Timed out after ${Math.round(timeoutMs / 1000)}s`
+        : err instanceof Error
+          ? err.message
+          : 'Network request failed';
     if (isDebugLogEnabled()) {
       debugLog.error('api', `✗ ${requestId} network`, {
         companyId: requestedCompanyId,
@@ -91,7 +112,9 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
         detail,
       });
     }
-    throw new Error(`Cannot reach backend at ${baseUrl}. ${detail}`);
+    throw new ApiRequestError(`Cannot reach backend at ${baseUrl}. ${detail}`);
+  } finally {
+    clearTimeout(timeoutId);
   }
 
   if (!response.ok) {
@@ -103,7 +126,10 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
         detail: error.detail ?? error.message ?? 'Request failed',
       });
     }
-    throw new Error(error.detail ?? error.message ?? 'Request failed');
+    throw new ApiRequestError(
+      error.detail ?? error.message ?? 'Request failed',
+      response.status,
+    );
   }
 
   if (isDebugLogEnabled()) {
@@ -250,6 +276,33 @@ export type SubscriberAuthResponse = {
   staffUserId?: number;
   activeCompanyId?: number;
   companies?: CompanyOption[];
+  staffPermissions?: StaffPermissions;
+};
+
+export type ModuleCrud = {
+  view: boolean;
+  create: boolean;
+  edit: boolean;
+  delete: boolean;
+};
+
+export type CompanyCrud = {
+  create: boolean;
+  edit: boolean;
+  delete: boolean;
+};
+
+export type StaffPermissions = {
+  companyIds: number[];
+  viewDashboard: boolean;
+  viewReports: boolean;
+  companies: CompanyCrud;
+  customers: ModuleCrud;
+  vendors: ModuleCrud;
+  sales: ModuleCrud;
+  purchases: ModuleCrud;
+  products: ModuleCrud;
+  reminders: ModuleCrud;
 };
 
 export type ChangePinPayload = {
@@ -401,6 +454,8 @@ export type SubscriberAccountProfile = {
   owner?: boolean;
   theme?: ThemeMode;
   fontSize?: FontSizeMode;
+  companies?: CompanyOption[];
+  staffPermissions?: StaffPermissions;
 };
 
 export type TeamUser = {
@@ -409,16 +464,19 @@ export type TeamUser = {
   loginPin: string;
   active: boolean;
   createdAt: string;
+  permissions: StaffPermissions;
 };
 
 export type TeamUserPayload = {
   name: string;
   loginPin: string;
+  permissions: StaffPermissions;
 };
 
 export type UpdateTeamUserPayload = {
   name: string;
   active?: boolean;
+  permissions?: StaffPermissions;
 };
 
 export type AuditLogEntry = {
