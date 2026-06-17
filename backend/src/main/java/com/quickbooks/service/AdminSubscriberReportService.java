@@ -4,6 +4,8 @@ import com.quickbooks.dto.report.AdminReportResponse;
 import com.quickbooks.dto.report.ChartPointDto;
 import com.quickbooks.dto.report.ReportColumnDto;
 import com.quickbooks.dto.report.ReportSummaryItemDto;
+import com.quickbooks.entity.Company;
+import com.quickbooks.entity.Subscriber;
 import com.quickbooks.repository.PurchaseRepository;
 import com.quickbooks.repository.SaleRepository;
 import org.springframework.http.HttpStatus;
@@ -28,31 +30,38 @@ public class AdminSubscriberReportService {
     private static final DateTimeFormatter MONTH_FORMAT = DateTimeFormatter.ofPattern("MMM yyyy", Locale.ENGLISH);
 
     private final SubscriberService subscriberService;
+    private final CompanyService companyService;
     private final SaleRepository saleRepository;
     private final PurchaseRepository purchaseRepository;
 
     public AdminSubscriberReportService(SubscriberService subscriberService,
+                                        CompanyService companyService,
                                         SaleRepository saleRepository,
                                         PurchaseRepository purchaseRepository) {
         this.subscriberService = subscriberService;
+        this.companyService = companyService;
         this.saleRepository = saleRepository;
         this.purchaseRepository = purchaseRepository;
     }
 
     @Transactional(readOnly = true)
-    public AdminReportResponse salesReport(Long subscriberId, LocalDate from, LocalDate to) {
+    public AdminReportResponse salesReport(Long subscriberId, Long companyId, LocalDate from, LocalDate to) {
         DateRange range = resolveRange(from, to);
-        var subscriber = subscriberService.getById(subscriberId);
+        Subscriber subscriber = subscriberService.getById(subscriberId);
+        Company company = resolveCompany(subscriber, companyId);
 
         AdminReportResponse response = new AdminReportResponse();
         response.setReportType("SUBSCRIBER_SALES");
-        response.setTitle("Sales Report — " + subscriber.getBusinessName());
+        response.setTitle("Sales Report — " + subscriber.getBusinessName() + " / " + company.getName());
+        response.getFilters().put("Company", company.getName());
         response.getFilters().put("From", formatDate(range.from()));
         response.getFilters().put("To", formatDate(range.to()));
 
-        BigDecimal total = saleRepository.sumNetAmountBySubscriber(subscriberId, range.from(), range.to());
-        BigDecimal pending = saleRepository.sumPendingAmountBySubscriber(subscriberId);
-        long count = saleRepository.findAmountsByDateRange(subscriberId, range.from(), range.to()).size();
+        BigDecimal total = saleRepository.sumNetAmountBySubscriber(
+                subscriberId, company.getId(), range.from(), range.to());
+        BigDecimal pending = saleRepository.sumPendingAmountBySubscriber(subscriberId, company.getId());
+        long count = saleRepository.findAmountsByDateRange(
+                subscriberId, company.getId(), range.from(), range.to()).size();
 
         response.getSummary().add(new ReportSummaryItemDto("Sales in Range", String.valueOf(count)));
         response.getSummary().add(new ReportSummaryItemDto("Net Sales", formatMoney(total)));
@@ -62,7 +71,7 @@ public class AdminSubscriberReportService {
         response.getColumns().add(new ReportColumnDto("amount", "Net Sales", "right"));
 
         Map<YearMonth, BigDecimal> byMonth = aggregateByMonth(
-                saleRepository.findAmountsByDateRange(subscriberId, range.from(), range.to()));
+                saleRepository.findAmountsByDateRange(subscriberId, company.getId(), range.from(), range.to()));
 
         for (Map.Entry<YearMonth, BigDecimal> entry : byMonth.entrySet()) {
             Map<String, String> row = new LinkedHashMap<>();
@@ -76,19 +85,23 @@ public class AdminSubscriberReportService {
     }
 
     @Transactional(readOnly = true)
-    public AdminReportResponse purchasesReport(Long subscriberId, LocalDate from, LocalDate to) {
+    public AdminReportResponse purchasesReport(Long subscriberId, Long companyId, LocalDate from, LocalDate to) {
         DateRange range = resolveRange(from, to);
-        var subscriber = subscriberService.getById(subscriberId);
+        Subscriber subscriber = subscriberService.getById(subscriberId);
+        Company company = resolveCompany(subscriber, companyId);
 
         AdminReportResponse response = new AdminReportResponse();
         response.setReportType("SUBSCRIBER_PURCHASES");
-        response.setTitle("Purchases Report — " + subscriber.getBusinessName());
+        response.setTitle("Purchases Report — " + subscriber.getBusinessName() + " / " + company.getName());
+        response.getFilters().put("Company", company.getName());
         response.getFilters().put("From", formatDate(range.from()));
         response.getFilters().put("To", formatDate(range.to()));
 
-        BigDecimal total = purchaseRepository.sumNetAmountBySubscriber(subscriberId, range.from(), range.to());
-        BigDecimal pending = purchaseRepository.sumPendingAmountBySubscriber(subscriberId);
-        long count = purchaseRepository.findAmountsByDateRange(subscriberId, range.from(), range.to()).size();
+        BigDecimal total = purchaseRepository.sumNetAmountBySubscriber(
+                subscriberId, company.getId(), range.from(), range.to());
+        BigDecimal pending = purchaseRepository.sumPendingAmountBySubscriber(subscriberId, company.getId());
+        long count = purchaseRepository.findAmountsByDateRange(
+                subscriberId, company.getId(), range.from(), range.to()).size();
 
         response.getSummary().add(new ReportSummaryItemDto("Purchases in Range", String.valueOf(count)));
         response.getSummary().add(new ReportSummaryItemDto("Net Purchases", formatMoney(total)));
@@ -98,7 +111,7 @@ public class AdminSubscriberReportService {
         response.getColumns().add(new ReportColumnDto("amount", "Net Purchases", "right"));
 
         Map<YearMonth, BigDecimal> byMonth = aggregateByMonth(
-                purchaseRepository.findAmountsByDateRange(subscriberId, range.from(), range.to()));
+                purchaseRepository.findAmountsByDateRange(subscriberId, company.getId(), range.from(), range.to()));
 
         for (Map.Entry<YearMonth, BigDecimal> entry : byMonth.entrySet()) {
             Map<String, String> row = new LinkedHashMap<>();
@@ -112,17 +125,21 @@ public class AdminSubscriberReportService {
     }
 
     @Transactional(readOnly = true)
-    public AdminReportResponse businessSummaryReport(Long subscriberId, LocalDate from, LocalDate to) {
+    public AdminReportResponse businessSummaryReport(Long subscriberId, Long companyId, LocalDate from, LocalDate to) {
         DateRange range = resolveRange(from, to);
-        var subscriber = subscriberService.getById(subscriberId);
+        Subscriber subscriber = subscriberService.getById(subscriberId);
+        Company company = resolveCompany(subscriber, companyId);
 
-        BigDecimal salesTotal = saleRepository.sumNetAmountBySubscriber(subscriberId, range.from(), range.to());
-        BigDecimal purchasesTotal = purchaseRepository.sumNetAmountBySubscriber(subscriberId, range.from(), range.to());
+        BigDecimal salesTotal = saleRepository.sumNetAmountBySubscriber(
+                subscriberId, company.getId(), range.from(), range.to());
+        BigDecimal purchasesTotal = purchaseRepository.sumNetAmountBySubscriber(
+                subscriberId, company.getId(), range.from(), range.to());
         BigDecimal netPosition = salesTotal.subtract(purchasesTotal);
 
         AdminReportResponse response = new AdminReportResponse();
         response.setReportType("SUBSCRIBER_SUMMARY");
-        response.setTitle("Business Summary — " + subscriber.getBusinessName());
+        response.setTitle("Business Summary — " + subscriber.getBusinessName() + " / " + company.getName());
+        response.getFilters().put("Company", company.getName());
         response.getFilters().put("From", formatDate(range.from()));
         response.getFilters().put("To", formatDate(range.to()));
 
@@ -131,10 +148,10 @@ public class AdminSubscriberReportService {
         response.getSummary().add(new ReportSummaryItemDto("Net Position", formatMoney(netPosition)));
         response.getSummary().add(new ReportSummaryItemDto(
                 "Pending Receivables",
-                formatMoney(saleRepository.sumPendingAmountBySubscriber(subscriberId))));
+                formatMoney(saleRepository.sumPendingAmountBySubscriber(subscriberId, company.getId()))));
         response.getSummary().add(new ReportSummaryItemDto(
                 "Pending Payables",
-                formatMoney(purchaseRepository.sumPendingAmountBySubscriber(subscriberId))));
+                formatMoney(purchaseRepository.sumPendingAmountBySubscriber(subscriberId, company.getId()))));
 
         response.getColumns().add(new ReportColumnDto("metric", "Metric", "left"));
         response.getColumns().add(new ReportColumnDto("amount", "Amount", "right"));
@@ -147,6 +164,16 @@ public class AdminSubscriberReportService {
         response.getChartData().add(new ChartPointDto("Purchases", purchasesTotal));
 
         return response;
+    }
+
+    private Company resolveCompany(Subscriber subscriber, Long companyId) {
+        if (companyId != null) {
+            return companyService.requireAccessibleCompany(subscriber.getId(), companyId);
+        }
+        if (subscriber.getDefaultCompany() != null && subscriber.getDefaultCompany().isActive()) {
+            return subscriber.getDefaultCompany();
+        }
+        return companyService.ensureDefaultCompany(subscriber.getId(), subscriber.getBusinessName());
     }
 
     private void addSummaryRow(AdminReportResponse response, String metric, BigDecimal amount) {

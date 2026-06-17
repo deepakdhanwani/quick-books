@@ -53,6 +53,7 @@ export const SUBSCRIBER_DATA_TABS: { id: SubscriberDataTab; label: string }[] = 
 type SubscriberDataPanelProps = {
   token: string;
   subscriberId: number;
+  companyId?: number;
   tab: Exclude<SubscriberDataTab, 'OVERVIEW'>;
 };
 
@@ -165,7 +166,7 @@ export function SubscriberOverviewSummary({
   );
 }
 
-export function SubscriberDataPanel({ token, subscriberId, tab }: SubscriberDataPanelProps) {
+export function SubscriberDataPanel({ token, subscriberId, companyId, tab }: SubscriberDataPanelProps) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [page, setPage] = useState(0);
@@ -207,11 +208,16 @@ export function SubscriberDataPanel({ token, subscriberId, tab }: SubscriberData
   };
 
   const loadData = useCallback(async () => {
+    if (companyId == null) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     setError('');
     try {
       if (tab === 'CUSTOMERS') {
         const data = await api.getSubscriberCustomers(token, subscriberId, {
+          companyId,
           page,
           size: pageSize,
           search: search || undefined,
@@ -220,6 +226,7 @@ export function SubscriberDataPanel({ token, subscriberId, tab }: SubscriberData
         updatePageState(setCustomers, data);
       } else if (tab === 'VENDORS') {
         const data = await api.getSubscriberVendors(token, subscriberId, {
+          companyId,
           page,
           size: pageSize,
           search: search || undefined,
@@ -228,6 +235,7 @@ export function SubscriberDataPanel({ token, subscriberId, tab }: SubscriberData
         updatePageState(setVendors, data);
       } else if (tab === 'PRODUCTS') {
         const data = await api.getSubscriberProducts(token, subscriberId, {
+          companyId,
           page,
           size: pageSize,
           search: search || undefined,
@@ -236,6 +244,7 @@ export function SubscriberDataPanel({ token, subscriberId, tab }: SubscriberData
         updatePageState(setProducts, data);
       } else if (tab === 'SALES') {
         const data = await api.getSubscriberSales(token, subscriberId, {
+          companyId,
           page,
           size: pageSize,
           search: search || undefined,
@@ -246,6 +255,7 @@ export function SubscriberDataPanel({ token, subscriberId, tab }: SubscriberData
         updatePageState(setSales, data);
       } else if (tab === 'PURCHASES') {
         const data = await api.getSubscriberPurchases(token, subscriberId, {
+          companyId,
           page,
           size: pageSize,
           search: search || undefined,
@@ -265,11 +275,11 @@ export function SubscriberDataPanel({ token, subscriberId, tab }: SubscriberData
         const to = parseOptionalDate(reportToDate);
         let data: AdminReport;
         if (reportSubTab === 'SALES') {
-          data = await api.getSubscriberSalesReport(token, subscriberId, { from, to });
+          data = await api.getSubscriberSalesReport(token, subscriberId, { companyId, from, to });
         } else if (reportSubTab === 'PURCHASES') {
-          data = await api.getSubscriberPurchasesReport(token, subscriberId, { from, to });
+          data = await api.getSubscriberPurchasesReport(token, subscriberId, { companyId, from, to });
         } else {
-          data = await api.getSubscriberBusinessSummaryReport(token, subscriberId, { from, to });
+          data = await api.getSubscriberBusinessSummaryReport(token, subscriberId, { companyId, from, to });
         }
         setReport(data);
       }
@@ -282,6 +292,7 @@ export function SubscriberDataPanel({ token, subscriberId, tab }: SubscriberData
     tab,
     token,
     subscriberId,
+    companyId,
     page,
     pageSize,
     search,
@@ -303,7 +314,7 @@ export function SubscriberDataPanel({ token, subscriberId, tab }: SubscriberData
     setFromDate(monthStartIso());
     setToDate(todayIso());
     setError('');
-  }, [tab]);
+  }, [tab, companyId]);
 
   useEffect(() => {
     loadData();

@@ -14,6 +14,7 @@ import {
 } from '../components/SubscriberDataPanel';
 import {
   api,
+  AdminCompanySummary,
   BusinessType,
   SubscriberDataSummary,
   SubscriberDetail,
@@ -69,6 +70,8 @@ export function SubscriberDetailScreen({
   const [activeTab, setActiveTab] = useState<SubscriberDataTab>('OVERVIEW');
   const [dataSummary, setDataSummary] = useState<SubscriberDataSummary | null>(null);
   const [summaryLoading, setSummaryLoading] = useState(false);
+  const [companies, setCompanies] = useState<AdminCompanySummary[]>([]);
+  const [activeCompanyId, setActiveCompanyId] = useState<number | null>(null);
 
   useEffect(() => {
     if (initialPin) {
@@ -87,6 +90,9 @@ export function SubscriberDetailScreen({
       ]);
       setDetail(subscriber);
       setBusinessTypes(types);
+      if (subscriber.defaultCompanyId) {
+        setActiveCompanyId(subscriber.defaultCompanyId);
+      }
     } catch (err) {
       setLoadError(err instanceof Error ? err.message : 'Failed to load subscriber');
     } finally {
@@ -98,21 +104,52 @@ export function SubscriberDetailScreen({
     loadDetail();
   }, [loadDetail]);
 
+  const loadCompanies = useCallback(async () => {
+    try {
+      const rows = await api.getSubscriberCompanies(token, subscriberId);
+      setCompanies(rows);
+      setActiveCompanyId((current) => {
+        if (current != null && rows.some((company) => company.id === current)) {
+          return current;
+        }
+        const defaultCompany = rows.find((company) => company.defaultCompany);
+        return defaultCompany?.id ?? rows[0]?.id ?? null;
+      });
+    } catch {
+      setCompanies([]);
+    }
+  }, [token, subscriberId]);
+
+  useEffect(() => {
+    loadCompanies();
+  }, [loadCompanies]);
+
   const loadSummary = useCallback(async () => {
+    if (activeCompanyId == null) {
+      setDataSummary(null);
+      return;
+    }
     setSummaryLoading(true);
     try {
-      const summary = await api.getSubscriberDataSummary(token, subscriberId);
+      const summary = await api.getSubscriberDataSummary(token, subscriberId, activeCompanyId);
       setDataSummary(summary);
     } catch {
       setDataSummary(null);
     } finally {
       setSummaryLoading(false);
     }
-  }, [token, subscriberId]);
+  }, [token, subscriberId, activeCompanyId]);
 
   useEffect(() => {
     loadSummary();
   }, [loadSummary]);
+
+  const companyOptions = companies.map((company) => ({
+    label: company.defaultCompany ? `${company.name} (default)` : company.name,
+    value: String(company.id),
+  }));
+
+  const activeCompany = companies.find((company) => company.id === activeCompanyId) ?? null;
 
   const businessTypeOptions = businessTypes.map((type) => ({
     label: type.name,
@@ -280,6 +317,22 @@ export function SubscriberDetailScreen({
         </View>
       </Card>
 
+      {companies.length > 0 ? (
+        <Card style={styles.companyCard}>
+          <Select
+            label="Company"
+            value={activeCompanyId != null ? String(activeCompanyId) : ''}
+            options={companyOptions}
+            onChange={(value) => setActiveCompanyId(Number(value))}
+          />
+          {activeCompany ? (
+            <Text style={styles.companyHint}>
+              Viewing data for {activeCompany.name} [{activeCompany.alias}]
+            </Text>
+          ) : null}
+        </Card>
+      ) : null}
+
       <View style={styles.tabs}>
         {SUBSCRIBER_DATA_TABS.map((tab) => (
           <Pressable
@@ -299,7 +352,12 @@ export function SubscriberDetailScreen({
           onNavigate={setActiveTab}
         />
       ) : (
-        <SubscriberDataPanel token={token} subscriberId={subscriberId} tab={activeTab} />
+        <SubscriberDataPanel
+          token={token}
+          subscriberId={subscriberId}
+          companyId={activeCompanyId ?? undefined}
+          tab={activeTab}
+        />
       )}
 
       {activeTab === 'OVERVIEW' && editing ? (
@@ -624,6 +682,14 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   sectionCard: { marginTop: 0 },
+  companyCard: {
+    marginBottom: 16,
+    gap: 8,
+  },
+  companyHint: {
+    color: colors.textSecondary,
+    fontSize: 13,
+  },
   sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',

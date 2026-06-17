@@ -13,6 +13,7 @@ type SettingsScreenProps = {
   onRefresh: () => void | Promise<void>;
   onOpenAccount: () => void;
   onOpenPreferences: () => void;
+  onOpenDebugLog: () => void;
   onManageTeam: () => void;
   onActivityLog: () => void;
   isOwner: boolean;
@@ -25,6 +26,7 @@ export function SettingsScreen({
   onRefresh,
   onOpenAccount,
   onOpenPreferences,
+  onOpenDebugLog,
   onManageTeam,
   onActivityLog,
   isOwner,
@@ -109,6 +111,19 @@ export function SettingsScreen({
               </Pressable>
             </>
           ) : null}
+
+          <Text style={styles.sectionTitle}>Developer</Text>
+
+          <Pressable style={styles.menuRow} onPress={onOpenDebugLog}>
+            <View style={styles.menuIcon}>
+              <Ionicons name="bug-outline" size={22} color={theme.colors.primary} />
+            </View>
+            <View style={styles.menuText}>
+              <Text style={styles.menuLabel}>Debug Log</Text>
+              <Text style={styles.menuHint}>On-device API and company-switch trace</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={theme.colors.textSecondary} />
+          </Pressable>
         </>
       )}
     </RefreshableScrollView>

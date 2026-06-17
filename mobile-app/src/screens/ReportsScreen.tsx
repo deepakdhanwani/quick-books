@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Text, View } from 'react-native';
 import { Card } from '../components/Card';
 import { CashFlowOutlookCard } from '../components/bi/CashFlowOutlookCard';
@@ -77,18 +77,29 @@ export function ReportsScreen({ token, activeCompanyId, refreshing, onRefresh }:
   const [loadingIntel, setLoadingIntel] = useState(true);
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [error, setError] = useState('');
+  const intelGenerationRef = useRef(0);
+  const detailGenerationRef = useRef(0);
 
   const loadIntelligence = useCallback(async () => {
+    const generation = ++intelGenerationRef.current;
     setLoadingIntel(true);
     setError('');
     try {
       const data = await api.getIntelligence(token);
+      if (generation !== intelGenerationRef.current) {
+        return;
+      }
       setIntelligence(data);
     } catch (err) {
+      if (generation !== intelGenerationRef.current) {
+        return;
+      }
       setIntelligence(null);
       setError(err instanceof Error ? err.message : 'Failed to load business intelligence');
     } finally {
-      setLoadingIntel(false);
+      if (generation === intelGenerationRef.current) {
+        setLoadingIntel(false);
+      }
     }
   }, [token, activeCompanyId]);
 
@@ -100,29 +111,40 @@ export function ReportsScreen({ token, activeCompanyId, refreshing, onRefresh }:
       return;
     }
 
+    const generation = ++detailGenerationRef.current;
     setLoadingDetail(true);
     setError('');
     const { fromDate, toDate } = resolveReportPeriod(quickPreset, dateFilter);
 
     try {
       if (segment === 'SALES') {
-        setDetailReport(await api.getSalesReport(token, fromDate, toDate));
+        const report = await api.getSalesReport(token, fromDate, toDate);
+        if (generation !== detailGenerationRef.current) return;
+        setDetailReport(report);
         setCashReceivables(null);
         setCashPayables(null);
       } else if (segment === 'CUSTOMERS') {
-        setDetailReport(await api.getCustomerTrendsReport(token, fromDate, toDate));
+        const report = await api.getCustomerTrendsReport(token, fromDate, toDate);
+        if (generation !== detailGenerationRef.current) return;
+        setDetailReport(report);
         setCashReceivables(null);
         setCashPayables(null);
       } else if (segment === 'VENDORS') {
-        setDetailReport(await api.getVendorTrendsReport(token, fromDate, toDate));
+        const report = await api.getVendorTrendsReport(token, fromDate, toDate);
+        if (generation !== detailGenerationRef.current) return;
+        setDetailReport(report);
         setCashReceivables(null);
         setCashPayables(null);
       } else if (segment === 'ORDERS') {
-        setDetailReport(await api.getOrdersReport(token, fromDate, toDate));
+        const report = await api.getOrdersReport(token, fromDate, toDate);
+        if (generation !== detailGenerationRef.current) return;
+        setDetailReport(report);
         setCashReceivables(null);
         setCashPayables(null);
       } else if (segment === 'PRODUCTS') {
-        setDetailReport(await api.getProductPerformanceReport(token, fromDate, toDate));
+        const report = await api.getProductPerformanceReport(token, fromDate, toDate);
+        if (generation !== detailGenerationRef.current) return;
+        setDetailReport(report);
         setCashReceivables(null);
         setCashPayables(null);
       } else if (segment === 'CASH') {
@@ -130,17 +152,23 @@ export function ReportsScreen({ token, activeCompanyId, refreshing, onRefresh }:
           api.getReceivablesReport(token),
           api.getPayablesReport(token),
         ]);
+        if (generation !== detailGenerationRef.current) return;
         setCashReceivables(receivables);
         setCashPayables(payables);
         setDetailReport(null);
       }
     } catch (err) {
+      if (generation !== detailGenerationRef.current) {
+        return;
+      }
       setDetailReport(null);
       setCashReceivables(null);
       setCashPayables(null);
       setError(err instanceof Error ? err.message : 'Failed to load report details');
     } finally {
-      setLoadingDetail(false);
+      if (generation === detailGenerationRef.current) {
+        setLoadingDetail(false);
+      }
     }
   }, [segment, quickPreset, dateFilter, token, activeCompanyId]);
 

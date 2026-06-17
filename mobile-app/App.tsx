@@ -5,6 +5,7 @@ import { AlertProvider } from './src/components/AlertProvider';
 import { AppShell } from './src/navigation/AppShell';
 import { LoginScreen } from './src/screens/LoginScreen';
 import { api, initApiBaseUrl, setActiveCompanyId, SubscriberAuthResponse } from './src/services/api';
+import { initDebugLog } from './src/services/debugLog';
 import { clearAuthSession, loadAuthSession, saveAuthSession } from './src/services/authStorage';
 import { loadCachedPreferences, saveCachedPreferences } from './src/services/preferenceStorage';
 import { AppThemeProvider } from './src/theme/AppThemeContext';
@@ -78,6 +79,7 @@ export default function App() {
   useEffect(() => {
     const bootstrap = async () => {
       await initApiBaseUrl();
+      await initDebugLog();
 
       const cachedPreferences = await loadCachedPreferences();
       setInitialPreferences(cachedPreferences);

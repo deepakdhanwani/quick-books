@@ -19,6 +19,7 @@ public class SubscriberDetailResponse {
     private boolean active;
     private OffsetDateTime createdAt;
     private String loginPin;
+    private Long defaultCompanyId;
     private SubscriberSubscriptionInfo currentSubscription;
     private List<SubscriberSubscriptionInfo> subscriptionHistory = new ArrayList<>();
 
@@ -36,6 +37,9 @@ public class SubscriberDetailResponse {
         response.setActive(subscriber.isActive());
         response.setCreatedAt(subscriber.getCreatedAt());
         response.setLoginPin(subscriber.getLoginPin());
+        if (subscriber.getDefaultCompany() != null) {
+            response.setDefaultCompanyId(subscriber.getDefaultCompany().getId());
+        }
         return response;
     }
 
@@ -59,6 +63,8 @@ public class SubscriberDetailResponse {
     public void setCreatedAt(OffsetDateTime createdAt) { this.createdAt = createdAt; }
     public String getLoginPin() { return loginPin; }
     public void setLoginPin(String loginPin) { this.loginPin = loginPin; }
+    public Long getDefaultCompanyId() { return defaultCompanyId; }
+    public void setDefaultCompanyId(Long defaultCompanyId) { this.defaultCompanyId = defaultCompanyId; }
     public SubscriberSubscriptionInfo getCurrentSubscription() { return currentSubscription; }
     public void setCurrentSubscription(SubscriberSubscriptionInfo currentSubscription) { this.currentSubscription = currentSubscription; }
     public List<SubscriberSubscriptionInfo> getSubscriptionHistory() { return subscriptionHistory; }

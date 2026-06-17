@@ -6,6 +6,8 @@ import com.quickbooks.dto.subscriber.SubscriberDetailResponse;
 import com.quickbooks.dto.subscriber.SubscriberOptionResponse;
 import com.quickbooks.dto.subscriber.SubscriberResponse;
 import com.quickbooks.dto.subscriber.UpdateSubscriberRequest;
+import com.quickbooks.dto.company.AdminCompanySummaryResponse;
+import com.quickbooks.service.AdminSubscriberDataService;
 import com.quickbooks.service.SubscriberService;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.*;
@@ -17,9 +19,12 @@ import java.util.List;
 public class AdminSubscriberController {
 
     private final SubscriberService subscriberService;
+    private final AdminSubscriberDataService adminSubscriberDataService;
 
-    public AdminSubscriberController(SubscriberService subscriberService) {
+    public AdminSubscriberController(SubscriberService subscriberService,
+                                     AdminSubscriberDataService adminSubscriberDataService) {
         this.subscriberService = subscriberService;
+        this.adminSubscriberDataService = adminSubscriberDataService;
     }
 
     @GetMapping
@@ -37,6 +42,11 @@ public class AdminSubscriberController {
     @GetMapping("/{id}")
     public SubscriberDetailResponse get(@PathVariable Long id) {
         return subscriberService.getDetail(id);
+    }
+
+    @GetMapping("/{id}/companies")
+    public List<AdminCompanySummaryResponse> listCompanies(@PathVariable Long id) {
+        return adminSubscriberDataService.listCompanies(id);
     }
 
     @PostMapping

@@ -43,4 +43,4 @@ app:
 
 logging:
   level:
-    com.quickbooks: INFO
+    com.quickbooks: DEBUG

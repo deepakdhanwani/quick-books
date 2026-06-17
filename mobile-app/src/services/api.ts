@@ -8,6 +8,7 @@ import {
   saveApiBaseUrl,
   getDefaultApiBaseUrl,
 } from './apiConfig';
+import { debugLog, isDebugLogEnabled } from './debugLog';
 
 export {
   getApiBaseUrl,
@@ -64,22 +65,52 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
   }
 
   const url = `${baseUrl}${path}`;
+  const method = options.method ?? 'GET';
+  const startedAt = Date.now();
+  const requestId = `${method} ${path}`;
+
+  if (isDebugLogEnabled()) {
+    debugLog.debug('api', `→ ${requestId}`, {
+      companyId: requestedCompanyId,
+    });
+  }
 
   let response: Response;
   try {
     response = await fetch(url, {
-      method: options.method ?? 'GET',
+      method,
       headers,
       body: options.body ? JSON.stringify(options.body) : undefined,
     });
   } catch (err) {
     const detail = err instanceof Error ? err.message : 'Network request failed';
+    if (isDebugLogEnabled()) {
+      debugLog.error('api', `✗ ${requestId} network`, {
+        companyId: requestedCompanyId,
+        ms: Date.now() - startedAt,
+        detail,
+      });
+    }
     throw new Error(`Cannot reach backend at ${baseUrl}. ${detail}`);
   }
 
   if (!response.ok) {
     const error = await response.json().catch(() => ({ detail: 'Request failed' }));
+    if (isDebugLogEnabled()) {
+      debugLog.warn('api', `✗ ${requestId} HTTP ${response.status}`, {
+        companyId: requestedCompanyId,
+        ms: Date.now() - startedAt,
+        detail: error.detail ?? error.message ?? 'Request failed',
+      });
+    }
     throw new Error(error.detail ?? error.message ?? 'Request failed');
+  }
+
+  if (isDebugLogEnabled()) {
+    debugLog.info('api', `← ${requestId} ${response.status}`, {
+      companyId: requestedCompanyId,
+      ms: Date.now() - startedAt,
+    });
   }
 
   if (response.status === 204) {

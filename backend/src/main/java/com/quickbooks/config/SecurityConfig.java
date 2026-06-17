@@ -1,6 +1,7 @@
 package com.quickbooks.config;
 
 import com.quickbooks.security.JwtAuthenticationFilter;
+import com.quickbooks.security.RequestLoggingFilter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -24,10 +25,14 @@ import java.util.List;
 public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
+    private final RequestLoggingFilter requestLoggingFilter;
     private final AppProperties appProperties;
 
-    public SecurityConfig(JwtAuthenticationFilter jwtAuthenticationFilter, AppProperties appProperties) {
+    public SecurityConfig(JwtAuthenticationFilter jwtAuthenticationFilter,
+                          RequestLoggingFilter requestLoggingFilter,
+                          AppProperties appProperties) {
         this.jwtAuthenticationFilter = jwtAuthenticationFilter;
+        this.requestLoggingFilter = requestLoggingFilter;
         this.appProperties = appProperties;
     }
 
@@ -43,7 +48,8 @@ public class SecurityConfig {
                         .requestMatchers("/api/subscriber/**").hasRole("SUBSCRIBER")
                         .anyRequest().authenticated()
                 )
-                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
+                .addFilterAfter(requestLoggingFilter, JwtAuthenticationFilter.class);
 
         return http.build();
     }

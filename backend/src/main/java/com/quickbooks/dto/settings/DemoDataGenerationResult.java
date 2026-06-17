@@ -3,6 +3,9 @@ package com.quickbooks.dto.settings;
 public class DemoDataGenerationResult {
 
     private Long subscriberId;
+    private Long companyId;
+    private String companyName;
+    private String companyAlias;
     private String businessName;
     private String businessTypeName;
     private String ownerName;
@@ -13,6 +16,8 @@ public class DemoDataGenerationResult {
     private int productsCreated;
     private int purchasesCreated;
     private int salesCreated;
+    private int companiesSeeded;
+    private String companiesSummary;
     private long totalCustomers;
     private long totalVendors;
     private long totalProducts;
@@ -21,6 +26,12 @@ public class DemoDataGenerationResult {
 
     public Long getSubscriberId() { return subscriberId; }
     public void setSubscriberId(Long subscriberId) { this.subscriberId = subscriberId; }
+    public Long getCompanyId() { return companyId; }
+    public void setCompanyId(Long companyId) { this.companyId = companyId; }
+    public String getCompanyName() { return companyName; }
+    public void setCompanyName(String companyName) { this.companyName = companyName; }
+    public String getCompanyAlias() { return companyAlias; }
+    public void setCompanyAlias(String companyAlias) { this.companyAlias = companyAlias; }
     public String getBusinessName() { return businessName; }
     public void setBusinessName(String businessName) { this.businessName = businessName; }
     public String getBusinessTypeName() { return businessTypeName; }
@@ -41,6 +52,10 @@ public class DemoDataGenerationResult {
     public void setPurchasesCreated(int purchasesCreated) { this.purchasesCreated = purchasesCreated; }
     public int getSalesCreated() { return salesCreated; }
     public void setSalesCreated(int salesCreated) { this.salesCreated = salesCreated; }
+    public int getCompaniesSeeded() { return companiesSeeded; }
+    public void setCompaniesSeeded(int companiesSeeded) { this.companiesSeeded = companiesSeeded; }
+    public String getCompaniesSummary() { return companiesSummary; }
+    public void setCompaniesSummary(String companiesSummary) { this.companiesSummary = companiesSummary; }
     public long getTotalCustomers() { return totalCustomers; }
     public void setTotalCustomers(long totalCustomers) { this.totalCustomers = totalCustomers; }
     public long getTotalVendors() { return totalVendors; }

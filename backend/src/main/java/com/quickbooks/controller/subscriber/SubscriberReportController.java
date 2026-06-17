@@ -40,7 +40,7 @@ public class SubscriberReportController {
 
     @GetMapping("/summary")
     public SubscriberDataSummaryResponse summary(@AuthenticationPrincipal UserPrincipal principal) {
-        return subscriberReportService.summary(principal.getId());
+        return subscriberReportService.summary(principal.getId(), principal.getCompanyId());
     }
 
     @GetMapping("/sales")

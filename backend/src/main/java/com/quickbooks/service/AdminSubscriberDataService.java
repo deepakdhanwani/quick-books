@@ -2,6 +2,7 @@ package com.quickbooks.service;
 
 import com.quickbooks.dto.audit.AuditLogResponse;
 import com.quickbooks.dto.common.PageResponse;
+import com.quickbooks.dto.company.AdminCompanySummaryResponse;
 import com.quickbooks.dto.customer.CustomerResponse;
 import com.quickbooks.dto.product.ProductResponse;
 import com.quickbooks.dto.purchase.PurchaseResponse;
@@ -9,8 +10,10 @@ import com.quickbooks.dto.sale.SaleResponse;
 import com.quickbooks.dto.subscriber.SubscriberDataSummaryResponse;
 import com.quickbooks.dto.subscriberuser.SubscriberUserResponse;
 import com.quickbooks.dto.vendor.VendorResponse;
+import com.quickbooks.entity.Subscriber;
 import com.quickbooks.entity.enums.PaymentListFilter;
 import com.quickbooks.repository.AuditLogRepository;
+import com.quickbooks.repository.CompanyRepository;
 import com.quickbooks.repository.CustomerRepository;
 import com.quickbooks.repository.ProductRepository;
 import com.quickbooks.repository.PurchaseRepository;
@@ -31,6 +34,8 @@ import java.util.List;
 public class AdminSubscriberDataService {
 
     private final SubscriberService subscriberService;
+    private final CompanyService companyService;
+    private final CompanyRepository companyRepository;
     private final CustomerService customerService;
     private final VendorService vendorService;
     private final ProductService productService;
@@ -46,6 +51,8 @@ public class AdminSubscriberDataService {
     private final AuditLogRepository auditLogRepository;
 
     public AdminSubscriberDataService(SubscriberService subscriberService,
+                                      CompanyService companyService,
+                                      CompanyRepository companyRepository,
                                       CustomerService customerService,
                                       VendorService vendorService,
                                       ProductService productService,
@@ -60,6 +67,8 @@ public class AdminSubscriberDataService {
                                       SubscriberUserRepository subscriberUserRepository,
                                       AuditLogRepository auditLogRepository) {
         this.subscriberService = subscriberService;
+        this.companyService = companyService;
+        this.companyRepository = companyRepository;
         this.customerService = customerService;
         this.vendorService = vendorService;
         this.productService = productService;
@@ -75,61 +84,93 @@ public class AdminSubscriberDataService {
         this.auditLogRepository = auditLogRepository;
     }
 
-    private void ensureSubscriberExists(Long subscriberId) {
-        subscriberService.getById(subscriberId);
+    private Subscriber ensureSubscriberExists(Long subscriberId) {
+        return subscriberService.getById(subscriberId);
+    }
+
+    private Long resolveCompanyId(Long subscriberId, Long companyId) {
+        if (companyId != null) {
+            return companyService.requireAccessibleCompany(subscriberId, companyId).getId();
+        }
+        Subscriber subscriber = subscriberService.getById(subscriberId);
+        if (subscriber.getDefaultCompany() != null && subscriber.getDefaultCompany().isActive()) {
+            return subscriber.getDefaultCompany().getId();
+        }
+        return companyService.ensureDefaultCompany(subscriberId, subscriber.getBusinessName()).getId();
     }
 
     @Transactional(readOnly = true)
-    public SubscriberDataSummaryResponse getSummary(Long subscriberId) {
+    public List<AdminCompanySummaryResponse> listCompanies(Long subscriberId) {
+        Subscriber subscriber = ensureSubscriberExists(subscriberId);
+        Long defaultCompanyId = subscriber.getDefaultCompany() != null
+                ? subscriber.getDefaultCompany().getId()
+                : null;
+
+        return companyRepository.findBySubscriberIdAndActiveTrueOrderByNameAsc(subscriberId).stream()
+                .map(company -> {
+                    AdminCompanySummaryResponse response = AdminCompanySummaryResponse.from(company, defaultCompanyId);
+                    populateCompanyCounts(response, subscriberId, company.getId());
+                    return response;
+                })
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public SubscriberDataSummaryResponse getSummary(Long subscriberId, Long companyId) {
         ensureSubscriberExists(subscriberId);
+        Long resolvedCompanyId = resolveCompanyId(subscriberId, companyId);
 
         SubscriberDataSummaryResponse response = new SubscriberDataSummaryResponse();
-        response.setCustomerCount(customerRepository.countBySubscriber_Id(subscriberId));
-        response.setVendorCount(vendorRepository.countBySubscriber_Id(subscriberId));
-        response.setProductCount(productRepository.countBySubscriber_Id(subscriberId));
-        response.setSaleCount(saleRepository.countBySubscriber_Id(subscriberId));
-        response.setPurchaseCount(purchaseRepository.countBySubscriber_Id(subscriberId));
+        response.setCustomerCount(customerRepository.countBySubscriber_IdAndCompany_Id(subscriberId, resolvedCompanyId));
+        response.setVendorCount(vendorRepository.countBySubscriber_IdAndCompany_Id(subscriberId, resolvedCompanyId));
+        response.setProductCount(productRepository.countBySubscriber_IdAndCompany_Id(subscriberId, resolvedCompanyId));
+        response.setSaleCount(saleRepository.countBySubscriber_IdAndCompany_Id(subscriberId, resolvedCompanyId));
+        response.setPurchaseCount(purchaseRepository.countBySubscriber_IdAndCompany_Id(subscriberId, resolvedCompanyId));
         response.setTeamUserCount(subscriberUserRepository.countBySubscriberId(subscriberId));
         response.setAuditLogCount(auditLogRepository.countBySubscriberId(subscriberId));
-        response.setTotalSalesAmount(saleRepository.sumNetAmountBySubscriber(subscriberId, null, null));
-        response.setTotalPurchasesAmount(purchaseRepository.sumNetAmountBySubscriber(subscriberId, null, null));
-        response.setPendingSalesAmount(saleRepository.sumPendingAmountBySubscriber(subscriberId));
-        response.setPendingPurchasesAmount(purchaseRepository.sumPendingAmountBySubscriber(subscriberId));
+        response.setTotalSalesAmount(saleRepository.sumNetAmountBySubscriber(subscriberId, resolvedCompanyId, null, null));
+        response.setTotalPurchasesAmount(purchaseRepository.sumNetAmountBySubscriber(subscriberId, resolvedCompanyId, null, null));
+        response.setPendingSalesAmount(saleRepository.sumPendingAmountBySubscriber(subscriberId, resolvedCompanyId));
+        response.setPendingPurchasesAmount(purchaseRepository.sumPendingAmountBySubscriber(subscriberId, resolvedCompanyId));
         return response;
     }
 
     @Transactional(readOnly = true)
     public PageResponse<CustomerResponse> listCustomers(Long subscriberId,
+                                                        Long companyId,
                                                         int page,
                                                         int size,
                                                         Boolean active,
                                                         String search) {
         ensureSubscriberExists(subscriberId);
-        return customerService.findPage(subscriberId, page, size, active, search);
+        return customerService.findPage(subscriberId, resolveCompanyId(subscriberId, companyId), page, size, active, search);
     }
 
     @Transactional(readOnly = true)
     public PageResponse<VendorResponse> listVendors(Long subscriberId,
+                                                    Long companyId,
                                                     int page,
                                                     int size,
                                                     Boolean active,
                                                     String search) {
         ensureSubscriberExists(subscriberId);
-        return vendorService.findPage(subscriberId, page, size, active, search);
+        return vendorService.findPage(subscriberId, resolveCompanyId(subscriberId, companyId), page, size, active, search);
     }
 
     @Transactional(readOnly = true)
     public PageResponse<ProductResponse> listProducts(Long subscriberId,
+                                                      Long companyId,
                                                       int page,
                                                       int size,
                                                       Boolean active,
                                                       String search) {
         ensureSubscriberExists(subscriberId);
-        return productService.findPage(subscriberId, page, size, active, search);
+        return productService.findPage(subscriberId, resolveCompanyId(subscriberId, companyId), page, size, active, search);
     }
 
     @Transactional(readOnly = true)
     public PageResponse<SaleResponse> listSales(Long subscriberId,
+                                                Long companyId,
                                                 int page,
                                                 int size,
                                                 String search,
@@ -137,11 +178,21 @@ public class AdminSubscriberDataService {
                                                 LocalDate fromDate,
                                                 LocalDate toDate) {
         ensureSubscriberExists(subscriberId);
-        return saleService.findPage(subscriberId, page, size, search, paymentFilter, fromDate, toDate);
+        return saleService.findPage(
+                subscriberId,
+                resolveCompanyId(subscriberId, companyId),
+                page,
+                size,
+                search,
+                paymentFilter,
+                fromDate,
+                toDate
+        );
     }
 
     @Transactional(readOnly = true)
     public PageResponse<PurchaseResponse> listPurchases(Long subscriberId,
+                                                          Long companyId,
                                                           int page,
                                                           int size,
                                                           String search,
@@ -149,7 +200,16 @@ public class AdminSubscriberDataService {
                                                           LocalDate fromDate,
                                                           LocalDate toDate) {
         ensureSubscriberExists(subscriberId);
-        return purchaseService.findPage(subscriberId, page, size, search, paymentFilter, fromDate, toDate);
+        return purchaseService.findPage(
+                subscriberId,
+                resolveCompanyId(subscriberId, companyId),
+                page,
+                size,
+                search,
+                paymentFilter,
+                fromDate,
+                toDate
+        );
     }
 
     @Transactional(readOnly = true)
@@ -168,5 +228,13 @@ public class AdminSubscriberDataService {
                 auditLogRepository.findBySubscriberIdOrderByCreatedAtDesc(subscriberId, pageable)
                         .map(AuditLogResponse::from)
         );
+    }
+
+    private void populateCompanyCounts(AdminCompanySummaryResponse response, Long subscriberId, Long companyId) {
+        response.setCustomerCount(customerRepository.countBySubscriber_IdAndCompany_Id(subscriberId, companyId));
+        response.setVendorCount(vendorRepository.countBySubscriber_IdAndCompany_Id(subscriberId, companyId));
+        response.setProductCount(productRepository.countBySubscriber_IdAndCompany_Id(subscriberId, companyId));
+        response.setSaleCount(saleRepository.countBySubscriber_IdAndCompany_Id(subscriberId, companyId));
+        response.setPurchaseCount(purchaseRepository.countBySubscriber_IdAndCompany_Id(subscriberId, companyId));
     }
 }

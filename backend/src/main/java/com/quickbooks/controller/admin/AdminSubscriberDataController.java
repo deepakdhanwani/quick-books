@@ -36,43 +36,49 @@ public class AdminSubscriberDataController {
     }
 
     @GetMapping("/summary")
-    public SubscriberDataSummaryResponse summary(@PathVariable Long subscriberId) {
-        return adminSubscriberDataService.getSummary(subscriberId);
+    public SubscriberDataSummaryResponse summary(
+            @PathVariable Long subscriberId,
+            @RequestParam(required = false) Long companyId) {
+        return adminSubscriberDataService.getSummary(subscriberId, companyId);
     }
 
     @GetMapping("/customers")
     public PageResponse<CustomerResponse> customers(
             @PathVariable Long subscriberId,
+            @RequestParam(required = false) Long companyId,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
             @RequestParam(required = false) Boolean active,
             @RequestParam(required = false) String search) {
-        return adminSubscriberDataService.listCustomers(subscriberId, page, size, active, search);
+        return adminSubscriberDataService.listCustomers(subscriberId, companyId, page, size, active, search);
     }
 
     @GetMapping("/vendors")
     public PageResponse<VendorResponse> vendors(
             @PathVariable Long subscriberId,
+            @RequestParam(required = false) Long companyId,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
             @RequestParam(required = false) Boolean active,
             @RequestParam(required = false) String search) {
-        return adminSubscriberDataService.listVendors(subscriberId, page, size, active, search);
+        return adminSubscriberDataService.listVendors(subscriberId, companyId, page, size, active, search);
     }
 
     @GetMapping("/products")
     public PageResponse<ProductResponse> products(
             @PathVariable Long subscriberId,
+            @RequestParam(required = false) Long companyId,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
             @RequestParam(required = false) Boolean active,
             @RequestParam(required = false) String search) {
-        return adminSubscriberDataService.listProducts(subscriberId, page, size, active, search);
+        return adminSubscriberDataService.listProducts(subscriberId, companyId, page, size, active, search);
     }
 
     @GetMapping("/sales")
     public PageResponse<SaleResponse> sales(
             @PathVariable Long subscriberId,
+            @RequestParam(required = false) Long companyId,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
             @RequestParam(required = false) String search,
@@ -80,12 +86,13 @@ public class AdminSubscriberDataController {
             @RequestParam(required = false) LocalDate fromDate,
             @RequestParam(required = false) LocalDate toDate) {
         return adminSubscriberDataService.listSales(
-                subscriberId, page, size, search, paymentFilter, fromDate, toDate);
+                subscriberId, companyId, page, size, search, paymentFilter, fromDate, toDate);
     }
 
     @GetMapping("/purchases")
     public PageResponse<PurchaseResponse> purchases(
             @PathVariable Long subscriberId,
+            @RequestParam(required = false) Long companyId,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
             @RequestParam(required = false) String search,
@@ -93,7 +100,7 @@ public class AdminSubscriberDataController {
             @RequestParam(required = false) LocalDate fromDate,
             @RequestParam(required = false) LocalDate toDate) {
         return adminSubscriberDataService.listPurchases(
-                subscriberId, page, size, search, paymentFilter, fromDate, toDate);
+                subscriberId, companyId, page, size, search, paymentFilter, fromDate, toDate);
     }
 
     @GetMapping("/users")
@@ -112,24 +119,27 @@ public class AdminSubscriberDataController {
     @GetMapping("/reports/sales")
     public AdminReportResponse salesReport(
             @PathVariable Long subscriberId,
+            @RequestParam(required = false) Long companyId,
             @RequestParam(required = false) LocalDate from,
             @RequestParam(required = false) LocalDate to) {
-        return adminSubscriberReportService.salesReport(subscriberId, from, to);
+        return adminSubscriberReportService.salesReport(subscriberId, companyId, from, to);
     }
 
     @GetMapping("/reports/purchases")
     public AdminReportResponse purchasesReport(
             @PathVariable Long subscriberId,
+            @RequestParam(required = false) Long companyId,
             @RequestParam(required = false) LocalDate from,
             @RequestParam(required = false) LocalDate to) {
-        return adminSubscriberReportService.purchasesReport(subscriberId, from, to);
+        return adminSubscriberReportService.purchasesReport(subscriberId, companyId, from, to);
     }
 
     @GetMapping("/reports/summary")
     public AdminReportResponse businessSummaryReport(
             @PathVariable Long subscriberId,
+            @RequestParam(required = false) Long companyId,
             @RequestParam(required = false) LocalDate from,
             @RequestParam(required = false) LocalDate to) {
-        return adminSubscriberReportService.businessSummaryReport(subscriberId, from, to);
+        return adminSubscriberReportService.businessSummaryReport(subscriberId, companyId, from, to);
     }
 }

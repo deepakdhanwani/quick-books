@@ -35,7 +35,8 @@ export type StackRoute =
   | 'team-user-detail'
   | 'activity-log'
   | 'preferences'
-  | 'reminder-form';
+  | 'reminder-form'
+  | 'debug-log';
 
 export type AppRoute = DrawerRoute | StackRoute;
 

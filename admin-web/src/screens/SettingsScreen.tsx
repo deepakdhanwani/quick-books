@@ -106,6 +106,8 @@ export function SettingsScreen({ token }: SettingsScreenProps) {
 
   const [businessTypes, setBusinessTypes] = useState<BusinessType[]>([]);
   const [businessTypeId, setBusinessTypeId] = useState('');
+  const [companyTarget, setCompanyTarget] = useState('all');
+  const [companyName, setCompanyName] = useState('');
   const [fromDate, setFromDate] = useState(monthStartIso());
   const [toDate, setToDate] = useState(todayIso());
   const [demoJob, setDemoJob] = useState<DemoDataJob | null>(null);
@@ -118,6 +120,32 @@ export function SettingsScreen({ token }: SettingsScreenProps) {
     () => businessTypes.map((type) => ({ label: type.name, value: String(type.id) })),
     [businessTypes],
   );
+
+  const selectedBusinessType = useMemo(
+    () => businessTypes.find((type) => String(type.id) === businessTypeId),
+    [businessTypes, businessTypeId],
+  );
+
+  const demoSubscriberForType = useMemo(
+    () => demoSubscribers.find((subscriber) => subscriber.businessTypeId === Number(businessTypeId)),
+    [demoSubscribers, businessTypeId],
+  );
+
+  const companyOptions = useMemo(() => {
+    const options = [{ label: 'All demo companies (5)', value: 'all' }];
+    for (const company of demoSubscriberForType?.companies ?? []) {
+      options.push({
+        label: `${company.name} ·${company.alias}`,
+        value: String(company.id),
+      });
+    }
+    options.push({ label: 'Create new company', value: 'new' });
+    return options;
+  }, [demoSubscriberForType]);
+
+  const defaultCompanyName = selectedBusinessType
+    ? `Demo - ${selectedBusinessType.name} - Branch`
+    : 'Demo - Branch';
 
   const loadStatus = useCallback(async () => {
     setLoading(true);
@@ -162,6 +190,11 @@ export function SettingsScreen({ token }: SettingsScreenProps) {
   }, [loadStatus, loadBusinessTypes, loadDemoSubscribers]);
 
   useEffect(() => {
+    setCompanyTarget('all');
+    setCompanyName('');
+  }, [businessTypeId]);
+
+  useEffect(() => {
     if (!activeJobId) {
       return undefined;
     }
@@ -178,7 +211,9 @@ export function SettingsScreen({ token }: SettingsScreenProps) {
           setActiveJobId(null);
           setGeneratingDemo(false);
           setSuccess(
-            `Demo data ready for ${job.result?.businessTypeName ?? 'subscriber'}: phone ${job.result?.phone}, PIN ${job.result?.loginPin}`,
+            job.result?.companiesSeeded && job.result.companiesSeeded > 1
+              ? `Demo data ready for ${job.result.companiesSeeded} companies (${job.result.companiesSummary ?? ''}): phone ${job.result?.phone}, PIN ${job.result?.loginPin}`
+              : `Demo data ready for ${job.result?.companyName ?? job.result?.businessTypeName ?? 'company'} ·${job.result?.companyAlias ?? ''}: phone ${job.result?.phone}, PIN ${job.result?.loginPin}`,
           );
           await loadDemoSubscribers();
         } else if (job.status === 'FAILED') {
@@ -269,11 +304,28 @@ export function SettingsScreen({ token }: SettingsScreenProps) {
     setSuccess('');
     setDemoJob(null);
     try {
-      const job = await api.startDemoDataGeneration(token, {
+      const payload: {
+        businessTypeId: number;
+        fromDate: string;
+        toDate: string;
+        companyId?: number;
+        companyName?: string;
+      } = {
         businessTypeId: Number(businessTypeId),
         fromDate,
         toDate,
-      });
+      };
+
+      if (companyTarget === 'new') {
+        const trimmedName = companyName.trim();
+        if (trimmedName) {
+          payload.companyName = trimmedName;
+        }
+      } else if (companyTarget !== 'all') {
+        payload.companyId = Number(companyTarget);
+      }
+
+      const job = await api.startDemoDataGeneration(token, payload);
       setDemoJob(job);
       setActiveJobId(job.jobId);
     } catch (err) {
@@ -401,49 +453,67 @@ export function SettingsScreen({ token }: SettingsScreenProps) {
     </Card>
   );
 
-  const renderDemoSubscribersTable = () => (
+  const renderDemoSubscribersTable = () => {
+    const companyRows = demoSubscribers.flatMap((subscriber) =>
+      (subscriber.companies?.length ? subscriber.companies : []).map((company) => ({
+        key: `${subscriber.id}-${company.id}`,
+        businessTypeName: subscriber.businessTypeName,
+        companyName: company.name,
+        companyAlias: company.alias,
+        phone: subscriber.phone,
+        loginPin: subscriber.loginPin,
+        company,
+      })),
+    );
+
+    return (
     <Card>
       <Text style={[styles.sectionTitle, styles.listTitle]}>Demo subscribers for testing</Text>
       <Text style={styles.muted}>
-        One demo account is maintained per business type. Use the phone number and PIN below to log in on the mobile app.
+        One demo account is maintained per business type. Each company row shows isolated data. Names use a
+        compact suffix tag, e.g. Customer 1 - Retail ·N.
       </Text>
       {loadingDemoSubscribers ? (
         <ActivityIndicator color={colors.primary} />
-      ) : demoSubscribers.length === 0 ? (
-        <Text style={styles.muted}>No demo subscribers yet.</Text>
+      ) : companyRows.length === 0 ? (
+        <Text style={styles.muted}>No demo companies yet.</Text>
       ) : (
         <View style={styles.demoTable}>
           <View style={styles.demoHeaderRow}>
             <Text style={[styles.demoHeaderCell, styles.demoColType]}>Business Type</Text>
-            <Text style={[styles.demoHeaderCell, styles.demoColBusiness]}>Business</Text>
+            <Text style={[styles.demoHeaderCell, styles.demoColCompany]}>Company</Text>
             <Text style={[styles.demoHeaderCell, styles.demoColPhone]}>Phone</Text>
             <Text style={[styles.demoHeaderCell, styles.demoColPin]}>PIN</Text>
             <Text style={[styles.demoHeaderCell, styles.demoColStats]}>Data</Text>
           </View>
-          {demoSubscribers.map((subscriber) => (
-            <View key={subscriber.id} style={styles.demoDataRow}>
-              <Text style={[styles.demoDataCell, styles.demoColType]}>{subscriber.businessTypeName ?? '—'}</Text>
-              <Text style={[styles.demoDataCell, styles.demoColBusiness]}>{subscriber.businessName}</Text>
-              <Text style={[styles.demoDataCell, styles.demoColPhone]}>{subscriber.phone}</Text>
-              <Text style={[styles.demoDataCell, styles.demoColPin]}>{subscriber.loginPin}</Text>
+          {companyRows.map((row) => (
+            <View key={row.key} style={styles.demoDataRow}>
+              <Text style={[styles.demoDataCell, styles.demoColType]}>{row.businessTypeName ?? '—'}</Text>
+              <Text style={[styles.demoDataCell, styles.demoColCompany]}>
+                {row.companyName} ·{row.companyAlias}
+              </Text>
+              <Text style={[styles.demoDataCell, styles.demoColPhone]}>{row.phone}</Text>
+              <Text style={[styles.demoDataCell, styles.demoColPin]}>{row.loginPin}</Text>
               <Text style={[styles.demoDataCell, styles.demoColStats]}>
-                {subscriber.customerCount} customers · {subscriber.vendorCount} vendors · {subscriber.productCount}{' '}
-                products · {subscriber.purchaseCount} POs · {subscriber.saleCount} SOs
+                {row.company.customerCount} customers · {row.company.vendorCount} vendors · {row.company.productCount}{' '}
+                products · {row.company.purchaseCount} POs · {row.company.saleCount} SOs
               </Text>
             </View>
           ))}
         </View>
       )}
     </Card>
-  );
+    );
+  };
 
   const renderDemoTab = () => (
     <>
       <Card>
         <Text style={styles.sectionTitle}>Generate demo data</Text>
         <Text style={styles.muted}>
-          Creates or reuses a demo subscriber for the selected business type, then seeds customers, vendors,
-          products, and 4 purchase orders plus 4 sales orders for each day in the selected date range.
+          Creates or reuses a demo subscriber, ensures five branch companies (Main, North, South, East, West), and
+          seeds each with customers, vendors, products, and orders. Pick one company to seed only that branch, or
+          create a custom company by name.
         </Text>
 
         <View style={[styles.demoFiltersRow, styles.demoFiltersRowPrimary]}>
@@ -455,6 +525,30 @@ export function SettingsScreen({ token }: SettingsScreenProps) {
               onChange={setBusinessTypeId}
             />
           </View>
+          <View style={[styles.demoFilterField, styles.demoFilterFieldSelect]}>
+            <Select
+              label="Target Company"
+              value={companyTarget}
+              options={companyOptions}
+              onChange={setCompanyTarget}
+            />
+          </View>
+        </View>
+
+        {companyTarget === 'new' ? (
+          <View style={styles.demoFiltersRow}>
+            <View style={[styles.demoFilterField, styles.demoFilterFieldWide]}>
+              <Input
+                label="New Company Name"
+                value={companyName}
+                onChangeText={setCompanyName}
+                placeholder={defaultCompanyName}
+              />
+            </View>
+          </View>
+        ) : null}
+
+        <View style={styles.demoFiltersRow}>
           <View style={styles.demoFilterField}>
             <Input label="From Date" value={fromDate} onChangeText={setFromDate} placeholder="YYYY-MM-DD" />
           </View>
@@ -485,6 +579,16 @@ export function SettingsScreen({ token }: SettingsScreenProps) {
             {demoJob.status === 'COMPLETED' && demoJob.result ? (
               <View style={styles.resultBox}>
                 <Text style={styles.resultTitle}>Generation complete</Text>
+                {demoJob.result.companiesSeeded > 1 ? (
+                  <>
+                    <Text style={styles.resultLine}>Companies: {demoJob.result.companiesSeeded}</Text>
+                    <Text style={styles.resultLine}>{demoJob.result.companiesSummary}</Text>
+                  </>
+                ) : (
+                  <Text style={styles.resultLine}>
+                    Company: {demoJob.result.companyName} ·{demoJob.result.companyAlias}
+                  </Text>
+                )}
                 <Text style={styles.resultLine}>Business: {demoJob.result.businessName}</Text>
                 <Text style={styles.resultLine}>Phone: {demoJob.result.phone}</Text>
                 <Text style={styles.resultLine}>PIN: {demoJob.result.loginPin}</Text>
@@ -760,6 +864,10 @@ const styles = StyleSheet.create({
     position: 'relative',
     zIndex: 10,
   },
+  demoFilterFieldWide: {
+    flexBasis: '100%',
+    minWidth: 280,
+  },
   demoFormActions: {
     position: 'relative',
     zIndex: 1,
@@ -847,8 +955,12 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   demoColType: {
-    width: '22%',
-    minWidth: 140,
+    width: '18%',
+    minWidth: 120,
+  },
+  demoColCompany: {
+    width: '24%',
+    minWidth: 160,
   },
   demoColBusiness: {
     width: '28%',

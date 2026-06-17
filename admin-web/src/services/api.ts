@@ -74,6 +74,7 @@ export type SubscriberSubscriptionInfo = {
 };
 
 export type SubscriberDetail = Subscriber & {
+  defaultCompanyId?: number | null;
   currentSubscription?: SubscriberSubscriptionInfo | null;
   subscriptionHistory: SubscriberSubscriptionInfo[];
 };
@@ -245,6 +246,53 @@ export type AdminDashboardSummary = {
   revenueMtd: number;
 };
 
+export type SystemHealth = {
+  status: 'UP' | 'DOWN';
+  service: string;
+  database: { status: 'UP' | 'DOWN'; responseTimeMs: number };
+  jvm: { heapUsedMb: number; heapMaxMb: number; uptimeSeconds: number };
+  monitoring: { storedLogs: number; retentionDays: number };
+  recentTraffic: RequestLogSummary;
+};
+
+export type RequestLogSummary = {
+  windowStart: string;
+  windowEnd: string;
+  windowMinutes: number;
+  totalRequests: number;
+  errorCount: number;
+  slowCount: number;
+  avgDurationMs: number;
+  maxDurationMs: number;
+  slowestEndpoints: SlowEndpointStat[];
+};
+
+export type SlowEndpointStat = {
+  method: string;
+  path: string;
+  requestCount: number;
+  avgDurationMs: number;
+  maxDurationMs: number;
+};
+
+export type RequestLogEntry = {
+  id: number;
+  createdAt: string;
+  method: string;
+  path: string;
+  queryString?: string;
+  statusCode: number;
+  durationMs: number;
+  clientIp?: string;
+  userRole?: string;
+  subscriberId?: number;
+  subscriberName?: string;
+  companyId?: number;
+  companyName?: string;
+  actorName?: string;
+  actorType?: string;
+};
+
 type ReportQuery = Record<string, string | number | boolean | undefined>;
 
 function buildQuery(params: ReportQuery) {
@@ -264,7 +312,37 @@ export const api = {
       method: 'POST',
       body: { email, password },
     }),
-  health: () => request<{ status: string }>('/api/health'),
+  health: () => request<{ status: string; service?: string }>('/api/health'),
+  getSystemHealth: (token: string) =>
+    request<SystemHealth>('/api/admin/monitor/health', { token }),
+  getRequestLogSummary: (token: string, windowMinutes = 60) =>
+    request<RequestLogSummary>(`/api/admin/monitor/request-logs/summary${buildQuery({ windowMinutes })}`, { token }),
+  getRequestLogs: (
+    token: string,
+    params: {
+      page?: number;
+      size?: number;
+      subscriberId?: number;
+      companyId?: number;
+      userRole?: string;
+      errorsOnly?: boolean;
+      slowOnly?: boolean;
+      path?: string;
+    } = {},
+  ) =>
+    request<PageResponse<RequestLogEntry>>(
+      `/api/admin/monitor/request-logs${buildQuery({
+        page: params.page ?? 0,
+        size: params.size ?? 25,
+        subscriberId: params.subscriberId,
+        companyId: params.companyId,
+        userRole: params.userRole,
+        errorsOnly: params.errorsOnly,
+        slowOnly: params.slowOnly,
+        path: params.path,
+      })}`,
+      { token },
+    ),
   getSubscribers: (token: string, page = 0, size = 10) =>
     request<PageResponse<Subscriber>>(`/api/admin/subscribers?page=${page}&size=${size}`, { token }),
   getSubscriber: (token: string, id: number) =>
@@ -286,6 +364,8 @@ export const api = {
       method: 'POST',
       token,
     }),
+  getSubscriberCompanies: (token: string, subscriberId: number) =>
+    request<AdminCompanySummary[]>(`/api/admin/subscribers/${subscriberId}/companies`, { token }),
   getBusinessTypes: (token: string, page = 0, size = 10) =>
     request<PageResponse<BusinessType>>(`/api/admin/business-types?page=${page}&size=${size}`, { token }),
   getActiveBusinessTypes: (token: string) =>
@@ -441,7 +521,13 @@ export const api = {
   },
   startDemoDataGeneration: (
     token: string,
-    payload: { businessTypeId: number; fromDate: string; toDate: string },
+    payload: {
+      businessTypeId: number;
+      fromDate: string;
+      toDate: string;
+      companyId?: number;
+      companyName?: string;
+    },
   ) =>
     request<DemoDataJob>('/api/admin/settings/generate-demo-data', {
       method: 'POST',
@@ -453,8 +539,11 @@ export const api = {
   listDemoSubscribers: (token: string) =>
     request<DemoSubscriber[]>('/api/admin/settings/demo-subscribers', { token }),
 
-  getSubscriberDataSummary: (token: string, subscriberId: number) =>
-    request<SubscriberDataSummary>(`/api/admin/subscribers/${subscriberId}/data/summary`, { token }),
+  getSubscriberDataSummary: (token: string, subscriberId: number, companyId?: number) =>
+    request<SubscriberDataSummary>(
+      `/api/admin/subscribers/${subscriberId}/data/summary${buildQuery({ companyId })}`,
+      { token },
+    ),
 
   getSubscriberCustomers: (
     token: string,
@@ -463,6 +552,7 @@ export const api = {
   ) =>
     request<PageResponse<SubscriberCustomer>>(
       `/api/admin/subscribers/${subscriberId}/data/customers${buildQuery({
+        companyId: params.companyId,
         page: params.page,
         size: params.size,
         active: params.active,
@@ -474,6 +564,7 @@ export const api = {
   getSubscriberVendors: (token: string, subscriberId: number, params: SubscriberListQuery = {}) =>
     request<PageResponse<SubscriberVendor>>(
       `/api/admin/subscribers/${subscriberId}/data/vendors${buildQuery({
+        companyId: params.companyId,
         page: params.page,
         size: params.size,
         active: params.active,
@@ -485,6 +576,7 @@ export const api = {
   getSubscriberProducts: (token: string, subscriberId: number, params: SubscriberListQuery = {}) =>
     request<PageResponse<SubscriberProduct>>(
       `/api/admin/subscribers/${subscriberId}/data/products${buildQuery({
+        companyId: params.companyId,
         page: params.page,
         size: params.size,
         active: params.active,
@@ -500,6 +592,7 @@ export const api = {
   ) =>
     request<PageResponse<SubscriberSale>>(
       `/api/admin/subscribers/${subscriberId}/data/sales${buildQuery({
+        companyId: params.companyId,
         page: params.page,
         size: params.size,
         search: params.search,
@@ -517,6 +610,7 @@ export const api = {
   ) =>
     request<PageResponse<SubscriberPurchase>>(
       `/api/admin/subscribers/${subscriberId}/data/purchases${buildQuery({
+        companyId: params.companyId,
         page: params.page,
         size: params.size,
         search: params.search,
@@ -544,7 +638,7 @@ export const api = {
   getSubscriberSalesReport: (
     token: string,
     subscriberId: number,
-    params: { from?: string; to?: string } = {},
+    params: { companyId?: number; from?: string; to?: string } = {},
   ) =>
     request<AdminReport>(
       `/api/admin/subscribers/${subscriberId}/data/reports/sales${buildQuery(params)}`,
@@ -554,7 +648,7 @@ export const api = {
   getSubscriberPurchasesReport: (
     token: string,
     subscriberId: number,
-    params: { from?: string; to?: string } = {},
+    params: { companyId?: number; from?: string; to?: string } = {},
   ) =>
     request<AdminReport>(
       `/api/admin/subscribers/${subscriberId}/data/reports/purchases${buildQuery(params)}`,
@@ -564,7 +658,7 @@ export const api = {
   getSubscriberBusinessSummaryReport: (
     token: string,
     subscriberId: number,
-    params: { from?: string; to?: string } = {},
+    params: { companyId?: number; from?: string; to?: string } = {},
   ) =>
     request<AdminReport>(
       `/api/admin/subscribers/${subscriberId}/data/reports/summary${buildQuery(params)}`,
@@ -603,6 +697,9 @@ export type DemoDataJobStatus = 'PENDING' | 'RUNNING' | 'COMPLETED' | 'FAILED';
 
 export type DemoDataGenerationResult = {
   subscriberId: number;
+  companyId: number;
+  companyName: string;
+  companyAlias: string;
   businessName: string;
   businessTypeName: string;
   ownerName: string;
@@ -613,6 +710,8 @@ export type DemoDataGenerationResult = {
   productsCreated: number;
   purchasesCreated: number;
   salesCreated: number;
+  companiesSeeded?: number;
+  companiesSummary?: string;
   totalCustomers: number;
   totalVendors: number;
   totalProducts: number;
@@ -632,6 +731,17 @@ export type DemoDataJob = {
   completedAt?: string | null;
 };
 
+export type DemoCompanySummary = {
+  id: number;
+  name: string;
+  alias: string;
+  customerCount: number;
+  vendorCount: number;
+  productCount: number;
+  saleCount: number;
+  purchaseCount: number;
+};
+
 export type DemoSubscriber = {
   id: number;
   businessName: string;
@@ -646,11 +756,27 @@ export type DemoSubscriber = {
   productCount: number;
   saleCount: number;
   purchaseCount: number;
+  companies: DemoCompanySummary[];
+};
+
+export type AdminCompanySummary = {
+  id: number;
+  name: string;
+  alias: string;
+  businessTypeId?: number;
+  businessTypeName?: string;
+  defaultCompany: boolean;
+  customerCount: number;
+  vendorCount: number;
+  productCount: number;
+  saleCount: number;
+  purchaseCount: number;
 };
 
 export type PaymentListFilter = 'ALL' | 'PENDING' | 'PAID';
 
 export type SubscriberListQuery = {
+  companyId?: number;
   page?: number;
   size?: number;
   active?: boolean;

@@ -35,7 +35,9 @@ import { ActivityLogScreen } from '../screens/ActivityLogScreen';
 import { PreferencesScreen } from '../screens/PreferencesScreen';
 import { PaymentRemindersScreen } from '../screens/PaymentRemindersScreen';
 import { PaymentReminderFormScreen } from '../screens/PaymentReminderFormScreen';
+import { DebugLogScreen } from '../screens/DebugLogScreen';
 import { api, CompanyBusinessTypeOption, CompanyOption, setActiveCompanyId, SubscriberAccountProfile, SubscriberAuthResponse } from '../services/api';
+import { debugLog } from '../services/debugLog';
 import { saveCachedPreferences } from '../services/preferenceStorage';
 import { useUserPreferences } from '../theme/AppThemeContext';
 import { toUserPreferences } from '../utils/userPreferences';
@@ -77,6 +79,9 @@ export function AppShell({ auth, onLogout, onSubscriptionChanged }: AppShellProp
   const [profileError, setProfileError] = useState('');
   const [refreshing, setRefreshing] = useState(false);
   const isActiveRef = useRef(true);
+  const switchSeqRef = useRef(0);
+  const pendingCompanyIdRef = useRef<number | null>(null);
+  const switchInFlightRef = useRef(false);
 
   const hasActiveSubscription = profile?.subscriptionStatus === 'ACTIVE';
   const requiresSubscription = profile != null && !hasActiveSubscription;
@@ -118,15 +123,24 @@ export function AppShell({ auth, onLogout, onSubscriptionChanged }: AppShellProp
 
   useEffect(() => {
     isActiveRef.current = true;
-    setActiveCompanyId(auth.activeCompanyId);
-    setActiveCompanyIdState(auth.activeCompanyId);
-    setCompanies(auth.companies ?? []);
-    void loadProfile();
-    void loadCompanyBusinessTypes();
     return () => {
       isActiveRef.current = false;
     };
-  }, [auth.activeCompanyId, auth.companies, loadCompanyBusinessTypes, loadProfile]);
+  }, []);
+
+  useEffect(() => {
+    setActiveCompanyId(auth.activeCompanyId);
+    setActiveCompanyIdState(auth.activeCompanyId);
+  }, [auth.activeCompanyId]);
+
+  useEffect(() => {
+    setCompanies(auth.companies ?? []);
+  }, [auth.companies]);
+
+  useEffect(() => {
+    void loadProfile();
+    void loadCompanyBusinessTypes();
+  }, [auth.token, loadCompanyBusinessTypes, loadProfile]);
 
   const loadCompanies = useCallback(async () => {
     try {
@@ -157,31 +171,81 @@ export function AppShell({ auth, onLogout, onSubscriptionChanged }: AppShellProp
     await onLogout();
   };
 
-  const switchCompany = async (companyId: number) => {
-    if (switchingCompany || companyId === activeCompanyId) {
-      return;
-    }
-    const previousCompanyId = activeCompanyId ?? auth.activeCompanyId;
+  const applyCompanySwitch = useCallback(
+    async (companyId: number, switchId: number) => {
+      const startedAt = Date.now();
+      const fromCompanyId = activeCompanyId ?? auth.activeCompanyId;
+      debugLog.info('company', `Switch start ${fromCompanyId ?? '—'} → ${companyId}`, { switchId });
 
-    setSwitchingCompany(true);
-    setActiveCompanyId(companyId);
-    setActiveCompanyIdState(companyId);
-    setDrawerRoute('dashboard');
-    setStackRoute(null);
+      setActiveCompanyId(companyId);
+      setActiveCompanyIdState(companyId);
+      setDrawerRoute('dashboard');
+      setStackRoute(null);
 
-    try {
       const latestCompanies = companies.length > 0 ? companies : await loadCompanies();
+      if (switchId !== switchSeqRef.current) {
+        debugLog.warn('company', `Switch superseded before save (${companyId})`, { switchId });
+        return;
+      }
+
       await onSubscriptionChanged({
         ...auth,
         activeCompanyId: companyId,
         companies: latestCompanies,
       });
-      await loadProfile(true);
-    } catch (err) {
-      appAlert('Switch failed', err instanceof Error ? err.message : 'Could not switch company');
-      setActiveCompanyId(previousCompanyId);
-      setActiveCompanyIdState(previousCompanyId);
+
+      if (switchId !== switchSeqRef.current) {
+        debugLog.warn('company', `Switch superseded after save (${companyId})`, { switchId });
+        return;
+      }
+
+      debugLog.info('company', `Switch done → ${companyId}`, {
+        switchId,
+        ms: Date.now() - startedAt,
+      });
+    },
+    [activeCompanyId, auth, companies, loadCompanies, onSubscriptionChanged],
+  );
+
+  const switchCompany = async (companyId: number) => {
+    if (companyId === activeCompanyId && pendingCompanyIdRef.current == null) {
+      return;
+    }
+
+    pendingCompanyIdRef.current = companyId;
+    if (switchInFlightRef.current) {
+      debugLog.debug('company', `Queued switch → ${companyId}`);
+      return;
+    }
+
+    switchInFlightRef.current = true;
+    setSwitchingCompany(true);
+    const previousCompanyId = activeCompanyId ?? auth.activeCompanyId;
+
+    try {
+      while (pendingCompanyIdRef.current != null) {
+        const targetCompanyId = pendingCompanyIdRef.current;
+        pendingCompanyIdRef.current = null;
+        const switchId = ++switchSeqRef.current;
+
+        try {
+          await applyCompanySwitch(targetCompanyId, switchId);
+        } catch (err) {
+          debugLog.error('company', 'Switch failed', {
+            companyId: targetCompanyId,
+            detail: err instanceof Error ? err.message : 'Could not switch company',
+          });
+          appAlert('Switch failed', err instanceof Error ? err.message : 'Could not switch company');
+          if (previousCompanyId != null) {
+            setActiveCompanyId(previousCompanyId);
+            setActiveCompanyIdState(previousCompanyId);
+          }
+          pendingCompanyIdRef.current = null;
+          break;
+        }
+      }
     } finally {
+      switchInFlightRef.current = false;
       setSwitchingCompany(false);
       closeDrawer();
     }
@@ -565,6 +629,7 @@ export function AppShell({ auth, onLogout, onSubscriptionChanged }: AppShellProp
     if (stackRoute === 'team-user-detail') return 'Team User';
     if (stackRoute === 'activity-log') return 'Activity Log';
     if (stackRoute === 'preferences') return 'Appearance';
+    if (stackRoute === 'debug-log') return 'Debug Log';
     if (stackRoute === 'reminder-form') {
       return editingReminderId == null ? 'New Reminder' : 'Edit Reminder';
     }
@@ -687,6 +752,10 @@ export function AppShell({ auth, onLogout, onSubscriptionChanged }: AppShellProp
           onRefresh={handleRefresh}
         />
       );
+    }
+
+    if (stackRoute === 'debug-log') {
+      return <DebugLogScreen onBack={closeStack} />;
     }
 
     if (stackRoute === 'account') {
@@ -956,6 +1025,7 @@ export function AppShell({ auth, onLogout, onSubscriptionChanged }: AppShellProp
           onRefresh={handleRefresh}
           onOpenAccount={() => openStack('account')}
           onOpenPreferences={() => openStack('preferences')}
+          onOpenDebugLog={() => openStack('debug-log')}
           onManageTeam={openTeamUsers}
           onActivityLog={openActivityLog}
           isOwner={isOwner}

@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 import { TrendChart } from '../components/bi/TrendChart';
 import { CashPositionCard } from '../components/dashboard/CashPositionCard';
@@ -63,23 +63,33 @@ export function DashboardScreen({
   const [snoozeTarget, setSnoozeTarget] = useState<PaymentReminder | null>(null);
   const [snoozing, setSnoozing] = useState(false);
   const [loading, setLoading] = useState(true);
+  const loadGenerationRef = useRef(0);
 
   const loadDashboard = useCallback(async () => {
+    const generation = ++loadGenerationRef.current;
     try {
       const [dash, intel, reminders] = await Promise.all([
         api.getDashboard(token),
         api.getIntelligence(token).catch(() => null),
         api.getDuePaymentReminders(token).catch(() => []),
       ]);
+      if (generation !== loadGenerationRef.current) {
+        return;
+      }
       setDashboard(dash);
       setIntelligence(intel);
       setDueReminders(reminders);
     } catch {
+      if (generation !== loadGenerationRef.current) {
+        return;
+      }
       setDashboard(null);
       setIntelligence(null);
       setDueReminders([]);
     } finally {
-      setLoading(false);
+      if (generation === loadGenerationRef.current) {
+        setLoading(false);
+      }
     }
   }, [token]);
 

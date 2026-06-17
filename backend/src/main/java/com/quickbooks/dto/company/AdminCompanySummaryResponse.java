@@ -1,42 +1,47 @@
-package com.quickbooks.dto.settings;
+package com.quickbooks.dto.company;
 
-import java.time.OffsetDateTime;
-import java.util.ArrayList;
-import java.util.List;
+import com.quickbooks.entity.Company;
+import com.quickbooks.service.demo.DemoNaming;
 
-public class DemoSubscriberResponse {
+public class AdminCompanySummaryResponse {
 
     private Long id;
-    private String businessName;
-    private String ownerName;
-    private String phone;
-    private String loginPin;
+    private String name;
+    private String alias;
     private Long businessTypeId;
     private String businessTypeName;
-    private OffsetDateTime createdAt;
+    private boolean defaultCompany;
     private long customerCount;
     private long vendorCount;
     private long productCount;
     private long saleCount;
     private long purchaseCount;
-    private List<DemoCompanySummaryResponse> companies = new ArrayList<>();
+
+    public static AdminCompanySummaryResponse from(Company company, Long defaultCompanyId) {
+        AdminCompanySummaryResponse response = new AdminCompanySummaryResponse();
+        response.setId(company.getId());
+        response.setName(company.getName());
+        response.setAlias(DemoNaming.companyAlias(company.getName()));
+        if (company.getBusinessType() != null) {
+            response.setBusinessTypeId(company.getBusinessType().getId());
+            response.setBusinessTypeName(company.getBusinessType().getName());
+        }
+        response.setDefaultCompany(defaultCompanyId != null && defaultCompanyId.equals(company.getId()));
+        return response;
+    }
 
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
-    public String getBusinessName() { return businessName; }
-    public void setBusinessName(String businessName) { this.businessName = businessName; }
-    public String getOwnerName() { return ownerName; }
-    public void setOwnerName(String ownerName) { this.ownerName = ownerName; }
-    public String getPhone() { return phone; }
-    public void setPhone(String phone) { this.phone = phone; }
-    public String getLoginPin() { return loginPin; }
-    public void setLoginPin(String loginPin) { this.loginPin = loginPin; }
+    public String getName() { return name; }
+    public void setName(String name) { this.name = name; }
+    public String getAlias() { return alias; }
+    public void setAlias(String alias) { this.alias = alias; }
     public Long getBusinessTypeId() { return businessTypeId; }
     public void setBusinessTypeId(Long businessTypeId) { this.businessTypeId = businessTypeId; }
     public String getBusinessTypeName() { return businessTypeName; }
     public void setBusinessTypeName(String businessTypeName) { this.businessTypeName = businessTypeName; }
-    public OffsetDateTime getCreatedAt() { return createdAt; }
-    public void setCreatedAt(OffsetDateTime createdAt) { this.createdAt = createdAt; }
+    public boolean isDefaultCompany() { return defaultCompany; }
+    public void setDefaultCompany(boolean defaultCompany) { this.defaultCompany = defaultCompany; }
     public long getCustomerCount() { return customerCount; }
     public void setCustomerCount(long customerCount) { this.customerCount = customerCount; }
     public long getVendorCount() { return vendorCount; }
@@ -47,6 +52,4 @@ public class DemoSubscriberResponse {
     public void setSaleCount(long saleCount) { this.saleCount = saleCount; }
     public long getPurchaseCount() { return purchaseCount; }
     public void setPurchaseCount(long purchaseCount) { this.purchaseCount = purchaseCount; }
-    public List<DemoCompanySummaryResponse> getCompanies() { return companies; }
-    public void setCompanies(List<DemoCompanySummaryResponse> companies) { this.companies = companies; }
 }

@@ -95,8 +95,8 @@ public class SubscriberReportService {
     }
 
     @Transactional(readOnly = true)
-    public SubscriberDataSummaryResponse summary(Long subscriberId) {
-        return adminSubscriberDataService.getSummary(subscriberId);
+    public SubscriberDataSummaryResponse summary(Long subscriberId, Long companyId) {
+        return adminSubscriberDataService.getSummary(subscriberId, companyId);
     }
 
     @Transactional(readOnly = true)

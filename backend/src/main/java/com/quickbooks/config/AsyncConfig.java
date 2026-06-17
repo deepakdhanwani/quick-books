@@ -18,4 +18,15 @@ public class AsyncConfig {
         executor.initialize();
         return executor;
     }
+
+    @Bean(name = "monitoringTaskExecutor")
+    public TaskExecutor monitoringTaskExecutor() {
+        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+        executor.setCorePoolSize(1);
+        executor.setMaxPoolSize(2);
+        executor.setQueueCapacity(500);
+        executor.setThreadNamePrefix("monitoring-");
+        executor.initialize();
+        return executor;
+    }
 }

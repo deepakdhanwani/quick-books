@@ -30,5 +30,6 @@
     <include file="db/changelog/changes/023-multi-company-foundation.xml"/>
     <include file="db/changelog/changes/024-company-business-type.xml"/>
     <include file="db/changelog/changes/025-company-data-isolation.xml"/>
+    <include file="db/changelog/changes/026-request-logs.xml"/>
 
 </databaseChangeLog>
