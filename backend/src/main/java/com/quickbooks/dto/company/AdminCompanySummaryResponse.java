@@ -11,6 +11,8 @@ public class AdminCompanySummaryResponse {
     private Long businessTypeId;
     private String businessTypeName;
     private boolean defaultCompany;
+    private boolean active;
+    private java.time.OffsetDateTime createdAt;
     private long customerCount;
     private long vendorCount;
     private long productCount;
@@ -27,6 +29,8 @@ public class AdminCompanySummaryResponse {
             response.setBusinessTypeName(company.getBusinessType().getName());
         }
         response.setDefaultCompany(defaultCompanyId != null && defaultCompanyId.equals(company.getId()));
+        response.setActive(company.isActive());
+        response.setCreatedAt(company.getCreatedAt());
         return response;
     }
 
@@ -42,6 +46,10 @@ public class AdminCompanySummaryResponse {
     public void setBusinessTypeName(String businessTypeName) { this.businessTypeName = businessTypeName; }
     public boolean isDefaultCompany() { return defaultCompany; }
     public void setDefaultCompany(boolean defaultCompany) { this.defaultCompany = defaultCompany; }
+    public boolean isActive() { return active; }
+    public void setActive(boolean active) { this.active = active; }
+    public java.time.OffsetDateTime getCreatedAt() { return createdAt; }
+    public void setCreatedAt(java.time.OffsetDateTime createdAt) { this.createdAt = createdAt; }
     public long getCustomerCount() { return customerCount; }
     public void setCustomerCount(long customerCount) { this.customerCount = customerCount; }
     public long getVendorCount() { return vendorCount; }

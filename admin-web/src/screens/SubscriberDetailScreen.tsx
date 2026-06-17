@@ -149,8 +149,6 @@ export function SubscriberDetailScreen({
     value: String(company.id),
   }));
 
-  const activeCompany = companies.find((company) => company.id === activeCompanyId) ?? null;
-
   const businessTypeOptions = businessTypes.map((type) => ({
     label: type.name,
     value: String(type.id),
@@ -314,22 +312,66 @@ export function SubscriberDetailScreen({
             variant={subscriptionBadgeVariant(detail.subscriptionStatus)}
           />
           {detail.businessTypeName ? <Badge label={detail.businessTypeName} variant="primary" /> : null}
+          {companies.length > 0 ? (
+            <Badge label={`${companies.length} ${companies.length === 1 ? 'Company' : 'Companies'}`} variant="primary" />
+          ) : null}
         </View>
       </Card>
 
       {companies.length > 0 ? (
+        <Card style={styles.companiesCard}>
+          <SectionHeader icon="🏢" title="Companies" />
+          <Text style={styles.companiesIntro}>
+            This subscriber manages {companies.length} {companies.length === 1 ? 'company' : 'companies'}. Select one
+            to browse its data in the tabs below.
+          </Text>
+          <View style={styles.companyList}>
+            {companies.map((company) => {
+              const selected = company.id === activeCompanyId;
+              return (
+                <Pressable
+                  key={company.id}
+                  style={[styles.companyItem, selected && styles.companyItemActive]}
+                  onPress={() => setActiveCompanyId(company.id)}
+                >
+                  <View style={styles.companyItemHeader}>
+                    <View style={styles.companyItemTitleRow}>
+                      <Text style={styles.companyItemName}>{company.name}</Text>
+                      <Text style={styles.companyItemAlias}>·{company.alias}</Text>
+                    </View>
+                    <View style={styles.companyBadgeRow}>
+                      {company.defaultCompany ? <Badge label="Default" variant="primary" /> : null}
+                      <Badge
+                        label={company.active ? 'Active' : 'Inactive'}
+                        variant={company.active ? 'success' : 'error'}
+                      />
+                      {selected ? <Badge label="Viewing" variant="primary" /> : null}
+                    </View>
+                  </View>
+                  <View style={styles.infoGrid}>
+                    <InfoTile label="Business Type" value={company.businessTypeName ?? '—'} />
+                    <InfoTile label="Created" value={company.createdAt ? formatDateTime(company.createdAt) : '—'} />
+                    <InfoTile label="Customers" value={String(company.customerCount)} />
+                    <InfoTile label="Vendors" value={String(company.vendorCount)} />
+                    <InfoTile label="Products" value={String(company.productCount)} />
+                    <InfoTile label="Sales" value={String(company.saleCount)} />
+                    <InfoTile label="Purchases" value={String(company.purchaseCount)} />
+                  </View>
+                </Pressable>
+              );
+            })}
+          </View>
+        </Card>
+      ) : null}
+
+      {companies.length > 1 ? (
         <Card style={styles.companyCard}>
           <Select
-            label="Company"
+            label="Active company for data tabs"
             value={activeCompanyId != null ? String(activeCompanyId) : ''}
             options={companyOptions}
             onChange={(value) => setActiveCompanyId(Number(value))}
           />
-          {activeCompany ? (
-            <Text style={styles.companyHint}>
-              Viewing data for {activeCompany.name} [{activeCompany.alias}]
-            </Text>
-          ) : null}
         </Card>
       ) : null}
 
@@ -683,7 +725,54 @@ const styles = StyleSheet.create({
   },
   sectionCard: { marginTop: 0 },
   companyCard: {
-    marginBottom: 16,
+    marginBottom: 0,
+    gap: 8,
+  },
+  companiesCard: {
+    gap: 12,
+  },
+  companiesIntro: {
+    color: colors.textSecondary,
+    fontSize: 14,
+    lineHeight: 20,
+    marginBottom: 4,
+  },
+  companyList: {
+    gap: 12,
+  },
+  companyItem: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 12,
+    padding: 14,
+    backgroundColor: colors.background,
+    gap: 12,
+  },
+  companyItemActive: {
+    borderColor: colors.primary,
+    backgroundColor: colors.primary + '11',
+  },
+  companyItemHeader: {
+    gap: 8,
+  },
+  companyItemTitleRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'baseline',
+    gap: 6,
+  },
+  companyItemName: {
+    color: colors.text,
+    fontSize: 17,
+    fontWeight: '600',
+  },
+  companyItemAlias: {
+    color: colors.textSecondary,
+    fontSize: 14,
+  },
+  companyBadgeRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 8,
   },
   companyHint: {

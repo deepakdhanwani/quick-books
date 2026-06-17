@@ -13,6 +13,8 @@ import {
   DataStatus,
   DemoDataJob,
   DemoSubscriber,
+  PlatformCompanySettings,
+  SmtpSettings,
 } from '../services/api';
 import { colors } from '../theme/colors';
 
@@ -20,9 +22,11 @@ type SettingsScreenProps = {
   token: string;
 };
 
-type SettingsTab = 'TRUNCATE' | 'BACKUP' | 'RESTORE' | 'DEMO';
+type SettingsTab = 'PLATFORM' | 'SMTP' | 'TRUNCATE' | 'BACKUP' | 'RESTORE' | 'DEMO';
 
 const TABS: { id: SettingsTab; label: string }[] = [
+  { id: 'PLATFORM', label: 'Our Company' },
+  { id: 'SMTP', label: 'Email (SMTP)' },
   { id: 'TRUNCATE', label: 'Truncate' },
   { id: 'BACKUP', label: 'Backup' },
   { id: 'RESTORE', label: 'Restore' },
@@ -116,6 +120,31 @@ export function SettingsScreen({ token }: SettingsScreenProps) {
   const [demoSubscribers, setDemoSubscribers] = useState<DemoSubscriber[]>([]);
   const [loadingDemoSubscribers, setLoadingDemoSubscribers] = useState(false);
 
+  const [platformLoading, setPlatformLoading] = useState(false);
+  const [platformSaving, setPlatformSaving] = useState(false);
+  const [smtpSaving, setSmtpSaving] = useState(false);
+  const [platformCompanyName, setPlatformCompanyName] = useState('');
+  const [supportEmail, setSupportEmail] = useState('');
+  const [contactEmail, setContactEmail] = useState('');
+  const [platformMobile, setPlatformMobile] = useState('');
+  const [websiteUrl, setWebsiteUrl] = useState('');
+  const [addressLine1, setAddressLine1] = useState('');
+  const [addressLine2, setAddressLine2] = useState('');
+  const [city, setCity] = useState('');
+  const [stateName, setStateName] = useState('');
+  const [country, setCountry] = useState('');
+  const [postalCode, setPostalCode] = useState('');
+  const [smtpEnabled, setSmtpEnabled] = useState('false');
+  const [smtpHost, setSmtpHost] = useState('');
+  const [smtpPort, setSmtpPort] = useState('587');
+  const [smtpUsername, setSmtpUsername] = useState('');
+  const [smtpPassword, setSmtpPassword] = useState('');
+  const [smtpFromEmail, setSmtpFromEmail] = useState('');
+  const [smtpFromName, setSmtpFromName] = useState('');
+  const [smtpUseTls, setSmtpUseTls] = useState('true');
+  const [smtpUseSsl, setSmtpUseSsl] = useState('false');
+  const [smtpPasswordConfigured, setSmtpPasswordConfigured] = useState(false);
+
   const businessTypeOptions = useMemo(
     () => businessTypes.map((type) => ({ label: type.name, value: String(type.id) })),
     [businessTypes],
@@ -183,11 +212,53 @@ export function SettingsScreen({ token }: SettingsScreenProps) {
     }
   }, [token]);
 
+  const applyCompanySettings = (settings: PlatformCompanySettings) => {
+    setPlatformCompanyName(settings.companyName ?? '');
+    setSupportEmail(settings.supportEmail ?? '');
+    setContactEmail(settings.contactEmail ?? '');
+    setPlatformMobile(settings.mobileNumber ?? '');
+    setWebsiteUrl(settings.websiteUrl ?? '');
+    setAddressLine1(settings.addressLine1 ?? '');
+    setAddressLine2(settings.addressLine2 ?? '');
+    setCity(settings.city ?? '');
+    setStateName(settings.state ?? '');
+    setCountry(settings.country ?? '');
+    setPostalCode(settings.postalCode ?? '');
+  };
+
+  const applySmtpSettings = (settings: SmtpSettings) => {
+    setSmtpEnabled(settings.enabled ? 'true' : 'false');
+    setSmtpHost(settings.host ?? '');
+    setSmtpPort(settings.port != null ? String(settings.port) : '587');
+    setSmtpUsername(settings.username ?? '');
+    setSmtpPassword('');
+    setSmtpFromEmail(settings.fromEmail ?? '');
+    setSmtpFromName(settings.fromName ?? '');
+    setSmtpUseTls(settings.useTls ? 'true' : 'false');
+    setSmtpUseSsl(settings.useSsl ? 'true' : 'false');
+    setSmtpPasswordConfigured(settings.passwordConfigured);
+  };
+
+  const loadPlatformSettings = useCallback(async () => {
+    setPlatformLoading(true);
+    setError('');
+    try {
+      const settings = await api.getPlatformSettings(token);
+      applyCompanySettings(settings.company);
+      applySmtpSettings(settings.smtp);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load platform settings');
+    } finally {
+      setPlatformLoading(false);
+    }
+  }, [token]);
+
   useEffect(() => {
     loadStatus();
     loadBusinessTypes();
     loadDemoSubscribers();
-  }, [loadStatus, loadBusinessTypes, loadDemoSubscribers]);
+    loadPlatformSettings();
+  }, [loadStatus, loadBusinessTypes, loadDemoSubscribers, loadPlatformSettings]);
 
   useEffect(() => {
     setCompanyTarget('all');
@@ -237,6 +308,58 @@ export function SettingsScreen({ token }: SettingsScreenProps) {
       clearInterval(interval);
     };
   }, [activeJobId, token, loadDemoSubscribers]);
+
+  const handleSaveCompanySettings = async () => {
+    setPlatformSaving(true);
+    setError('');
+    setSuccess('');
+    try {
+      const result = await api.updatePlatformCompanySettings(token, {
+        companyName: platformCompanyName,
+        supportEmail,
+        contactEmail,
+        mobileNumber: platformMobile,
+        websiteUrl,
+        addressLine1,
+        addressLine2,
+        city,
+        state: stateName,
+        country,
+        postalCode,
+      });
+      applyCompanySettings(result);
+      setSuccess('Company details saved.');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to save company details');
+    } finally {
+      setPlatformSaving(false);
+    }
+  };
+
+  const handleSaveSmtpSettings = async () => {
+    setSmtpSaving(true);
+    setError('');
+    setSuccess('');
+    try {
+      const result = await api.updateSmtpSettings(token, {
+        enabled: smtpEnabled === 'true',
+        host: smtpHost,
+        port: smtpPort.trim() ? Number(smtpPort) : undefined,
+        username: smtpUsername,
+        password: smtpPassword.trim() || undefined,
+        fromEmail: smtpFromEmail,
+        fromName: smtpFromName,
+        useTls: smtpUseTls === 'true',
+        useSsl: smtpUseSsl === 'true',
+      });
+      applySmtpSettings(result);
+      setSuccess('SMTP settings saved.');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to save SMTP settings');
+    } finally {
+      setSmtpSaving(false);
+    }
+  };
 
   const handleTruncate = async () => {
     setTruncating(true);
@@ -400,6 +523,134 @@ export function SettingsScreen({ token }: SettingsScreenProps) {
       </View>
     );
   };
+
+  const renderPlatformTab = () => (
+    <Card>
+      <Text style={styles.sectionTitle}>Our company details</Text>
+      <Text style={styles.muted}>
+        These details represent your platform business. They can be used in emails, invoices, and support
+        communications in the future.
+      </Text>
+
+      {platformLoading ? (
+        <ActivityIndicator color={colors.primary} />
+      ) : (
+        <>
+          <View style={styles.formGrid}>
+            <View style={styles.formField}>
+              <Input label="Company Name" value={platformCompanyName} onChangeText={setPlatformCompanyName} />
+            </View>
+            <View style={styles.formField}>
+              <Input label="Support Email" value={supportEmail} onChangeText={setSupportEmail} keyboardType="email-address" autoCapitalize="none" />
+            </View>
+            <View style={styles.formField}>
+              <Input label="Contact Email" value={contactEmail} onChangeText={setContactEmail} keyboardType="email-address" autoCapitalize="none" />
+            </View>
+            <View style={styles.formField}>
+              <Input label="Mobile Number" value={platformMobile} onChangeText={setPlatformMobile} keyboardType="phone-pad" />
+            </View>
+            <View style={styles.formField}>
+              <Input label="Website" value={websiteUrl} onChangeText={setWebsiteUrl} autoCapitalize="none" placeholder="https://example.com" />
+            </View>
+            <View style={styles.formField}>
+              <Input label="Address Line 1" value={addressLine1} onChangeText={setAddressLine1} />
+            </View>
+            <View style={styles.formField}>
+              <Input label="Address Line 2" value={addressLine2} onChangeText={setAddressLine2} />
+            </View>
+            <View style={styles.formField}>
+              <Input label="City" value={city} onChangeText={setCity} />
+            </View>
+            <View style={styles.formField}>
+              <Input label="State / Province" value={stateName} onChangeText={setStateName} />
+            </View>
+            <View style={styles.formField}>
+              <Input label="Country" value={country} onChangeText={setCountry} />
+            </View>
+            <View style={styles.formField}>
+              <Input label="Postal Code" value={postalCode} onChangeText={setPostalCode} />
+            </View>
+          </View>
+          <Button title="Save company details" onPress={handleSaveCompanySettings} loading={platformSaving} />
+        </>
+      )}
+    </Card>
+  );
+
+  const renderSmtpTab = () => (
+    <Card>
+      <Text style={styles.sectionTitle}>SMTP email settings</Text>
+      <Text style={styles.muted}>
+        Configure outbound email for future notifications such as payment reminders and subscription alerts.
+        Sending is not enabled yet — settings are stored for when email delivery is added.
+      </Text>
+
+      {platformLoading ? (
+        <ActivityIndicator color={colors.primary} />
+      ) : (
+        <>
+          <Select
+            label="Email sending"
+            value={smtpEnabled}
+            options={[
+              { label: 'Disabled', value: 'false' },
+              { label: 'Enabled', value: 'true' },
+            ]}
+            onChange={setSmtpEnabled}
+          />
+          <View style={styles.formGrid}>
+            <View style={styles.formField}>
+              <Input label="SMTP Host" value={smtpHost} onChangeText={setSmtpHost} autoCapitalize="none" placeholder="smtp.example.com" />
+            </View>
+            <View style={styles.formField}>
+              <Input label="SMTP Port" value={smtpPort} onChangeText={setSmtpPort} keyboardType="number-pad" />
+            </View>
+            <View style={styles.formField}>
+              <Input label="Username" value={smtpUsername} onChangeText={setSmtpUsername} autoCapitalize="none" />
+            </View>
+            <View style={styles.formField}>
+              <Input
+                label={smtpPasswordConfigured ? 'Password (leave blank to keep current)' : 'Password'}
+                value={smtpPassword}
+                onChangeText={setSmtpPassword}
+                autoCapitalize="none"
+                secureTextEntry
+              />
+            </View>
+            <View style={styles.formField}>
+              <Input label="From Email" value={smtpFromEmail} onChangeText={setSmtpFromEmail} keyboardType="email-address" autoCapitalize="none" />
+            </View>
+            <View style={styles.formField}>
+              <Input label="From Name" value={smtpFromName} onChangeText={setSmtpFromName} />
+            </View>
+          </View>
+          <View style={styles.smtpOptionsRow}>
+            <Select
+              label="Use TLS"
+              value={smtpUseTls}
+              compact
+              options={[
+                { label: 'Yes', value: 'true' },
+                { label: 'No', value: 'false' },
+              ]}
+              onChange={setSmtpUseTls}
+            />
+            <Select
+              label="Use SSL"
+              value={smtpUseSsl}
+              compact
+              options={[
+                { label: 'Yes', value: 'true' },
+                { label: 'No', value: 'false' },
+              ]}
+              onChange={setSmtpUseSsl}
+            />
+          </View>
+          <Button title="Save SMTP settings" onPress={handleSaveSmtpSettings} loading={smtpSaving} />
+        </>
+      )}
+    </Card>
+  );
 
   const renderTruncateTab = () => (
     <Card>
@@ -665,7 +916,7 @@ export function SettingsScreen({ token }: SettingsScreenProps) {
     <ScrollView contentContainerStyle={styles.container}>
       <PageHeader
         title="Settings"
-        subtitle="Database maintenance, demo data seeding, backups, and restores."
+        subtitle="Platform company profile, email delivery, database maintenance, and demo data."
         action={
           <Button
             title="Refresh"
@@ -673,8 +924,9 @@ export function SettingsScreen({ token }: SettingsScreenProps) {
             onPress={() => {
               loadStatus();
               loadDemoSubscribers();
+              loadPlatformSettings();
             }}
-            loading={loading}
+            loading={loading || platformLoading}
           />
         }
       />
@@ -700,12 +952,14 @@ export function SettingsScreen({ token }: SettingsScreenProps) {
       {error ? <Text style={styles.error}>{error}</Text> : null}
       {success ? <Text style={styles.success}>{success}</Text> : null}
 
-      {loading && !status && activeTab !== 'DEMO' ? (
+      {loading && !status && activeTab !== 'DEMO' && activeTab !== 'PLATFORM' && activeTab !== 'SMTP' ? (
         <Card>
           <ActivityIndicator color={colors.primary} />
         </Card>
       ) : (
         <>
+          {activeTab === 'PLATFORM' ? renderPlatformTab() : null}
+          {activeTab === 'SMTP' ? renderSmtpTab() : null}
           {activeTab === 'TRUNCATE' ? renderTruncateTab() : null}
           {activeTab === 'BACKUP' ? renderBackupTab() : null}
           {activeTab === 'RESTORE' ? renderRestoreTab() : null}
@@ -999,5 +1253,22 @@ const styles = StyleSheet.create({
     marginTop: 8,
     fontWeight: '600',
     color: colors.text,
+  },
+  formGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 16,
+    marginBottom: 16,
+  },
+  formField: {
+    flexGrow: 1,
+    flexBasis: 280,
+    minWidth: 220,
+  },
+  smtpOptionsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 16,
+    marginBottom: 16,
   },
 });

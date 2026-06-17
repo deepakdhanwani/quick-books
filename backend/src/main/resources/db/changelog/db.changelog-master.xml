@@ -33,5 +33,6 @@
     <include file="db/changelog/changes/026-request-logs.xml"/>
     <include file="db/changelog/changes/027-staff-rbac.xml"/>
     <include file="db/changelog/changes/028-granular-staff-rbac.xml"/>
+    <include file="db/changelog/changes/029-platform-settings.xml"/>
 
 </databaseChangeLog>

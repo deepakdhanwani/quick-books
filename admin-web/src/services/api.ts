@@ -539,6 +539,21 @@ export const api = {
   listDemoSubscribers: (token: string) =>
     request<DemoSubscriber[]>('/api/admin/settings/demo-subscribers', { token }),
 
+  getPlatformSettings: (token: string) =>
+    request<PlatformSettings>('/api/admin/platform-settings', { token }),
+  updatePlatformCompanySettings: (token: string, payload: UpdatePlatformCompanySettingsPayload) =>
+    request<PlatformCompanySettings>('/api/admin/platform-settings/company', {
+      method: 'PUT',
+      token,
+      body: payload,
+    }),
+  updateSmtpSettings: (token: string, payload: UpdateSmtpSettingsPayload) =>
+    request<SmtpSettings>('/api/admin/platform-settings/smtp', {
+      method: 'PUT',
+      token,
+      body: payload,
+    }),
+
   getSubscriberDataSummary: (token: string, subscriberId: number, companyId?: number) =>
     request<SubscriberDataSummary>(
       `/api/admin/subscribers/${subscriberId}/data/summary${buildQuery({ companyId })}`,
@@ -766,11 +781,60 @@ export type AdminCompanySummary = {
   businessTypeId?: number;
   businessTypeName?: string;
   defaultCompany: boolean;
+  active: boolean;
+  createdAt?: string;
   customerCount: number;
   vendorCount: number;
   productCount: number;
   saleCount: number;
   purchaseCount: number;
+};
+
+export type PlatformCompanySettings = {
+  companyName?: string;
+  supportEmail?: string;
+  contactEmail?: string;
+  mobileNumber?: string;
+  websiteUrl?: string;
+  addressLine1?: string;
+  addressLine2?: string;
+  city?: string;
+  state?: string;
+  country?: string;
+  postalCode?: string;
+  updatedAt?: string;
+};
+
+export type UpdatePlatformCompanySettingsPayload = PlatformCompanySettings;
+
+export type SmtpSettings = {
+  enabled: boolean;
+  host?: string;
+  port?: number;
+  username?: string;
+  passwordConfigured: boolean;
+  fromEmail?: string;
+  fromName?: string;
+  useTls: boolean;
+  useSsl: boolean;
+  updatedAt?: string;
+};
+
+export type UpdateSmtpSettingsPayload = {
+  enabled?: boolean;
+  host?: string;
+  port?: number;
+  username?: string;
+  password?: string;
+  fromEmail?: string;
+  fromName?: string;
+  useTls?: boolean;
+  useSsl?: boolean;
+};
+
+export type PlatformSettings = {
+  company: PlatformCompanySettings;
+  smtp: SmtpSettings;
 };
 
 export type PaymentListFilter = 'ALL' | 'PENDING' | 'PAID';
