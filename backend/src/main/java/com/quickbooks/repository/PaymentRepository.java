@@ -16,6 +16,7 @@ public interface PaymentRepository extends JpaRepository<Payment, Long> {
     @Query("""
             SELECT p FROM Payment p
             WHERE p.subscriber.id = :subscriberId
+            AND p.company.id = :companyId
             AND p.referenceType = :referenceType
             AND p.referenceId = :referenceId
             AND p.type = :paymentType
@@ -23,15 +24,18 @@ public interface PaymentRepository extends JpaRepository<Payment, Long> {
             """)
     List<Payment> findBySale(
             @Param("subscriberId") Long subscriberId,
+            @Param("companyId") Long companyId,
             @Param("referenceType") ReferenceType referenceType,
             @Param("referenceId") Long referenceId,
             @Param("paymentType") PaymentType paymentType);
 
+    Optional<Payment> findByIdAndSubscriberIdAndCompanyId(Long id, Long subscriberId, Long companyId);
     Optional<Payment> findByIdAndSubscriberId(Long id, Long subscriberId);
 
     @Query("""
             SELECT p FROM Payment p
             WHERE p.subscriber.id = :subscriberId
+            AND p.company.id = :companyId
             AND p.referenceType = com.quickbooks.entity.enums.ReferenceType.SALE
             AND p.referenceId IN :saleIds
             AND p.type = com.quickbooks.entity.enums.PaymentType.RECEIVED
@@ -39,11 +43,13 @@ public interface PaymentRepository extends JpaRepository<Payment, Long> {
             """)
     List<Payment> findReceivedBySaleIds(
             @Param("subscriberId") Long subscriberId,
+            @Param("companyId") Long companyId,
             @Param("saleIds") Collection<Long> saleIds);
 
     @Query("""
             SELECT p FROM Payment p
             WHERE p.subscriber.id = :subscriberId
+            AND p.company.id = :companyId
             AND p.referenceType = com.quickbooks.entity.enums.ReferenceType.PURCHASE
             AND p.referenceId IN :purchaseIds
             AND p.type = com.quickbooks.entity.enums.PaymentType.PAID
@@ -51,6 +57,7 @@ public interface PaymentRepository extends JpaRepository<Payment, Long> {
             """)
     List<Payment> findPaidByPurchaseIds(
             @Param("subscriberId") Long subscriberId,
+            @Param("companyId") Long companyId,
             @Param("purchaseIds") Collection<Long> purchaseIds);
 
     @Query("""
@@ -59,11 +66,13 @@ public interface PaymentRepository extends JpaRepository<Payment, Long> {
             JOIN Sale s ON p.referenceType = com.quickbooks.entity.enums.ReferenceType.SALE
                 AND p.referenceId = s.id
             WHERE p.subscriber.id = :subscriberId
+            AND p.company.id = :companyId
             AND s.customer.id = :customerId
             AND p.type = com.quickbooks.entity.enums.PaymentType.RECEIVED
             """)
     List<Object[]> aggregateReceivedByCustomer(
             @Param("subscriberId") Long subscriberId,
+            @Param("companyId") Long companyId,
             @Param("customerId") Long customerId);
 
     @Query("""
@@ -72,10 +81,12 @@ public interface PaymentRepository extends JpaRepository<Payment, Long> {
             JOIN Purchase pu ON p.referenceType = com.quickbooks.entity.enums.ReferenceType.PURCHASE
                 AND p.referenceId = pu.id
             WHERE p.subscriber.id = :subscriberId
+            AND p.company.id = :companyId
             AND pu.vendor.id = :vendorId
             AND p.type = com.quickbooks.entity.enums.PaymentType.PAID
             """)
     List<Object[]> aggregatePaidByVendor(
             @Param("subscriberId") Long subscriberId,
+            @Param("companyId") Long companyId,
             @Param("vendorId") Long vendorId);
 }

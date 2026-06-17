@@ -1,6 +1,9 @@
 package com.quickbooks.dto.auth;
 
 import com.quickbooks.entity.enums.SubscriptionStatus;
+import com.quickbooks.dto.company.CompanyResponse;
+
+import java.util.List;
 
 public class AuthResponse {
 
@@ -13,6 +16,8 @@ public class AuthResponse {
     private String userType;
     private boolean canChangePin = true;
     private Long staffUserId;
+    private Long activeCompanyId;
+    private List<CompanyResponse> companies;
 
     public AuthResponse() {}
 
@@ -40,4 +45,8 @@ public class AuthResponse {
     public void setCanChangePin(boolean canChangePin) { this.canChangePin = canChangePin; }
     public Long getStaffUserId() { return staffUserId; }
     public void setStaffUserId(Long staffUserId) { this.staffUserId = staffUserId; }
+    public Long getActiveCompanyId() { return activeCompanyId; }
+    public void setActiveCompanyId(Long activeCompanyId) { this.activeCompanyId = activeCompanyId; }
+    public List<CompanyResponse> getCompanies() { return companies; }
+    public void setCompanies(List<CompanyResponse> companies) { this.companies = companies; }
 }

@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <changeSet id="024-company-business-type" author="quickbooks">
+        <addColumn tableName="companies">
+            <column name="business_type_id" type="BIGINT"/>
+        </addColumn>
+
+        <sql>
+            UPDATE companies c
+            SET business_type_id = s.business_type_id
+            FROM subscribers s
+            WHERE c.subscriber_id = s.id
+              AND c.business_type_id IS NULL;
+        </sql>
+
+        <addNotNullConstraint tableName="companies"
+                              columnName="business_type_id"
+                              columnDataType="BIGINT"/>
+
+        <addForeignKeyConstraint
+                baseTableName="companies"
+                baseColumnNames="business_type_id"
+                constraintName="fk_companies_business_type"
+                referencedTableName="business_types"
+                referencedColumnNames="id"/>
+
+        <createIndex tableName="companies" indexName="idx_companies_business_type">
+            <column name="business_type_id"/>
+        </createIndex>
+    </changeSet>
+
+</databaseChangeLog>

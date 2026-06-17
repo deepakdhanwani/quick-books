@@ -30,12 +30,12 @@ public class SubscriberReportController {
 
     @GetMapping("/dashboard")
     public SubscriberDashboardResponse dashboard(@AuthenticationPrincipal UserPrincipal principal) {
-        return subscriberReportService.dashboard(principal.getId());
+        return subscriberReportService.dashboard(principal.getId(), principal.getCompanyId());
     }
 
     @GetMapping("/intelligence")
     public SubscriberIntelligenceResponse intelligence(@AuthenticationPrincipal UserPrincipal principal) {
-        return subscriberIntelligenceService.buildIntelligence(principal.getId());
+        return subscriberIntelligenceService.buildIntelligence(principal.getId(), principal.getCompanyId());
     }
 
     @GetMapping("/summary")
@@ -48,7 +48,7 @@ public class SubscriberReportController {
             @AuthenticationPrincipal UserPrincipal principal,
             @RequestParam(required = false) LocalDate from,
             @RequestParam(required = false) LocalDate to) {
-        return subscriberReportService.salesReport(principal.getId(), from, to);
+        return subscriberReportService.salesReport(principal.getId(), principal.getCompanyId(), from, to);
     }
 
     @GetMapping("/purchases")
@@ -56,7 +56,7 @@ public class SubscriberReportController {
             @AuthenticationPrincipal UserPrincipal principal,
             @RequestParam(required = false) LocalDate from,
             @RequestParam(required = false) LocalDate to) {
-        return subscriberReportService.purchasesReport(principal.getId(), from, to);
+        return subscriberReportService.purchasesReport(principal.getId(), principal.getCompanyId(), from, to);
     }
 
     @GetMapping("/business-summary")
@@ -64,17 +64,17 @@ public class SubscriberReportController {
             @AuthenticationPrincipal UserPrincipal principal,
             @RequestParam(required = false) LocalDate from,
             @RequestParam(required = false) LocalDate to) {
-        return subscriberReportService.businessSummaryReport(principal.getId(), from, to);
+        return subscriberReportService.businessSummaryReport(principal.getId(), principal.getCompanyId(), from, to);
     }
 
     @GetMapping("/receivables")
     public AdminReportResponse receivablesReport(@AuthenticationPrincipal UserPrincipal principal) {
-        return subscriberReportService.receivablesReport(principal.getId());
+        return subscriberReportService.receivablesReport(principal.getId(), principal.getCompanyId());
     }
 
     @GetMapping("/payables")
     public AdminReportResponse payablesReport(@AuthenticationPrincipal UserPrincipal principal) {
-        return subscriberReportService.payablesReport(principal.getId());
+        return subscriberReportService.payablesReport(principal.getId(), principal.getCompanyId());
     }
 
     @GetMapping("/products")
@@ -82,7 +82,7 @@ public class SubscriberReportController {
             @AuthenticationPrincipal UserPrincipal principal,
             @RequestParam(required = false) LocalDate from,
             @RequestParam(required = false) LocalDate to) {
-        return subscriberReportService.productPerformanceReport(principal.getId(), from, to);
+        return subscriberReportService.productPerformanceReport(principal.getId(), principal.getCompanyId(), from, to);
     }
 
     @GetMapping("/customer-trends")
@@ -90,7 +90,7 @@ public class SubscriberReportController {
             @AuthenticationPrincipal UserPrincipal principal,
             @RequestParam(required = false) LocalDate from,
             @RequestParam(required = false) LocalDate to) {
-        return subscriberReportService.customerTrendsReport(principal.getId(), from, to);
+        return subscriberReportService.customerTrendsReport(principal.getId(), principal.getCompanyId(), from, to);
     }
 
     @GetMapping("/vendor-trends")
@@ -98,7 +98,7 @@ public class SubscriberReportController {
             @AuthenticationPrincipal UserPrincipal principal,
             @RequestParam(required = false) LocalDate from,
             @RequestParam(required = false) LocalDate to) {
-        return subscriberReportService.vendorTrendsReport(principal.getId(), from, to);
+        return subscriberReportService.vendorTrendsReport(principal.getId(), principal.getCompanyId(), from, to);
     }
 
     @GetMapping("/orders")
@@ -106,6 +106,6 @@ public class SubscriberReportController {
             @AuthenticationPrincipal UserPrincipal principal,
             @RequestParam(required = false) LocalDate from,
             @RequestParam(required = false) LocalDate to) {
-        return subscriberReportService.ordersReport(principal.getId(), from, to);
+        return subscriberReportService.ordersReport(principal.getId(), principal.getCompanyId(), from, to);
     }
 }

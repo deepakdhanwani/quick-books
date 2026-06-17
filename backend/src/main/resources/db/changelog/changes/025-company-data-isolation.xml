@@ -1,0 +1,137 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <changeSet id="025-01-add-company-columns" author="cursor">
+        <addColumn tableName="customers">
+            <column name="company_id" type="BIGINT"/>
+        </addColumn>
+        <addColumn tableName="vendors">
+            <column name="company_id" type="BIGINT"/>
+        </addColumn>
+        <addColumn tableName="products">
+            <column name="company_id" type="BIGINT"/>
+        </addColumn>
+        <addColumn tableName="sales">
+            <column name="company_id" type="BIGINT"/>
+        </addColumn>
+        <addColumn tableName="purchases">
+            <column name="company_id" type="BIGINT"/>
+        </addColumn>
+        <addColumn tableName="payments">
+            <column name="company_id" type="BIGINT"/>
+        </addColumn>
+        <addColumn tableName="payment_reminders">
+            <column name="company_id" type="BIGINT"/>
+        </addColumn>
+    </changeSet>
+
+    <changeSet id="025-02-backfill-company-columns" author="cursor">
+        <sql>
+            UPDATE customers c
+            SET company_id = s.default_company_id
+            FROM subscribers s
+            WHERE c.subscriber_id = s.id AND c.company_id IS NULL;
+        </sql>
+        <sql>
+            UPDATE vendors v
+            SET company_id = s.default_company_id
+            FROM subscribers s
+            WHERE v.subscriber_id = s.id AND v.company_id IS NULL;
+        </sql>
+        <sql>
+            UPDATE products p
+            SET company_id = s.default_company_id
+            FROM subscribers s
+            WHERE p.subscriber_id = s.id AND p.company_id IS NULL;
+        </sql>
+        <sql>
+            UPDATE sales so
+            SET company_id = s.default_company_id
+            FROM subscribers s
+            WHERE so.subscriber_id = s.id AND so.company_id IS NULL;
+        </sql>
+        <sql>
+            UPDATE purchases po
+            SET company_id = s.default_company_id
+            FROM subscribers s
+            WHERE po.subscriber_id = s.id AND po.company_id IS NULL;
+        </sql>
+        <sql>
+            UPDATE payments p
+            SET company_id = s.default_company_id
+            FROM subscribers s
+            WHERE p.subscriber_id = s.id AND p.company_id IS NULL;
+        </sql>
+        <sql>
+            UPDATE payment_reminders r
+            SET company_id = s.default_company_id
+            FROM subscribers s
+            WHERE r.subscriber_id = s.id AND r.company_id IS NULL;
+        </sql>
+    </changeSet>
+
+    <changeSet id="025-03-enforce-company-columns" author="cursor">
+        <addNotNullConstraint tableName="customers" columnName="company_id" columnDataType="BIGINT"/>
+        <addNotNullConstraint tableName="vendors" columnName="company_id" columnDataType="BIGINT"/>
+        <addNotNullConstraint tableName="products" columnName="company_id" columnDataType="BIGINT"/>
+        <addNotNullConstraint tableName="sales" columnName="company_id" columnDataType="BIGINT"/>
+        <addNotNullConstraint tableName="purchases" columnName="company_id" columnDataType="BIGINT"/>
+        <addNotNullConstraint tableName="payments" columnName="company_id" columnDataType="BIGINT"/>
+        <addNotNullConstraint tableName="payment_reminders" columnName="company_id" columnDataType="BIGINT"/>
+
+        <addForeignKeyConstraint baseTableName="customers" baseColumnNames="company_id"
+                                 referencedTableName="companies" referencedColumnNames="id"
+                                 constraintName="fk_customers_company_id"/>
+        <addForeignKeyConstraint baseTableName="vendors" baseColumnNames="company_id"
+                                 referencedTableName="companies" referencedColumnNames="id"
+                                 constraintName="fk_vendors_company_id"/>
+        <addForeignKeyConstraint baseTableName="products" baseColumnNames="company_id"
+                                 referencedTableName="companies" referencedColumnNames="id"
+                                 constraintName="fk_products_company_id"/>
+        <addForeignKeyConstraint baseTableName="sales" baseColumnNames="company_id"
+                                 referencedTableName="companies" referencedColumnNames="id"
+                                 constraintName="fk_sales_company_id"/>
+        <addForeignKeyConstraint baseTableName="purchases" baseColumnNames="company_id"
+                                 referencedTableName="companies" referencedColumnNames="id"
+                                 constraintName="fk_purchases_company_id"/>
+        <addForeignKeyConstraint baseTableName="payments" baseColumnNames="company_id"
+                                 referencedTableName="companies" referencedColumnNames="id"
+                                 constraintName="fk_payments_company_id"/>
+        <addForeignKeyConstraint baseTableName="payment_reminders" baseColumnNames="company_id"
+                                 referencedTableName="companies" referencedColumnNames="id"
+                                 constraintName="fk_payment_reminders_company_id"/>
+
+        <createIndex tableName="customers" indexName="idx_customers_subscriber_company">
+            <column name="subscriber_id"/>
+            <column name="company_id"/>
+        </createIndex>
+        <createIndex tableName="vendors" indexName="idx_vendors_subscriber_company">
+            <column name="subscriber_id"/>
+            <column name="company_id"/>
+        </createIndex>
+        <createIndex tableName="products" indexName="idx_products_subscriber_company">
+            <column name="subscriber_id"/>
+            <column name="company_id"/>
+        </createIndex>
+        <createIndex tableName="sales" indexName="idx_sales_subscriber_company">
+            <column name="subscriber_id"/>
+            <column name="company_id"/>
+        </createIndex>
+        <createIndex tableName="purchases" indexName="idx_purchases_subscriber_company">
+            <column name="subscriber_id"/>
+            <column name="company_id"/>
+        </createIndex>
+        <createIndex tableName="payments" indexName="idx_payments_subscriber_company">
+            <column name="subscriber_id"/>
+            <column name="company_id"/>
+        </createIndex>
+        <createIndex tableName="payment_reminders" indexName="idx_reminders_subscriber_company">
+            <column name="subscriber_id"/>
+            <column name="company_id"/>
+        </createIndex>
+    </changeSet>
+</databaseChangeLog>

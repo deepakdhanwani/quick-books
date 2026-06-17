@@ -24,7 +24,14 @@ type RequestOptions = {
   method?: string;
   body?: unknown;
   token?: string | null;
+  companyId?: number | null;
 };
+
+let activeCompanyId: number | null = null;
+
+export function setActiveCompanyId(companyId?: number | null) {
+  activeCompanyId = companyId ?? null;
+}
 
 export async function checkApiHealth(baseUrl?: string): Promise<{ ok: boolean; message: string; url: string }> {
   const url = normalizeApiBaseUrl(baseUrl ?? getApiBaseUrl());
@@ -50,6 +57,10 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
 
   if (options.token) {
     headers.Authorization = `Bearer ${options.token}`;
+  }
+  const requestedCompanyId = options.companyId ?? activeCompanyId;
+  if (requestedCompanyId != null) {
+    headers['X-Company-Id'] = String(requestedCompanyId);
   }
 
   const url = `${baseUrl}${path}`;
@@ -178,6 +189,24 @@ export type ProductPayload = {
 
 export type SubscriberUserType = 'OWNER' | 'STAFF';
 
+export type CompanyOption = {
+  id: number;
+  name: string;
+  businessTypeId?: number;
+  businessTypeName?: string;
+  active: boolean;
+  selected?: boolean;
+  createdAt: string;
+};
+
+export type CompanyBusinessTypeOption = {
+  id: number;
+  name: string;
+  description?: string;
+  active: boolean;
+  createdAt: string;
+};
+
 export type SubscriberAuthResponse = {
   token: string;
   role: string;
@@ -188,6 +217,8 @@ export type SubscriberAuthResponse = {
   userType?: SubscriberUserType;
   canChangePin?: boolean;
   staffUserId?: number;
+  activeCompanyId?: number;
+  companies?: CompanyOption[];
 };
 
 export type ChangePinPayload = {
@@ -533,6 +564,16 @@ export const api = {
       method: 'POST',
       token,
       body: { loginPin },
+    }),
+  listCompanies: (token: string) =>
+    request<CompanyOption[]>('/api/subscriber/companies', { token }),
+  listCompanyBusinessTypes: (token: string) =>
+    request<CompanyBusinessTypeOption[]>('/api/subscriber/companies/business-types', { token }),
+  createCompany: (token: string, payload: { name: string; businessTypeId: number }) =>
+    request<CompanyOption>('/api/subscriber/companies', {
+      method: 'POST',
+      token,
+      body: payload,
     }),
   resetTeamUserPin: (token: string, id: number) =>
     request<TeamUser>(`/api/subscriber/users/${id}/reset-pin`, { method: 'POST', token }),

@@ -35,29 +35,44 @@ public class PartyLedgerService {
     private final SaleRepository saleRepository;
     private final PurchaseRepository purchaseRepository;
     private final PaymentRepository paymentRepository;
+    private final CompanyService companyService;
 
     public PartyLedgerService(CustomerRepository customerRepository,
                               VendorRepository vendorRepository,
                               SaleRepository saleRepository,
                               PurchaseRepository purchaseRepository,
-                              PaymentRepository paymentRepository) {
+                              PaymentRepository paymentRepository,
+                              CompanyService companyService) {
         this.customerRepository = customerRepository;
         this.vendorRepository = vendorRepository;
         this.saleRepository = saleRepository;
         this.purchaseRepository = purchaseRepository;
         this.paymentRepository = paymentRepository;
+        this.companyService = companyService;
     }
 
     @Transactional(readOnly = true)
     public PartyLedgerSummaryResponse getCustomerAccountSummary(Long subscriberId, Long customerId) {
-        Customer customer = getCustomer(subscriberId, customerId);
-        return buildCustomerSummary(customer, subscriberId, customerId);
+        Long companyId = companyService.ensureDefaultCompany(subscriberId, "Default Company").getId();
+        return getCustomerAccountSummary(subscriberId, companyId, customerId);
+    }
+
+    @Transactional(readOnly = true)
+    public PartyLedgerSummaryResponse getCustomerAccountSummary(Long subscriberId, Long companyId, Long customerId) {
+        Customer customer = getCustomer(subscriberId, companyId, customerId);
+        return buildCustomerSummary(customer, subscriberId, companyId, customerId);
     }
 
     @Transactional(readOnly = true)
     public PartyLedgerSummaryResponse getVendorAccountSummary(Long subscriberId, Long vendorId) {
-        Vendor vendor = getVendor(subscriberId, vendorId);
-        return buildVendorSummary(vendor, subscriberId, vendorId);
+        Long companyId = companyService.ensureDefaultCompany(subscriberId, "Default Company").getId();
+        return getVendorAccountSummary(subscriberId, companyId, vendorId);
+    }
+
+    @Transactional(readOnly = true)
+    public PartyLedgerSummaryResponse getVendorAccountSummary(Long subscriberId, Long companyId, Long vendorId) {
+        Vendor vendor = getVendor(subscriberId, companyId, vendorId);
+        return buildVendorSummary(vendor, subscriberId, companyId, vendorId);
     }
 
     @Transactional(readOnly = true)
@@ -67,10 +82,22 @@ public class PartyLedgerService {
                                                    int size,
                                                    LocalDate fromDate,
                                                    LocalDate toDate) {
-        Customer customer = getCustomer(subscriberId, customerId);
+        Long companyId = companyService.ensureDefaultCompany(subscriberId, "Default Company").getId();
+        return getCustomerLedger(subscriberId, companyId, customerId, page, size, fromDate, toDate);
+    }
+
+    @Transactional(readOnly = true)
+    public PartyLedgerPageResponse getCustomerLedger(Long subscriberId,
+                                                   Long companyId,
+                                                   Long customerId,
+                                                   int page,
+                                                   int size,
+                                                   LocalDate fromDate,
+                                                   LocalDate toDate) {
+        Customer customer = getCustomer(subscriberId, companyId, customerId);
         List<PartyLedgerEntryResponse> displayEntries = buildCustomerLedgerEntries(
-                customer, subscriberId, customerId, fromDate, toDate);
-        PartyLedgerSummaryResponse summary = buildCustomerSummary(customer, subscriberId, customerId);
+                customer, subscriberId, companyId, customerId, fromDate, toDate);
+        PartyLedgerSummaryResponse summary = buildCustomerSummary(customer, subscriberId, companyId, customerId);
         return paginate(displayEntries, page, size, summary);
     }
 
@@ -81,23 +108,36 @@ public class PartyLedgerService {
                                                    int size,
                                                    LocalDate fromDate,
                                                    LocalDate toDate) {
-        Vendor vendor = getVendor(subscriberId, vendorId);
+        Long companyId = companyService.ensureDefaultCompany(subscriberId, "Default Company").getId();
+        return getVendorLedger(subscriberId, companyId, vendorId, page, size, fromDate, toDate);
+    }
+
+    @Transactional(readOnly = true)
+    public PartyLedgerPageResponse getVendorLedger(Long subscriberId,
+                                                   Long companyId,
+                                                   Long vendorId,
+                                                   int page,
+                                                   int size,
+                                                   LocalDate fromDate,
+                                                   LocalDate toDate) {
+        Vendor vendor = getVendor(subscriberId, companyId, vendorId);
         List<PartyLedgerEntryResponse> displayEntries = buildVendorLedgerEntries(
-                vendor, subscriberId, vendorId, fromDate, toDate);
-        PartyLedgerSummaryResponse summary = buildVendorSummary(vendor, subscriberId, vendorId);
+                vendor, subscriberId, companyId, vendorId, fromDate, toDate);
+        PartyLedgerSummaryResponse summary = buildVendorSummary(vendor, subscriberId, companyId, vendorId);
         return paginate(displayEntries, page, size, summary);
     }
 
     private List<PartyLedgerEntryResponse> buildCustomerLedgerEntries(Customer customer,
                                                                       Long subscriberId,
+                                                                      Long companyId,
                                                                       Long customerId,
                                                                       LocalDate fromDate,
                                                                       LocalDate toDate) {
-        List<Sale> sales = saleRepository.findAllBySubscriberAndCustomer(subscriberId, customerId);
+        List<Sale> sales = saleRepository.findAllBySubscriberAndCustomer(subscriberId, companyId, customerId);
         List<Long> saleIds = sales.stream().map(Sale::getId).toList();
         List<Payment> payments = saleIds.isEmpty()
                 ? List.of()
-                : paymentRepository.findReceivedBySaleIds(subscriberId, saleIds);
+                : paymentRepository.findReceivedBySaleIds(subscriberId, companyId, saleIds);
 
         Map<Long, List<Payment>> paymentsBySale = payments.stream()
                 .collect(Collectors.groupingBy(Payment::getReferenceId));
@@ -119,14 +159,15 @@ public class PartyLedgerService {
 
     private List<PartyLedgerEntryResponse> buildVendorLedgerEntries(Vendor vendor,
                                                                     Long subscriberId,
+                                                                    Long companyId,
                                                                     Long vendorId,
                                                                     LocalDate fromDate,
                                                                     LocalDate toDate) {
-        List<Purchase> purchases = purchaseRepository.findAllBySubscriberAndVendor(subscriberId, vendorId);
+        List<Purchase> purchases = purchaseRepository.findAllBySubscriberAndVendor(subscriberId, companyId, vendorId);
         List<Long> purchaseIds = purchases.stream().map(Purchase::getId).toList();
         List<Payment> payments = purchaseIds.isEmpty()
                 ? List.of()
-                : paymentRepository.findPaidByPurchaseIds(subscriberId, purchaseIds);
+                : paymentRepository.findPaidByPurchaseIds(subscriberId, companyId, purchaseIds);
 
         Map<Long, List<Payment>> paymentsByPurchase = payments.stream()
                 .collect(Collectors.groupingBy(Payment::getReferenceId));
@@ -168,22 +209,23 @@ public class PartyLedgerService {
 
     private PartyLedgerSummaryResponse buildCustomerSummary(Customer customer,
                                                             Long subscriberId,
+                                                            Long companyId,
                                                             Long customerId) {
         OpeningBalanceSupport.OpeningSplit opening = OpeningBalanceSupport.customerOpening(
                 customer.getOpeningBalance(),
                 customer.getOpeningBalanceNature());
 
-        BigDecimal totalDebit = nullToZero(saleRepository.sumTotalAmountByCustomer(subscriberId, customerId))
+        BigDecimal totalDebit = nullToZero(saleRepository.sumTotalAmountByCustomer(subscriberId, companyId, customerId))
                 .add(opening.debit());
         Object[] paymentAgg = firstAggregateRow(
-                paymentRepository.aggregateReceivedByCustomer(subscriberId, customerId));
+                paymentRepository.aggregateReceivedByCustomer(subscriberId, companyId, customerId));
         BigDecimal cashCredit = toBigDecimal(paymentAgg[0]);
         BigDecimal totalAdjusted = toBigDecimal(paymentAgg[1]);
         long paymentCount = paymentAgg[2] instanceof Number number ? number.longValue() : 0L;
         BigDecimal totalCredit = cashCredit.add(totalAdjusted).add(opening.credit());
-        BigDecimal closingBalance = nullToZero(saleRepository.sumPendingAmountByCustomer(subscriberId, customerId))
+        BigDecimal closingBalance = nullToZero(saleRepository.sumPendingAmountByCustomer(subscriberId, companyId, customerId))
                 .add(OpeningBalanceSupport.customerNetBalance(opening));
-        long invoiceCount = saleRepository.countBySubscriberAndCustomer(subscriberId, customerId);
+        long invoiceCount = saleRepository.countBySubscriberAndCustomer(subscriberId, companyId, customerId);
         long openingEntries = hasOpening(opening) ? 1L : 0L;
 
         PartyLedgerSummaryResponse summary = new PartyLedgerSummaryResponse();
@@ -200,22 +242,23 @@ public class PartyLedgerService {
 
     private PartyLedgerSummaryResponse buildVendorSummary(Vendor vendor,
                                                           Long subscriberId,
+                                                          Long companyId,
                                                           Long vendorId) {
         OpeningBalanceSupport.OpeningSplit opening = OpeningBalanceSupport.vendorOpening(
                 vendor.getOpeningBalance(),
                 vendor.getOpeningBalanceNature());
 
-        BigDecimal totalCredit = nullToZero(purchaseRepository.sumTotalAmountByVendor(subscriberId, vendorId))
+        BigDecimal totalCredit = nullToZero(purchaseRepository.sumTotalAmountByVendor(subscriberId, companyId, vendorId))
                 .add(opening.credit());
         Object[] paymentAgg = firstAggregateRow(
-                paymentRepository.aggregatePaidByVendor(subscriberId, vendorId));
+                paymentRepository.aggregatePaidByVendor(subscriberId, companyId, vendorId));
         BigDecimal cashDebit = toBigDecimal(paymentAgg[0]);
         BigDecimal totalAdjusted = toBigDecimal(paymentAgg[1]);
         long paymentCount = paymentAgg[2] instanceof Number number ? number.longValue() : 0L;
         BigDecimal totalDebit = cashDebit.add(totalAdjusted).add(opening.debit());
-        BigDecimal closingBalance = nullToZero(purchaseRepository.sumPendingAmountByVendor(subscriberId, vendorId))
+        BigDecimal closingBalance = nullToZero(purchaseRepository.sumPendingAmountByVendor(subscriberId, companyId, vendorId))
                 .add(OpeningBalanceSupport.vendorNetBalance(opening));
-        long billCount = purchaseRepository.countBySubscriberAndVendor(subscriberId, vendorId);
+        long billCount = purchaseRepository.countBySubscriberAndVendor(subscriberId, companyId, vendorId);
         long openingEntries = hasOpening(opening) ? 1L : 0L;
 
         PartyLedgerSummaryResponse summary = new PartyLedgerSummaryResponse();
@@ -370,13 +413,13 @@ public class PartyLedgerService {
         };
     }
 
-    private Customer getCustomer(Long subscriberId, Long customerId) {
-        return customerRepository.findByIdAndSubscriberId(customerId, subscriberId)
+    private Customer getCustomer(Long subscriberId, Long companyId, Long customerId) {
+        return customerRepository.findByIdAndSubscriberIdAndCompanyId(customerId, subscriberId, companyId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Customer not found"));
     }
 
-    private Vendor getVendor(Long subscriberId, Long vendorId) {
-        return vendorRepository.findByIdAndSubscriberId(vendorId, subscriberId)
+    private Vendor getVendor(Long subscriberId, Long companyId, Long vendorId) {
+        return vendorRepository.findByIdAndSubscriberIdAndCompanyId(vendorId, subscriberId, companyId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Vendor not found"));
     }
 

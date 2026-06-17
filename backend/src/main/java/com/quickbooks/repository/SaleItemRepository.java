@@ -25,4 +25,22 @@ public interface SaleItemRepository extends JpaRepository<SaleItem, Long> {
             @Param("subscriberId") Long subscriberId,
             @Param("fromDate") LocalDate fromDate,
             @Param("toDate") LocalDate toDate);
+
+    @Query("""
+            SELECT COALESCE(p.name, si.description), COALESCE(SUM(si.quantity), 0), COALESCE(SUM(si.amount), 0)
+            FROM SaleItem si
+            JOIN si.sale s
+            LEFT JOIN si.product p
+            WHERE s.subscriber.id = :subscriberId
+            AND s.company.id = :companyId
+            AND s.date >= :fromDate
+            AND s.date <= :toDate
+            GROUP BY COALESCE(p.id, 0L), COALESCE(p.name, si.description)
+            ORDER BY SUM(si.amount) DESC
+            """)
+    List<Object[]> findTopProductsBySales(
+            @Param("subscriberId") Long subscriberId,
+            @Param("companyId") Long companyId,
+            @Param("fromDate") LocalDate fromDate,
+            @Param("toDate") LocalDate toDate);
 }

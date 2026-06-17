@@ -8,6 +8,7 @@ import com.quickbooks.dto.purchase.PurchaseItemResponse;
 import com.quickbooks.dto.purchase.PurchasePaymentResponse;
 import com.quickbooks.dto.purchase.PurchaseResponse;
 import com.quickbooks.entity.Payment;
+import com.quickbooks.entity.Company;
 import com.quickbooks.entity.Product;
 import com.quickbooks.entity.Purchase;
 import com.quickbooks.entity.PurchaseItem;
@@ -51,6 +52,7 @@ public class PurchaseService {
     private final PaymentRepository paymentRepository;
     private final VendorRepository vendorRepository;
     private final SubscriberService subscriberService;
+    private final CompanyService companyService;
     private final ProductService productService;
     private final FileStorageService fileStorageService;
     private final AuditLogService auditLogService;
@@ -59,6 +61,7 @@ public class PurchaseService {
                            PaymentRepository paymentRepository,
                            VendorRepository vendorRepository,
                            SubscriberService subscriberService,
+                           CompanyService companyService,
                            ProductService productService,
                            FileStorageService fileStorageService,
                            AuditLogService auditLogService) {
@@ -66,6 +69,7 @@ public class PurchaseService {
         this.paymentRepository = paymentRepository;
         this.vendorRepository = vendorRepository;
         this.subscriberService = subscriberService;
+        this.companyService = companyService;
         this.productService = productService;
         this.fileStorageService = fileStorageService;
         this.auditLogService = auditLogService;
@@ -73,6 +77,19 @@ public class PurchaseService {
 
     @Transactional(readOnly = true)
     public PageResponse<PurchaseResponse> findPage(Long subscriberId,
+                                                     int page,
+                                                     int size,
+                                                     String search,
+                                                     PaymentListFilter paymentFilter,
+                                                     LocalDate fromDate,
+                                                     LocalDate toDate) {
+        Long companyId = companyService.ensureDefaultCompany(subscriberId, "Default Company").getId();
+        return findPage(subscriberId, companyId, page, size, search, paymentFilter, fromDate, toDate);
+    }
+
+    @Transactional(readOnly = true)
+    public PageResponse<PurchaseResponse> findPage(Long subscriberId,
+                                                     Long companyId,
                                                      int page,
                                                      int size,
                                                      String search,
@@ -87,6 +104,7 @@ public class PurchaseService {
         Pageable pageable = PageRequest.of(normalizedPage, normalizedSize, Sort.by("date").descending().and(Sort.by("id").descending()));
         Page<PurchaseResponse> result = purchaseRepository.findBySubscriber(
                         subscriberId,
+                        companyId,
                         normalizedSearch,
                         normalizedFilter.name(),
                         fromDate,
@@ -103,7 +121,18 @@ public class PurchaseService {
                                                            int page,
                                                            int size,
                                                            PaymentListFilter paymentFilter) {
-        vendorRepository.findByIdAndSubscriberId(vendorId, subscriberId)
+        Long companyId = companyService.ensureDefaultCompany(subscriberId, "Default Company").getId();
+        return findPageByVendor(subscriberId, companyId, vendorId, page, size, paymentFilter);
+    }
+
+    @Transactional(readOnly = true)
+    public PageResponse<PurchaseResponse> findPageByVendor(Long subscriberId,
+                                                           Long companyId,
+                                                           Long vendorId,
+                                                           int page,
+                                                           int size,
+                                                           PaymentListFilter paymentFilter) {
+        vendorRepository.findByIdAndSubscriberIdAndCompanyId(vendorId, subscriberId, companyId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Vendor not found"));
 
         int normalizedPage = Math.max(page, 0);
@@ -113,6 +142,7 @@ public class PurchaseService {
         Pageable pageable = PageRequest.of(normalizedPage, normalizedSize, Sort.by("date").descending().and(Sort.by("id").descending()));
         Page<PurchaseResponse> result = purchaseRepository.findBySubscriberAndVendor(
                         subscriberId,
+                        companyId,
                         vendorId,
                         normalizedFilter.name(),
                         pageable)
@@ -123,39 +153,59 @@ public class PurchaseService {
 
     @Transactional(readOnly = true)
     public NextBillNumberResponse getNextBillNumber(Long subscriberId) {
-        String suggested = suggestNextBillNumber(subscriberId);
+        Long companyId = companyService.ensureDefaultCompany(subscriberId, "Default Company").getId();
+        return getNextBillNumber(subscriberId, companyId);
+    }
+
+    @Transactional(readOnly = true)
+    public NextBillNumberResponse getNextBillNumber(Long subscriberId, Long companyId) {
+        String suggested = suggestNextBillNumber(subscriberId, companyId);
         return new NextBillNumberResponse(suggested, true);
     }
 
     @Transactional(readOnly = true)
     public PurchaseResponse getById(Long subscriberId, Long purchaseId) {
-        Purchase purchase = getOwnedPurchase(subscriberId, purchaseId);
+        Long companyId = companyService.ensureDefaultCompany(subscriberId, "Default Company").getId();
+        return getById(subscriberId, companyId, purchaseId);
+    }
+
+    @Transactional(readOnly = true)
+    public PurchaseResponse getById(Long subscriberId, Long companyId, Long purchaseId) {
+        Purchase purchase = getOwnedPurchase(subscriberId, companyId, purchaseId);
         PurchaseResponse response = PurchaseResponse.from(purchase);
         response.setItems(mapPurchaseItems(purchase));
-        response.setPayments(loadPayments(subscriberId, purchaseId));
+        response.setPayments(loadPayments(subscriberId, companyId, purchaseId));
         return response;
     }
 
     @Transactional
     public PurchaseResponse create(Long subscriberId, CreatePurchaseRequest request) {
+        Long companyId = companyService.ensureDefaultCompany(subscriberId, "Default Company").getId();
+        return create(subscriberId, companyId, request);
+    }
+
+    @Transactional
+    public PurchaseResponse create(Long subscriberId, Long companyId, CreatePurchaseRequest request) {
         Subscriber subscriber = subscriberService.getById(subscriberId);
-        Vendor vendor = vendorRepository.findByIdAndSubscriberId(request.getVendorId(), subscriberId)
+        Company company = companyService.requireAccessibleCompany(subscriberId, companyId);
+        Vendor vendor = vendorRepository.findByIdAndSubscriberIdAndCompanyId(request.getVendorId(), subscriberId, companyId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Vendor not found"));
 
         if (!vendor.isActive()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Selected vendor is inactive");
         }
 
-        String billNumber = resolveBillNumber(subscriberId, request.getBillNumber());
-        if (purchaseRepository.existsBySubscriberIdAndBillNumberIgnoreCase(subscriberId, billNumber)) {
+        String billNumber = resolveBillNumber(subscriberId, companyId, request.getBillNumber());
+        if (purchaseRepository.existsBySubscriberIdAndCompanyIdAndBillNumberIgnoreCase(subscriberId, companyId, billNumber)) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Bill number already exists");
         }
 
-        List<BuiltPurchaseItem> builtItems = buildPurchaseItems(subscriberId, request.getItems());
+        List<BuiltPurchaseItem> builtItems = buildPurchaseItems(subscriberId, companyId, request.getItems());
         AmountBreakdown amounts = calculateAmounts(request, builtItems);
 
         Purchase purchase = new Purchase();
         purchase.setSubscriber(subscriber);
+        purchase.setCompany(company);
         purchase.setVendor(vendor);
         purchase.setBillNumber(billNumber);
         purchase.setDate(request.getDate() != null ? request.getDate() : LocalDate.now());
@@ -180,13 +230,19 @@ public class PurchaseService {
 
     @Transactional
     public PurchaseResponse update(Long subscriberId, Long purchaseId, CreatePurchaseRequest request) {
-        Purchase purchase = getOwnedPurchase(subscriberId, purchaseId);
+        Long companyId = companyService.ensureDefaultCompany(subscriberId, "Default Company").getId();
+        return update(subscriberId, companyId, purchaseId, request);
+    }
+
+    @Transactional
+    public PurchaseResponse update(Long subscriberId, Long companyId, Long purchaseId, CreatePurchaseRequest request) {
+        Purchase purchase = getOwnedPurchase(subscriberId, companyId, purchaseId);
 
         if (purchase.getPaymentStatus() == PaymentStatus.PAID) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Fully paid purchases cannot be edited");
         }
 
-        Vendor vendor = vendorRepository.findByIdAndSubscriberId(request.getVendorId(), subscriberId)
+        Vendor vendor = vendorRepository.findByIdAndSubscriberIdAndCompanyId(request.getVendorId(), subscriberId, companyId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Vendor not found"));
 
         if (!vendor.isActive()) {
@@ -194,7 +250,7 @@ public class PurchaseService {
         }
 
         String billNumber = normalizeRequired(request.getBillNumber(), "Bill number is required");
-        if (purchaseRepository.existsBySubscriberIdAndBillNumberIgnoreCaseAndIdNot(subscriberId, billNumber, purchaseId)) {
+        if (purchaseRepository.existsBySubscriberIdAndCompanyIdAndBillNumberIgnoreCaseAndIdNot(subscriberId, companyId, billNumber, purchaseId)) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Bill number already exists");
         }
 
@@ -203,7 +259,7 @@ public class PurchaseService {
                 .map(item -> item.getProduct().getId())
                 .collect(java.util.stream.Collectors.toSet());
 
-        List<BuiltPurchaseItem> builtItems = buildPurchaseItems(subscriberId, request.getItems(), existingProductIds);
+        List<BuiltPurchaseItem> builtItems = buildPurchaseItems(subscriberId, companyId, request.getItems(), existingProductIds);
         AmountBreakdown amounts = calculateAmounts(request, builtItems);
 
         BigDecimal paidAmount = purchase.getPaidAmount();
@@ -232,7 +288,7 @@ public class PurchaseService {
         auditLogService.log(AuditAction.UPDATE, AuditEntityType.PURCHASE, saved.getId(), saved.getBillNumber());
         PurchaseResponse response = PurchaseResponse.from(saved);
         response.setItems(mapPurchaseItems(saved));
-        response.setPayments(loadPayments(subscriberId, purchaseId));
+        response.setPayments(loadPayments(subscriberId, companyId, purchaseId));
         return response;
     }
 
@@ -246,11 +302,26 @@ public class PurchaseService {
                                         String paymentDetails,
                                         String notes,
                                         MultipartFile proofFile) {
+        Long companyId = companyService.ensureDefaultCompany(subscriberId, "Default Company").getId();
+        return makePayment(subscriberId, companyId, purchaseId, amount, date, paymentMode, settlementType, paymentDetails, notes, proofFile);
+    }
+
+    @Transactional
+    public PurchaseResponse makePayment(Long subscriberId,
+                                        Long companyId,
+                                        Long purchaseId,
+                                        BigDecimal amount,
+                                        LocalDate date,
+                                        PaymentMode paymentMode,
+                                        PaymentSettlementType settlementType,
+                                        String paymentDetails,
+                                        String notes,
+                                        MultipartFile proofFile) {
         if (paymentMode == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Payment mode is required");
         }
 
-        Purchase purchase = getOwnedPurchase(subscriberId, purchaseId);
+        Purchase purchase = getOwnedPurchase(subscriberId, companyId, purchaseId);
         if (purchase.getPaymentStatus() == PaymentStatus.PAID) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Purchase is already fully paid");
         }
@@ -270,6 +341,7 @@ public class PurchaseService {
 
         Payment payment = new Payment();
         payment.setSubscriber(purchase.getSubscriber());
+        payment.setCompany(purchase.getCompany());
         payment.setType(PaymentType.PAID);
         payment.setAmount(paymentAmount);
         payment.setDate(date != null ? date : LocalDate.now());
@@ -308,13 +380,19 @@ public class PurchaseService {
         auditLogService.log(AuditAction.UPDATE, AuditEntityType.PURCHASE, purchase.getId(), purchase.getBillNumber());
 
         PurchaseResponse response = PurchaseResponse.from(purchase);
-        response.setPayments(loadPayments(subscriberId, purchaseId));
+        response.setPayments(loadPayments(subscriberId, companyId, purchaseId));
         return response;
     }
 
     @Transactional(readOnly = true)
     public Resource getPaymentProof(Long subscriberId, Long paymentId) {
-        Payment payment = paymentRepository.findByIdAndSubscriberId(paymentId, subscriberId)
+        Long companyId = companyService.ensureDefaultCompany(subscriberId, "Default Company").getId();
+        return getPaymentProof(subscriberId, companyId, paymentId);
+    }
+
+    @Transactional(readOnly = true)
+    public Resource getPaymentProof(Long subscriberId, Long companyId, Long paymentId) {
+        Payment payment = paymentRepository.findByIdAndSubscriberIdAndCompanyId(paymentId, subscriberId, companyId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Payment not found"));
 
         if (payment.getProofFilePath() == null || payment.getProofFilePath().isBlank()) {
@@ -330,7 +408,13 @@ public class PurchaseService {
 
     @Transactional(readOnly = true)
     public String getPaymentProofContentType(Long subscriberId, Long paymentId) {
-        Payment payment = paymentRepository.findByIdAndSubscriberId(paymentId, subscriberId)
+        Long companyId = companyService.ensureDefaultCompany(subscriberId, "Default Company").getId();
+        return getPaymentProofContentType(subscriberId, companyId, paymentId);
+    }
+
+    @Transactional(readOnly = true)
+    public String getPaymentProofContentType(Long subscriberId, Long companyId, Long paymentId) {
+        Payment payment = paymentRepository.findByIdAndSubscriberIdAndCompanyId(paymentId, subscriberId, companyId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Payment not found"));
         if (payment.getProofContentType() == null) {
             return "application/octet-stream";
@@ -340,34 +424,40 @@ public class PurchaseService {
 
     @Transactional(readOnly = true)
     public String getPaymentProofFileName(Long subscriberId, Long paymentId) {
-        Payment payment = paymentRepository.findByIdAndSubscriberId(paymentId, subscriberId)
+        Long companyId = companyService.ensureDefaultCompany(subscriberId, "Default Company").getId();
+        return getPaymentProofFileName(subscriberId, companyId, paymentId);
+    }
+
+    @Transactional(readOnly = true)
+    public String getPaymentProofFileName(Long subscriberId, Long companyId, Long paymentId) {
+        Payment payment = paymentRepository.findByIdAndSubscriberIdAndCompanyId(paymentId, subscriberId, companyId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Payment not found"));
         return payment.getProofFileName() != null ? payment.getProofFileName() : "payment-proof";
     }
 
-    private List<PurchasePaymentResponse> loadPayments(Long subscriberId, Long purchaseId) {
-        return paymentRepository.findBySale(subscriberId, ReferenceType.PURCHASE, purchaseId, PaymentType.PAID).stream()
+    private List<PurchasePaymentResponse> loadPayments(Long subscriberId, Long companyId, Long purchaseId) {
+        return paymentRepository.findBySale(subscriberId, companyId, ReferenceType.PURCHASE, purchaseId, PaymentType.PAID).stream()
                 .map(PurchasePaymentResponse::from)
                 .toList();
     }
 
-    private String suggestNextBillNumber(Long subscriberId) {
-        return purchaseRepository.findFirstBySubscriber_IdOrderByIdDesc(subscriberId)
+    private String suggestNextBillNumber(Long subscriberId, Long companyId) {
+        return purchaseRepository.findFirstBySubscriber_IdAndCompany_IdOrderByIdDesc(subscriberId, companyId)
                 .map(Purchase::getBillNumber)
                 .map(InvoiceNumberGenerator::suggestNext)
                 .orElseGet(InvoiceNumberGenerator::defaultFirstBill);
     }
 
-    private String resolveBillNumber(Long subscriberId, String requestedBillNumber) {
+    private String resolveBillNumber(Long subscriberId, Long companyId, String requestedBillNumber) {
         String trimmed = normalizeOptional(requestedBillNumber);
         if (trimmed != null) {
             return trimmed;
         }
-        return suggestNextBillNumber(subscriberId);
+        return suggestNextBillNumber(subscriberId, companyId);
     }
 
-    private Purchase getOwnedPurchase(Long subscriberId, Long purchaseId) {
-        return purchaseRepository.findByIdAndSubscriberId(purchaseId, subscriberId)
+    private Purchase getOwnedPurchase(Long subscriberId, Long companyId, Long purchaseId) {
+        return purchaseRepository.findByIdAndSubscriberIdAndCompanyId(purchaseId, subscriberId, companyId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Purchase not found"));
     }
 
@@ -384,11 +474,12 @@ public class PurchaseService {
         }
     }
 
-    private List<BuiltPurchaseItem> buildPurchaseItems(Long subscriberId, List<CreatePurchaseItemRequest> items) {
-        return buildPurchaseItems(subscriberId, items, Set.of());
+    private List<BuiltPurchaseItem> buildPurchaseItems(Long subscriberId, Long companyId, List<CreatePurchaseItemRequest> items) {
+        return buildPurchaseItems(subscriberId, companyId, items, Set.of());
     }
 
     private List<BuiltPurchaseItem> buildPurchaseItems(Long subscriberId,
+                                                       Long companyId,
                                                        List<CreatePurchaseItemRequest> items,
                                                        Set<Long> allowedInactiveProductIds) {
         if (items == null || items.isEmpty()) {
@@ -397,7 +488,7 @@ public class PurchaseService {
 
         List<BuiltPurchaseItem> builtItems = new ArrayList<>();
         for (CreatePurchaseItemRequest itemRequest : items) {
-            Product product = productService.getOwnedEntity(subscriberId, itemRequest.getProductId());
+            Product product = productService.getOwnedEntity(subscriberId, companyId, itemRequest.getProductId());
             if (!product.isActive() && !allowedInactiveProductIds.contains(product.getId())) {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Selected product is inactive: " + product.getName());
             }

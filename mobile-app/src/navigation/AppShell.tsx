@@ -35,7 +35,7 @@ import { ActivityLogScreen } from '../screens/ActivityLogScreen';
 import { PreferencesScreen } from '../screens/PreferencesScreen';
 import { PaymentRemindersScreen } from '../screens/PaymentRemindersScreen';
 import { PaymentReminderFormScreen } from '../screens/PaymentReminderFormScreen';
-import { api, SubscriberAccountProfile, SubscriberAuthResponse } from '../services/api';
+import { api, CompanyBusinessTypeOption, CompanyOption, setActiveCompanyId, SubscriberAccountProfile, SubscriberAuthResponse } from '../services/api';
 import { saveCachedPreferences } from '../services/preferenceStorage';
 import { useUserPreferences } from '../theme/AppThemeContext';
 import { toUserPreferences } from '../utils/userPreferences';
@@ -69,6 +69,10 @@ export function AppShell({ auth, onLogout, onSubscriptionChanged }: AppShellProp
   const [initialReminderCustomerId, setInitialReminderCustomerId] = useState<number | undefined>(undefined);
 
   const [profile, setProfile] = useState<SubscriberAccountProfile | null>(null);
+  const [companies, setCompanies] = useState<CompanyOption[]>(auth.companies ?? []);
+  const [companyBusinessTypes, setCompanyBusinessTypes] = useState<CompanyBusinessTypeOption[]>([]);
+  const [activeCompanyId, setActiveCompanyIdState] = useState<number | undefined>(auth.activeCompanyId);
+  const [switchingCompany, setSwitchingCompany] = useState(false);
   const [profileLoading, setProfileLoading] = useState(true);
   const [profileError, setProfileError] = useState('');
   const [refreshing, setRefreshing] = useState(false);
@@ -95,14 +99,6 @@ export function AppShell({ auth, onLogout, onSubscriptionChanged }: AppShellProp
         const nextPreferences = toUserPreferences(data);
         setPreferences(nextPreferences);
         await saveCachedPreferences(nextPreferences);
-        await onSubscriptionChanged({
-          ...auth,
-          subscriptionStatus: data.subscriptionStatus,
-          requiresSubscription: data.subscriptionStatus !== 'ACTIVE',
-          userName: data.loggedInUserName ?? auth.userName,
-          userType: data.userType ?? auth.userType,
-          canChangePin: data.canChangePin ?? auth.canChangePin,
-        });
       } catch (err) {
         setProfileError(err instanceof Error ? err.message : 'Could not load account details');
       } finally {
@@ -111,7 +107,7 @@ export function AppShell({ auth, onLogout, onSubscriptionChanged }: AppShellProp
         }
       }
     },
-    [auth, onSubscriptionChanged, setPreferences],
+    [auth.token, setPreferences],
   );
 
   const handleRefresh = useCallback(async () => {
@@ -122,11 +118,36 @@ export function AppShell({ auth, onLogout, onSubscriptionChanged }: AppShellProp
 
   useEffect(() => {
     isActiveRef.current = true;
+    setActiveCompanyId(auth.activeCompanyId);
+    setActiveCompanyIdState(auth.activeCompanyId);
+    setCompanies(auth.companies ?? []);
     void loadProfile();
+    void loadCompanyBusinessTypes();
     return () => {
       isActiveRef.current = false;
     };
-  }, [loadProfile]);
+  }, [auth.activeCompanyId, auth.companies, loadCompanyBusinessTypes, loadProfile]);
+
+  const loadCompanies = useCallback(async () => {
+    try {
+      const list = await api.listCompanies(auth.token);
+      setCompanies(list);
+      return list;
+    } catch {
+      return [] as CompanyOption[];
+    }
+  }, [auth.token]);
+
+  const loadCompanyBusinessTypes = useCallback(async () => {
+    try {
+      const options = await api.listCompanyBusinessTypes(auth.token);
+      setCompanyBusinessTypes(options);
+      return options;
+    } catch {
+      setCompanyBusinessTypes([]);
+      return [] as CompanyBusinessTypeOption[];
+    }
+  }, [auth.token]);
 
   const handleSignOut = async () => {
     isActiveRef.current = false;
@@ -134,6 +155,72 @@ export function AppShell({ auth, onLogout, onSubscriptionChanged }: AppShellProp
     setStackRoute(null);
     setDrawerRoute('dashboard');
     await onLogout();
+  };
+
+  const switchCompany = async (companyId: number) => {
+    if (switchingCompany || companyId === activeCompanyId) {
+      return;
+    }
+    const previousCompanyId = activeCompanyId ?? auth.activeCompanyId;
+
+    setSwitchingCompany(true);
+    setActiveCompanyId(companyId);
+    setActiveCompanyIdState(companyId);
+    setDrawerRoute('dashboard');
+    setStackRoute(null);
+
+    try {
+      const latestCompanies = companies.length > 0 ? companies : await loadCompanies();
+      await onSubscriptionChanged({
+        ...auth,
+        activeCompanyId: companyId,
+        companies: latestCompanies,
+      });
+      await loadProfile(true);
+    } catch (err) {
+      appAlert('Switch failed', err instanceof Error ? err.message : 'Could not switch company');
+      setActiveCompanyId(previousCompanyId);
+      setActiveCompanyIdState(previousCompanyId);
+    } finally {
+      setSwitchingCompany(false);
+      closeDrawer();
+    }
+  };
+
+  const createCompany = async (name: string, businessTypeId: number) => {
+    setSwitchingCompany(true);
+    try {
+      const created = await api.createCompany(auth.token, { name, businessTypeId });
+      const merged = (() => {
+        const map = new Map<number, CompanyOption>();
+        [...companies, created].forEach((company) => map.set(company.id, company));
+        return Array.from(map.values());
+      })();
+      setCompanies(merged);
+      await onSubscriptionChanged({
+        ...auth,
+        activeCompanyId: created.id,
+        companies: merged,
+      });
+      setActiveCompanyId(created.id);
+      setActiveCompanyIdState(created.id);
+      setDrawerRoute('dashboard');
+      setStackRoute(null);
+      await loadProfile(true);
+      const synced = await loadCompanies();
+      if (synced.length > 0) {
+        await onSubscriptionChanged({
+          ...auth,
+          activeCompanyId: created.id,
+          companies: synced,
+        });
+      }
+    } catch (err) {
+      appAlert('Create failed', err instanceof Error ? err.message : 'Could not create company');
+    } finally {
+      setSwitchingCompany(false);
+      closeDrawer();
+    }
   };
 
   const promptMembershipRequired = () => {
@@ -768,6 +855,7 @@ export function AppShell({ auth, onLogout, onSubscriptionChanged }: AppShellProp
       return (
         <DashboardScreen
           token={auth.token}
+          activeCompanyId={activeCompanyId}
           profile={profile}
           refreshing={refreshing}
           onRefresh={handleRefresh}
@@ -790,7 +878,12 @@ export function AppShell({ auth, onLogout, onSubscriptionChanged }: AppShellProp
 
     if (drawerRoute === 'reports') {
       return (
-        <ReportsScreen token={auth.token} refreshing={refreshing} onRefresh={handleRefresh} />
+        <ReportsScreen
+          token={auth.token}
+          activeCompanyId={activeCompanyId}
+          refreshing={refreshing}
+          onRefresh={handleRefresh}
+        />
       );
     }
 
@@ -878,8 +971,14 @@ export function AppShell({ auth, onLogout, onSubscriptionChanged }: AppShellProp
       open={drawerOpen}
       activeRoute={drawerRoute}
       profile={profile}
+      companies={companies}
+      businessTypes={companyBusinessTypes}
+      activeCompanyId={activeCompanyId}
+      switchingCompany={switchingCompany}
       onClose={closeDrawer}
       onNavigate={navigateDrawer}
+      onSwitchCompany={switchCompany}
+      onCreateCompany={createCompany}
       onSignOut={handleSignOut}
     >
       <View style={styles.shell}>

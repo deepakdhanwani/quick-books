@@ -41,16 +41,16 @@ public class SubscriberIntelligenceService {
     }
 
     @Transactional(readOnly = true)
-    public SubscriberIntelligenceResponse buildIntelligence(Long subscriberId) {
+    public SubscriberIntelligenceResponse buildIntelligence(Long subscriberId, Long companyId) {
         LocalDate today = LocalDate.now(ZoneOffset.UTC);
         LocalDate monthStart = today.withDayOfMonth(1);
         int daysElapsed = Math.max(today.getDayOfMonth(), 1);
         int daysInMonth = today.lengthOfMonth();
 
-        BigDecimal monthSalesMtd = nz(saleRepository.sumNetAmountBySubscriber(subscriberId, monthStart, today));
-        BigDecimal monthPurchasesMtd = nz(purchaseRepository.sumNetAmountBySubscriber(subscriberId, monthStart, today));
-        BigDecimal pendingReceivables = nz(saleRepository.sumPendingAmountBySubscriber(subscriberId));
-        BigDecimal pendingPayables = nz(purchaseRepository.sumPendingAmountBySubscriber(subscriberId));
+        BigDecimal monthSalesMtd = nz(saleRepository.sumNetAmountBySubscriber(subscriberId, companyId, monthStart, today));
+        BigDecimal monthPurchasesMtd = nz(purchaseRepository.sumNetAmountBySubscriber(subscriberId, companyId, monthStart, today));
+        BigDecimal pendingReceivables = nz(saleRepository.sumPendingAmountBySubscriber(subscriberId, companyId));
+        BigDecimal pendingPayables = nz(purchaseRepository.sumPendingAmountBySubscriber(subscriberId, companyId));
 
         BigDecimal projectedMonthSales = projectMonthEnd(monthSalesMtd, daysElapsed, daysInMonth);
         BigDecimal projectedMonthPurchases = projectMonthEnd(monthPurchasesMtd, daysElapsed, daysInMonth);
@@ -62,13 +62,13 @@ public class SubscriberIntelligenceService {
         LocalDate prevComparableEnd = prevMonthStart.plusDays(comparableDay - 1L);
 
         BigDecimal prevSalesComparable = nz(
-                saleRepository.sumNetAmountBySubscriber(subscriberId, prevMonthStart, prevComparableEnd));
+                saleRepository.sumNetAmountBySubscriber(subscriberId, companyId, prevMonthStart, prevComparableEnd));
         BigDecimal prevPurchasesComparable = nz(
-                purchaseRepository.sumNetAmountBySubscriber(subscriberId, prevMonthStart, prevComparableEnd));
+                purchaseRepository.sumNetAmountBySubscriber(subscriberId, companyId, prevMonthStart, prevComparableEnd));
         BigDecimal prevMonthSalesFull = nz(
-                saleRepository.sumNetAmountBySubscriber(subscriberId, prevMonthStart, prevMonthEnd));
+                saleRepository.sumNetAmountBySubscriber(subscriberId, companyId, prevMonthStart, prevMonthEnd));
         BigDecimal prevMonthPurchasesFull = nz(
-                purchaseRepository.sumNetAmountBySubscriber(subscriberId, prevMonthStart, prevMonthEnd));
+                purchaseRepository.sumNetAmountBySubscriber(subscriberId, companyId, prevMonthStart, prevMonthEnd));
 
         double salesChange = percentChange(monthSalesMtd, prevSalesComparable);
         double purchaseChange = percentChange(monthPurchasesMtd, prevPurchasesComparable);
@@ -131,12 +131,13 @@ public class SubscriberIntelligenceService {
         response.setHealthLabel(healthLabel(healthScore));
         response.setHealthSummary(buildHealthSummary(healthScore, salesChange, projectedNet));
 
-        response.setSalesTrend(buildSalesTrend(subscriberId, today, projectedMonthSales, nextMonthSalesForecast));
+        response.setSalesTrend(buildSalesTrend(subscriberId, companyId, today, projectedMonthSales, nextMonthSalesForecast));
         response.setPurchaseTrend(buildPurchaseTrend(
-                subscriberId, today, projectedMonthPurchases, nextMonthPurchaseForecast));
+                subscriberId, companyId, today, projectedMonthPurchases, nextMonthPurchaseForecast));
 
         response.getInsights().addAll(buildInsights(
                 subscriberId,
+                companyId,
                 monthSalesMtd,
                 monthPurchasesMtd,
                 projectedMonthSales,
@@ -157,6 +158,7 @@ public class SubscriberIntelligenceService {
     }
 
     private List<ChartPointDto> buildSalesTrend(Long subscriberId,
+                                                Long companyId,
                                                 LocalDate today,
                                                 BigDecimal projectedMonthSales,
                                                 BigDecimal nextMonthForecast) {
@@ -167,7 +169,7 @@ public class SubscriberIntelligenceService {
             YearMonth month = current.minusMonths(offset);
             LocalDate from = month.atDay(1);
             LocalDate to = month.atEndOfMonth();
-            BigDecimal amount = nz(saleRepository.sumNetAmountBySubscriber(subscriberId, from, to));
+            BigDecimal amount = nz(saleRepository.sumNetAmountBySubscriber(subscriberId, companyId, from, to));
             points.add(new ChartPointDto(month.format(MONTH_FORMAT), amount, false));
         }
 
@@ -177,6 +179,7 @@ public class SubscriberIntelligenceService {
     }
 
     private List<ChartPointDto> buildPurchaseTrend(Long subscriberId,
+                                                   Long companyId,
                                                    LocalDate today,
                                                    BigDecimal projectedMonthPurchases,
                                                    BigDecimal nextMonthForecast) {
@@ -187,7 +190,7 @@ public class SubscriberIntelligenceService {
             YearMonth month = current.minusMonths(offset);
             LocalDate from = month.atDay(1);
             LocalDate to = month.atEndOfMonth();
-            BigDecimal amount = nz(purchaseRepository.sumNetAmountBySubscriber(subscriberId, from, to));
+            BigDecimal amount = nz(purchaseRepository.sumNetAmountBySubscriber(subscriberId, companyId, from, to));
             points.add(new ChartPointDto(month.format(MONTH_FORMAT), amount, false));
         }
 
@@ -197,6 +200,7 @@ public class SubscriberIntelligenceService {
     }
 
     private List<BusinessInsightDto> buildInsights(Long subscriberId,
+                                                   Long companyId,
                                                    BigDecimal monthSalesMtd,
                                                    BigDecimal monthPurchasesMtd,
                                                    BigDecimal projectedMonthSales,
@@ -297,19 +301,22 @@ public class SubscriberIntelligenceService {
                     round(purchaseChange) + "%"));
         }
 
-        appendTopProductInsight(subscriberId, insights, monthSalesMtd);
+        appendTopProductInsight(subscriberId, companyId, insights, monthSalesMtd);
 
         return insights;
     }
 
-    private void appendTopProductInsight(Long subscriberId, List<BusinessInsightDto> insights, BigDecimal monthSalesMtd) {
+    private void appendTopProductInsight(Long subscriberId,
+                                         Long companyId,
+                                         List<BusinessInsightDto> insights,
+                                         BigDecimal monthSalesMtd) {
         if (monthSalesMtd.compareTo(BigDecimal.ZERO) <= 0) {
             return;
         }
 
         LocalDate today = LocalDate.now(ZoneOffset.UTC);
         LocalDate monthStart = today.withDayOfMonth(1);
-        List<Object[]> products = saleItemRepository.findTopProductsBySales(subscriberId, monthStart, today);
+        List<Object[]> products = saleItemRepository.findTopProductsBySales(subscriberId, companyId, monthStart, today);
         if (products.isEmpty()) {
             return;
         }

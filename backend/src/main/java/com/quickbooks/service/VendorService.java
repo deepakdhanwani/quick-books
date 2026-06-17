@@ -6,6 +6,7 @@ import com.quickbooks.dto.vendor.UpdateVendorActiveRequest;
 import com.quickbooks.dto.vendor.UpdateVendorRequest;
 import com.quickbooks.dto.vendor.VendorResponse;
 import com.quickbooks.entity.Subscriber;
+import com.quickbooks.entity.Company;
 import com.quickbooks.entity.Vendor;
 import com.quickbooks.entity.enums.AuditAction;
 import com.quickbooks.entity.enums.AuditEntityType;
@@ -33,20 +34,29 @@ public class VendorService {
     private final VendorRepository vendorRepository;
     private final PurchaseRepository purchaseRepository;
     private final SubscriberService subscriberService;
+    private final CompanyService companyService;
     private final AuditLogService auditLogService;
 
     public VendorService(VendorRepository vendorRepository,
                          PurchaseRepository purchaseRepository,
                          SubscriberService subscriberService,
+                         CompanyService companyService,
                          AuditLogService auditLogService) {
         this.vendorRepository = vendorRepository;
         this.purchaseRepository = purchaseRepository;
         this.subscriberService = subscriberService;
+        this.companyService = companyService;
         this.auditLogService = auditLogService;
     }
 
     @Transactional(readOnly = true)
     public PageResponse<VendorResponse> findPage(Long subscriberId, int page, int size, Boolean active, String search) {
+        Long companyId = companyService.ensureDefaultCompany(subscriberId, "Default Company").getId();
+        return findPage(subscriberId, companyId, page, size, active, search);
+    }
+
+    @Transactional(readOnly = true)
+    public PageResponse<VendorResponse> findPage(Long subscriberId, Long companyId, int page, int size, Boolean active, String search) {
         int normalizedPage = Math.max(page, 0);
         int normalizedSize = Math.min(Math.max(size, 1), 100);
         String normalizedSearch = normalizeOptional(search);
@@ -54,13 +64,14 @@ public class VendorService {
         Pageable pageable = PageRequest.of(normalizedPage, normalizedSize, Sort.by("name").ascending());
         Page<Vendor> result = vendorRepository.findBySubscriber(
                 subscriberId,
+                companyId,
                 active,
                 normalizedSearch,
                 pageable
         );
 
         List<Long> vendorIds = result.getContent().stream().map(Vendor::getId).toList();
-        Map<Long, BigDecimal> pendingByVendor = loadPendingAmountsByVendor(subscriberId, vendorIds);
+        Map<Long, BigDecimal> pendingByVendor = loadPendingAmountsByVendor(subscriberId, companyId, vendorIds);
 
         return PageResponse.from(result.map(vendor -> {
             VendorResponse response = VendorResponse.from(vendor);
@@ -71,12 +82,12 @@ public class VendorService {
         }));
     }
 
-    private Map<Long, BigDecimal> loadPendingAmountsByVendor(Long subscriberId, List<Long> vendorIds) {
+    private Map<Long, BigDecimal> loadPendingAmountsByVendor(Long subscriberId, Long companyId, List<Long> vendorIds) {
         if (vendorIds.isEmpty()) {
             return Map.of();
         }
 
-        return purchaseRepository.sumPendingAmountsByVendorIds(subscriberId, vendorIds).stream()
+        return purchaseRepository.sumPendingAmountsByVendorIds(subscriberId, companyId, vendorIds).stream()
                 .collect(Collectors.toMap(
                         row -> (Long) row[0],
                         row -> (BigDecimal) row[1]
@@ -85,26 +96,40 @@ public class VendorService {
 
     @Transactional(readOnly = true)
     public VendorResponse getById(Long subscriberId, Long vendorId) {
-        Vendor vendor = getOwnedVendor(subscriberId, vendorId);
+        Long companyId = companyService.ensureDefaultCompany(subscriberId, "Default Company").getId();
+        return getById(subscriberId, companyId, vendorId);
+    }
+
+    @Transactional(readOnly = true)
+    public VendorResponse getById(Long subscriberId, Long companyId, Long vendorId) {
+        Vendor vendor = getOwnedVendor(subscriberId, companyId, vendorId);
         VendorResponse response = VendorResponse.from(vendor);
         response.setTotalPendingAmount(computeVendorOutstanding(
                 vendor,
-                loadPendingAmountsByVendor(subscriberId, List.of(vendorId))
+                loadPendingAmountsByVendor(subscriberId, companyId, List.of(vendorId))
                         .getOrDefault(vendorId, BigDecimal.ZERO)));
         return response;
     }
 
     @Transactional
     public VendorResponse create(Long subscriberId, CreateVendorRequest request) {
+        Long companyId = companyService.ensureDefaultCompany(subscriberId, "Default Company").getId();
+        return create(subscriberId, companyId, request);
+    }
+
+    @Transactional
+    public VendorResponse create(Long subscriberId, Long companyId, CreateVendorRequest request) {
         Subscriber subscriber = subscriberService.getById(subscriberId);
+        Company company = companyService.requireAccessibleCompany(subscriberId, companyId);
         String name = normalizeName(request.getName());
 
-        if (vendorRepository.existsBySubscriberIdAndNameIgnoreCase(subscriberId, name)) {
+        if (vendorRepository.existsBySubscriberIdAndCompanyIdAndNameIgnoreCase(subscriberId, companyId, name)) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Vendor with this name already exists");
         }
 
         Vendor vendor = new Vendor();
         vendor.setSubscriber(subscriber);
+        vendor.setCompany(company);
         applyFields(vendor, request, name);
         vendor.setActive(request.getActive() == null || request.getActive());
 
@@ -115,10 +140,16 @@ public class VendorService {
 
     @Transactional
     public VendorResponse update(Long subscriberId, Long vendorId, UpdateVendorRequest request) {
-        Vendor vendor = getOwnedVendor(subscriberId, vendorId);
+        Long companyId = companyService.ensureDefaultCompany(subscriberId, "Default Company").getId();
+        return update(subscriberId, companyId, vendorId, request);
+    }
+
+    @Transactional
+    public VendorResponse update(Long subscriberId, Long companyId, Long vendorId, UpdateVendorRequest request) {
+        Vendor vendor = getOwnedVendor(subscriberId, companyId, vendorId);
         String name = normalizeName(request.getName());
 
-        if (vendorRepository.existsBySubscriberIdAndNameIgnoreCaseAndIdNot(subscriberId, name, vendorId)) {
+        if (vendorRepository.existsBySubscriberIdAndCompanyIdAndNameIgnoreCaseAndIdNot(subscriberId, companyId, name, vendorId)) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Vendor with this name already exists");
         }
 
@@ -134,7 +165,13 @@ public class VendorService {
 
     @Transactional
     public VendorResponse updateActive(Long subscriberId, Long vendorId, UpdateVendorActiveRequest request) {
-        Vendor vendor = getOwnedVendor(subscriberId, vendorId);
+        Long companyId = companyService.ensureDefaultCompany(subscriberId, "Default Company").getId();
+        return updateActive(subscriberId, companyId, vendorId, request);
+    }
+
+    @Transactional
+    public VendorResponse updateActive(Long subscriberId, Long companyId, Long vendorId, UpdateVendorActiveRequest request) {
+        Vendor vendor = getOwnedVendor(subscriberId, companyId, vendorId);
         vendor.setActive(request.getActive());
         Vendor saved = vendorRepository.save(vendor);
         auditLogService.log(AuditAction.UPDATE, AuditEntityType.VENDOR, saved.getId(),
@@ -144,13 +181,19 @@ public class VendorService {
 
     @Transactional
     public void delete(Long subscriberId, Long vendorId) {
-        Vendor vendor = getOwnedVendor(subscriberId, vendorId);
+        Long companyId = companyService.ensureDefaultCompany(subscriberId, "Default Company").getId();
+        delete(subscriberId, companyId, vendorId);
+    }
+
+    @Transactional
+    public void delete(Long subscriberId, Long companyId, Long vendorId) {
+        Vendor vendor = getOwnedVendor(subscriberId, companyId, vendorId);
         auditLogService.log(AuditAction.DELETE, AuditEntityType.VENDOR, vendor.getId(), vendor.getName());
         vendorRepository.delete(vendor);
     }
 
-    private Vendor getOwnedVendor(Long subscriberId, Long vendorId) {
-        return vendorRepository.findByIdAndSubscriberId(vendorId, subscriberId)
+    private Vendor getOwnedVendor(Long subscriberId, Long companyId, Long vendorId) {
+        return vendorRepository.findByIdAndSubscriberIdAndCompanyId(vendorId, subscriberId, companyId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Vendor not found"));
     }
 

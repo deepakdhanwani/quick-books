@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <changeSet id="023-multi-company-foundation" author="quickbooks">
+        <createTable tableName="companies">
+            <column name="id" type="BIGSERIAL" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="subscriber_id" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="name" type="VARCHAR(150)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="is_active" type="BOOLEAN" defaultValueBoolean="true">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_at" type="TIMESTAMPTZ" defaultValueComputed="CURRENT_TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <addUniqueConstraint tableName="companies"
+                             columnNames="subscriber_id,name"
+                             constraintName="uk_companies_subscriber_name"/>
+
+        <addForeignKeyConstraint
+                baseTableName="companies"
+                baseColumnNames="subscriber_id"
+                constraintName="fk_companies_subscriber"
+                referencedTableName="subscribers"
+                referencedColumnNames="id"/>
+
+        <createIndex tableName="companies" indexName="idx_companies_subscriber_active">
+            <column name="subscriber_id"/>
+            <column name="is_active"/>
+        </createIndex>
+
+        <addColumn tableName="subscription_plans">
+            <column name="min_companies" type="INT" defaultValueNumeric="1">
+                <constraints nullable="false"/>
+            </column>
+            <column name="max_companies" type="INT" defaultValueNumeric="1">
+                <constraints nullable="false"/>
+            </column>
+        </addColumn>
+
+        <addColumn tableName="subscribers">
+            <column name="default_company_id" type="BIGINT"/>
+        </addColumn>
+
+        <sql>
+            INSERT INTO companies (subscriber_id, name, is_active, created_at)
+            SELECT s.id,
+                   COALESCE(NULLIF(TRIM(s.business_name), ''), 'Main Company'),
+                   TRUE,
+                   CURRENT_TIMESTAMP
+            FROM subscribers s
+            WHERE NOT EXISTS (
+                SELECT 1
+                FROM companies c
+                WHERE c.subscriber_id = s.id
+            );
+        </sql>
+
+        <sql>
+            UPDATE subscribers s
+            SET default_company_id = c.id
+            FROM (
+                SELECT subscriber_id, MIN(id) AS id
+                FROM companies
+                WHERE is_active = TRUE
+                GROUP BY subscriber_id
+            ) c
+            WHERE s.id = c.subscriber_id
+              AND s.default_company_id IS NULL;
+        </sql>
+
+        <addForeignKeyConstraint
+                baseTableName="subscribers"
+                baseColumnNames="default_company_id"
+                constraintName="fk_subscribers_default_company"
+                referencedTableName="companies"
+                referencedColumnNames="id"/>
+    </changeSet>
+
+</databaseChangeLog>

@@ -61,6 +61,10 @@ public class Subscriber {
     @Column(name = "created_at", nullable = false)
     private OffsetDateTime createdAt = OffsetDateTime.now();
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "default_company_id")
+    private Company defaultCompany;
+
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
     public String getBusinessName() { return businessName; }
@@ -91,4 +95,6 @@ public class Subscriber {
     public void setFontSize(AppFontSize fontSize) { this.fontSize = fontSize; }
     public OffsetDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(OffsetDateTime createdAt) { this.createdAt = createdAt; }
+    public Company getDefaultCompany() { return defaultCompany; }
+    public void setDefaultCompany(Company defaultCompany) { this.defaultCompany = defaultCompany; }
 }

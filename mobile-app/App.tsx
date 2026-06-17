@@ -4,7 +4,7 @@ import { ActivityIndicator, View } from 'react-native';
 import { AlertProvider } from './src/components/AlertProvider';
 import { AppShell } from './src/navigation/AppShell';
 import { LoginScreen } from './src/screens/LoginScreen';
-import { api, initApiBaseUrl, SubscriberAuthResponse } from './src/services/api';
+import { api, initApiBaseUrl, setActiveCompanyId, SubscriberAuthResponse } from './src/services/api';
 import { clearAuthSession, loadAuthSession, saveAuthSession } from './src/services/authStorage';
 import { loadCachedPreferences, saveCachedPreferences } from './src/services/preferenceStorage';
 import { AppThemeProvider } from './src/theme/AppThemeContext';
@@ -100,6 +100,7 @@ export default function App() {
           };
           await saveAuthSession(refreshedAuth);
           setAuth(refreshedAuth);
+          setActiveCompanyId(refreshedAuth.activeCompanyId);
         } catch {
           await clearAuthSession();
         }
@@ -114,6 +115,7 @@ export default function App() {
   const handleLogout = async () => {
     isLoggingOutRef.current = true;
     await clearAuthSession();
+    setActiveCompanyId(null);
     setAuth(null);
   };
 
@@ -122,15 +124,19 @@ export default function App() {
       return;
     }
     setAuth(nextAuth);
+    setActiveCompanyId(nextAuth.activeCompanyId);
     await saveAuthSession(nextAuth);
   }, []);
 
   const handleLogin = async (response: SubscriberAuthResponse) => {
     isLoggingOutRef.current = false;
-    await saveAuthSession(response);
+    const selectedCompanyId = response.activeCompanyId ?? response.companies?.[0]?.id;
+    const normalizedResponse = { ...response, activeCompanyId: selectedCompanyId };
+    setActiveCompanyId(selectedCompanyId);
+    await saveAuthSession(normalizedResponse);
 
     try {
-      const profile = await api.getAccountProfile(response.token);
+      const profile = await api.getAccountProfile(normalizedResponse.token);
       const preferences = toUserPreferences(profile);
       await saveCachedPreferences(preferences);
       setInitialPreferences(preferences);
@@ -138,7 +144,7 @@ export default function App() {
       // Keep cached/default preferences if profile fetch fails right after login.
     }
 
-    setAuth(response);
+    setAuth(normalizedResponse);
   };
 
   return (

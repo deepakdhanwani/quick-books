@@ -23,6 +23,12 @@ public class SubscriptionPlan {
     @Column(nullable = false)
     private BigDecimal price;
 
+    @Column(name = "min_companies", nullable = false)
+    private Integer minCompanies = 1;
+
+    @Column(name = "max_companies", nullable = false)
+    private Integer maxCompanies = 1;
+
     @Column(columnDefinition = "TEXT")
     private String description;
 
@@ -40,6 +46,10 @@ public class SubscriptionPlan {
     public void setDuration(PlanDuration duration) { this.duration = duration; }
     public BigDecimal getPrice() { return price; }
     public void setPrice(BigDecimal price) { this.price = price; }
+    public Integer getMinCompanies() { return minCompanies; }
+    public void setMinCompanies(Integer minCompanies) { this.minCompanies = minCompanies; }
+    public Integer getMaxCompanies() { return maxCompanies; }
+    public void setMaxCompanies(Integer maxCompanies) { this.maxCompanies = maxCompanies; }
     public String getDescription() { return description; }
     public void setDescription(String description) { this.description = description; }
     public boolean isActive() { return active; }

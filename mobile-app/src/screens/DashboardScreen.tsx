@@ -23,6 +23,7 @@ import { formatCurrency } from '../utils/saleAmounts';
 
 type DashboardScreenProps = {
   token: string;
+  activeCompanyId?: number;
   profile: SubscriberAccountProfile | null;
   refreshing: boolean;
   onRefresh: () => void | Promise<void>;
@@ -39,6 +40,7 @@ type DashboardScreenProps = {
 
 export function DashboardScreen({
   token,
+  activeCompanyId,
   profile,
   refreshing,
   onRefresh,
@@ -82,8 +84,12 @@ export function DashboardScreen({
   }, [token]);
 
   useEffect(() => {
-    loadDashboard();
-  }, [loadDashboard]);
+    setLoading(true);
+    setDashboard(null);
+    setIntelligence(null);
+    setDueReminders([]);
+    void loadDashboard();
+  }, [loadDashboard, activeCompanyId]);
 
   const handleRefresh = async () => {
     await onRefresh();

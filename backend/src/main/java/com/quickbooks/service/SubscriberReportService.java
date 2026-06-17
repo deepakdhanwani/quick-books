@@ -20,6 +20,7 @@ import org.springframework.web.server.ResponseStatusException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
+import java.time.YearMonth;
 import java.time.ZoneOffset;
 import java.time.temporal.ChronoUnit;
 import java.util.HashMap;
@@ -37,6 +38,7 @@ public class SubscriberReportService {
 
     private final AdminSubscriberReportService adminSubscriberReportService;
     private final AdminSubscriberDataService adminSubscriberDataService;
+    private final CompanyService companyService;
     private final SaleRepository saleRepository;
     private final PurchaseRepository purchaseRepository;
     private final SaleItemRepository saleItemRepository;
@@ -46,6 +48,7 @@ public class SubscriberReportService {
 
     public SubscriberReportService(AdminSubscriberReportService adminSubscriberReportService,
                                    AdminSubscriberDataService adminSubscriberDataService,
+                                   CompanyService companyService,
                                    SaleRepository saleRepository,
                                    PurchaseRepository purchaseRepository,
                                    SaleItemRepository saleItemRepository,
@@ -54,6 +57,7 @@ public class SubscriberReportService {
                                    ProductRepository productRepository) {
         this.adminSubscriberReportService = adminSubscriberReportService;
         this.adminSubscriberDataService = adminSubscriberDataService;
+        this.companyService = companyService;
         this.saleRepository = saleRepository;
         this.purchaseRepository = purchaseRepository;
         this.saleItemRepository = saleItemRepository;
@@ -63,16 +67,16 @@ public class SubscriberReportService {
     }
 
     @Transactional(readOnly = true)
-    public SubscriberDashboardResponse dashboard(Long subscriberId) {
+    public SubscriberDashboardResponse dashboard(Long subscriberId, Long companyId) {
         LocalDate today = LocalDate.now(ZoneOffset.UTC);
         LocalDate monthStart = today.withDayOfMonth(1);
 
-        BigDecimal todaySales = saleRepository.sumNetAmountBySubscriber(subscriberId, today, today);
-        BigDecimal todayPurchases = purchaseRepository.sumNetAmountBySubscriber(subscriberId, today, today);
-        BigDecimal monthSales = saleRepository.sumNetAmountBySubscriber(subscriberId, monthStart, today);
-        BigDecimal monthPurchases = purchaseRepository.sumNetAmountBySubscriber(subscriberId, monthStart, today);
-        BigDecimal pendingReceivables = saleRepository.sumPendingAmountBySubscriber(subscriberId);
-        BigDecimal pendingPayables = purchaseRepository.sumPendingAmountBySubscriber(subscriberId);
+        BigDecimal todaySales = saleRepository.sumNetAmountBySubscriber(subscriberId, companyId, today, today);
+        BigDecimal todayPurchases = purchaseRepository.sumNetAmountBySubscriber(subscriberId, companyId, today, today);
+        BigDecimal monthSales = saleRepository.sumNetAmountBySubscriber(subscriberId, companyId, monthStart, today);
+        BigDecimal monthPurchases = purchaseRepository.sumNetAmountBySubscriber(subscriberId, companyId, monthStart, today);
+        BigDecimal pendingReceivables = saleRepository.sumPendingAmountBySubscriber(subscriberId, companyId);
+        BigDecimal pendingPayables = purchaseRepository.sumPendingAmountBySubscriber(subscriberId, companyId);
 
         SubscriberDashboardResponse response = new SubscriberDashboardResponse();
         response.setTodaySales(todaySales);
@@ -82,11 +86,11 @@ public class SubscriberReportService {
         response.setPendingReceivables(pendingReceivables);
         response.setPendingPayables(pendingPayables);
         response.setMonthNetPosition(monthSales.subtract(monthPurchases));
-        response.setCustomerCount(customerRepository.countBySubscriber_Id(subscriberId));
-        response.setVendorCount(vendorRepository.countBySubscriber_Id(subscriberId));
-        response.setProductCount(productRepository.countBySubscriber_Id(subscriberId));
-        response.setSaleCount(saleRepository.countBySubscriber_Id(subscriberId));
-        response.setPurchaseCount(purchaseRepository.countBySubscriber_Id(subscriberId));
+        response.setCustomerCount(customerRepository.countBySubscriber_IdAndCompany_Id(subscriberId, companyId));
+        response.setVendorCount(vendorRepository.countBySubscriber_IdAndCompany_Id(subscriberId, companyId));
+        response.setProductCount(productRepository.countBySubscriber_IdAndCompany_Id(subscriberId, companyId));
+        response.setSaleCount(saleRepository.countBySubscriber_IdAndCompany_Id(subscriberId, companyId));
+        response.setPurchaseCount(purchaseRepository.countBySubscriber_IdAndCompany_Id(subscriberId, companyId));
         return response;
     }
 
@@ -96,49 +100,144 @@ public class SubscriberReportService {
     }
 
     @Transactional(readOnly = true)
-    public AdminReportResponse salesReport(Long subscriberId, LocalDate from, LocalDate to) {
-        return adminSubscriberReportService.salesReport(subscriberId, from, to);
+    public AdminReportResponse salesReport(Long subscriberId, Long companyId, LocalDate from, LocalDate to) {
+        DateRange range = resolveRange(from, to);
+        String companyName = companyService.requireAccessibleCompany(subscriberId, companyId).getName();
+
+        AdminReportResponse response = new AdminReportResponse();
+        response.setReportType("SUBSCRIBER_SALES");
+        response.setTitle("Sales Report — " + companyName);
+        response.getFilters().put("From", range.from().toString());
+        response.getFilters().put("To", range.to().toString());
+
+        BigDecimal total = saleRepository.sumNetAmountBySubscriber(subscriberId, companyId, range.from(), range.to());
+        BigDecimal pending = saleRepository.sumPendingAmountBySubscriber(subscriberId, companyId);
+        long count = saleRepository.findAmountsByDateRange(subscriberId, companyId, range.from(), range.to()).size();
+
+        response.getSummary().add(new ReportSummaryItemDto("Sales in Range", String.valueOf(count)));
+        response.getSummary().add(new ReportSummaryItemDto("Net Sales", formatMoney(total)));
+        response.getSummary().add(new ReportSummaryItemDto("Total Pending Receivables", formatMoney(pending)));
+
+        response.getColumns().add(new ReportColumnDto("month", "Month", "left"));
+        response.getColumns().add(new ReportColumnDto("amount", "Net Sales", "right"));
+
+        Map<YearMonth, BigDecimal> byMonth = aggregateByMonth(
+                saleRepository.findAmountsByDateRange(subscriberId, companyId, range.from(), range.to()));
+
+        for (Map.Entry<YearMonth, BigDecimal> entry : byMonth.entrySet()) {
+            Map<String, String> row = new LinkedHashMap<>();
+            row.put("month", entry.getKey().toString());
+            row.put("amount", formatMoney(entry.getValue()));
+            response.getRows().add(row);
+            response.getChartData().add(new ChartPointDto(entry.getKey().toString(), entry.getValue()));
+        }
+
+        return response;
     }
 
     @Transactional(readOnly = true)
-    public AdminReportResponse purchasesReport(Long subscriberId, LocalDate from, LocalDate to) {
-        return adminSubscriberReportService.purchasesReport(subscriberId, from, to);
+    public AdminReportResponse purchasesReport(Long subscriberId, Long companyId, LocalDate from, LocalDate to) {
+        DateRange range = resolveRange(from, to);
+        String companyName = companyService.requireAccessibleCompany(subscriberId, companyId).getName();
+
+        AdminReportResponse response = new AdminReportResponse();
+        response.setReportType("SUBSCRIBER_PURCHASES");
+        response.setTitle("Purchases Report — " + companyName);
+        response.getFilters().put("From", range.from().toString());
+        response.getFilters().put("To", range.to().toString());
+
+        BigDecimal total = purchaseRepository.sumNetAmountBySubscriber(subscriberId, companyId, range.from(), range.to());
+        BigDecimal pending = purchaseRepository.sumPendingAmountBySubscriber(subscriberId, companyId);
+        long count = purchaseRepository.findAmountsByDateRange(subscriberId, companyId, range.from(), range.to()).size();
+
+        response.getSummary().add(new ReportSummaryItemDto("Purchases in Range", String.valueOf(count)));
+        response.getSummary().add(new ReportSummaryItemDto("Net Purchases", formatMoney(total)));
+        response.getSummary().add(new ReportSummaryItemDto("Total Pending Payables", formatMoney(pending)));
+
+        response.getColumns().add(new ReportColumnDto("month", "Month", "left"));
+        response.getColumns().add(new ReportColumnDto("amount", "Net Purchases", "right"));
+
+        Map<YearMonth, BigDecimal> byMonth = aggregateByMonth(
+                purchaseRepository.findAmountsByDateRange(subscriberId, companyId, range.from(), range.to()));
+
+        for (Map.Entry<YearMonth, BigDecimal> entry : byMonth.entrySet()) {
+            Map<String, String> row = new LinkedHashMap<>();
+            row.put("month", entry.getKey().toString());
+            row.put("amount", formatMoney(entry.getValue()));
+            response.getRows().add(row);
+            response.getChartData().add(new ChartPointDto(entry.getKey().toString(), entry.getValue()));
+        }
+
+        return response;
     }
 
     @Transactional(readOnly = true)
-    public AdminReportResponse businessSummaryReport(Long subscriberId, LocalDate from, LocalDate to) {
-        return adminSubscriberReportService.businessSummaryReport(subscriberId, from, to);
+    public AdminReportResponse businessSummaryReport(Long subscriberId, Long companyId, LocalDate from, LocalDate to) {
+        DateRange range = resolveRange(from, to);
+        String companyName = companyService.requireAccessibleCompany(subscriberId, companyId).getName();
+
+        BigDecimal salesTotal = saleRepository.sumNetAmountBySubscriber(subscriberId, companyId, range.from(), range.to());
+        BigDecimal purchasesTotal = purchaseRepository.sumNetAmountBySubscriber(subscriberId, companyId, range.from(), range.to());
+        BigDecimal netPosition = salesTotal.subtract(purchasesTotal);
+
+        AdminReportResponse response = new AdminReportResponse();
+        response.setReportType("SUBSCRIBER_SUMMARY");
+        response.setTitle("Business Summary — " + companyName);
+        response.getFilters().put("From", range.from().toString());
+        response.getFilters().put("To", range.to().toString());
+
+        response.getSummary().add(new ReportSummaryItemDto("Net Sales", formatMoney(salesTotal)));
+        response.getSummary().add(new ReportSummaryItemDto("Net Purchases", formatMoney(purchasesTotal)));
+        response.getSummary().add(new ReportSummaryItemDto("Net Position", formatMoney(netPosition)));
+        response.getSummary().add(new ReportSummaryItemDto(
+                "Pending Receivables",
+                formatMoney(saleRepository.sumPendingAmountBySubscriber(subscriberId, companyId))));
+        response.getSummary().add(new ReportSummaryItemDto(
+                "Pending Payables",
+                formatMoney(purchaseRepository.sumPendingAmountBySubscriber(subscriberId, companyId))));
+
+        response.getColumns().add(new ReportColumnDto("metric", "Metric", "left"));
+        response.getColumns().add(new ReportColumnDto("amount", "Amount", "right"));
+
+        addSummaryRow(response, "Net Sales", salesTotal);
+        addSummaryRow(response, "Net Purchases", purchasesTotal);
+        addSummaryRow(response, "Net Position (Sales − Purchases)", netPosition);
+
+        response.getChartData().add(new ChartPointDto("Sales", salesTotal));
+        response.getChartData().add(new ChartPointDto("Purchases", purchasesTotal));
+
+        return response;
     }
 
     @Transactional(readOnly = true)
-    public AdminReportResponse receivablesReport(Long subscriberId) {
+    public AdminReportResponse receivablesReport(Long subscriberId, Long companyId) {
         return buildOutstandingReport(
-                saleRepository.findReceivableDetailsBySubscriber(subscriberId),
-                saleRepository.sumPendingAmountBySubscriber(subscriberId),
+                saleRepository.findReceivableDetailsBySubscriber(subscriberId, companyId),
+                saleRepository.sumPendingAmountBySubscriber(subscriberId, companyId),
                 "SUBSCRIBER_RECEIVABLES",
                 "Collection Priority — Receivables",
                 "customer");
     }
 
     @Transactional(readOnly = true)
-    public AdminReportResponse payablesReport(Long subscriberId) {
+    public AdminReportResponse payablesReport(Long subscriberId, Long companyId) {
         return buildOutstandingReport(
-                purchaseRepository.findPayableDetailsBySubscriber(subscriberId),
-                purchaseRepository.sumPendingAmountBySubscriber(subscriberId),
+                purchaseRepository.findPayableDetailsBySubscriber(subscriberId, companyId),
+                purchaseRepository.sumPendingAmountBySubscriber(subscriberId, companyId),
                 "SUBSCRIBER_PAYABLES",
                 "Payment Priority — Payables",
                 "vendor");
     }
 
     @Transactional(readOnly = true)
-    public AdminReportResponse customerTrendsReport(Long subscriberId, LocalDate from, LocalDate to) {
+    public AdminReportResponse customerTrendsReport(Long subscriberId, Long companyId, LocalDate from, LocalDate to) {
         DateRange range = resolveRange(from, to);
         DateRange previous = previousPeriod(range);
 
         Map<String, PeriodPartyStats> current = toPartyStats(
-                saleRepository.findCustomerSalesByPeriod(subscriberId, range.from(), range.to()));
+                saleRepository.findCustomerSalesByPeriod(subscriberId, companyId, range.from(), range.to()));
         Map<String, PeriodPartyStats> prior = toPartyStats(
-                saleRepository.findCustomerSalesByPeriod(subscriberId, previous.from(), previous.to()));
+                saleRepository.findCustomerSalesByPeriod(subscriberId, companyId, previous.from(), previous.to()));
 
         BigDecimal totalRevenue = sumPartyRevenue(current);
         int totalOrders = sumPartyOrders(current);
@@ -186,14 +285,14 @@ public class SubscriberReportService {
     }
 
     @Transactional(readOnly = true)
-    public AdminReportResponse vendorTrendsReport(Long subscriberId, LocalDate from, LocalDate to) {
+    public AdminReportResponse vendorTrendsReport(Long subscriberId, Long companyId, LocalDate from, LocalDate to) {
         DateRange range = resolveRange(from, to);
         DateRange previous = previousPeriod(range);
 
         Map<String, PeriodPartyStats> current = toPartyStats(
-                purchaseRepository.findVendorPurchasesByPeriod(subscriberId, range.from(), range.to()));
+                purchaseRepository.findVendorPurchasesByPeriod(subscriberId, companyId, range.from(), range.to()));
         Map<String, PeriodPartyStats> prior = toPartyStats(
-                purchaseRepository.findVendorPurchasesByPeriod(subscriberId, previous.from(), previous.to()));
+                purchaseRepository.findVendorPurchasesByPeriod(subscriberId, companyId, previous.from(), previous.to()));
 
         BigDecimal totalSpend = sumPartyRevenue(current);
         int totalOrders = sumPartyOrders(current);
@@ -241,14 +340,14 @@ public class SubscriberReportService {
     }
 
     @Transactional(readOnly = true)
-    public AdminReportResponse ordersReport(Long subscriberId, LocalDate from, LocalDate to) {
+    public AdminReportResponse ordersReport(Long subscriberId, Long companyId, LocalDate from, LocalDate to) {
         DateRange range = resolveRange(from, to);
         DateRange previous = previousPeriod(range);
 
         Object[] currentAgg = firstAggregateRow(
-                saleRepository.aggregateSalesPerformance(subscriberId, range.from(), range.to()));
+                saleRepository.aggregateSalesPerformance(subscriberId, companyId, range.from(), range.to()));
         Object[] priorAgg = firstAggregateRow(
-                saleRepository.aggregateSalesPerformance(subscriberId, previous.from(), previous.to()));
+                saleRepository.aggregateSalesPerformance(subscriberId, companyId, previous.from(), previous.to()));
 
         long orders = toLong(currentAgg[0]);
         BigDecimal revenue = toBigDecimal(currentAgg[1]);
@@ -482,11 +581,11 @@ public class SubscriberReportService {
     }
 
     @Transactional(readOnly = true)
-    public AdminReportResponse productPerformanceReport(Long subscriberId, LocalDate from, LocalDate to) {
+    public AdminReportResponse productPerformanceReport(Long subscriberId, Long companyId, LocalDate from, LocalDate to) {
         LocalDate resolvedTo = to != null ? to : LocalDate.now(ZoneOffset.UTC);
         LocalDate resolvedFrom = from != null ? from : resolvedTo.withDayOfMonth(1);
 
-        List<Object[]> rows = saleItemRepository.findTopProductsBySales(subscriberId, resolvedFrom, resolvedTo);
+        List<Object[]> rows = saleItemRepository.findTopProductsBySales(subscriberId, companyId, resolvedFrom, resolvedTo);
 
         AdminReportResponse response = new AdminReportResponse();
         response.setReportType("SUBSCRIBER_PRODUCTS");
@@ -525,6 +624,24 @@ public class SubscriberReportService {
         }
 
         return response;
+    }
+
+    private void addSummaryRow(AdminReportResponse response, String metric, BigDecimal amount) {
+        Map<String, String> row = new LinkedHashMap<>();
+        row.put("metric", metric);
+        row.put("amount", formatMoney(amount));
+        response.getRows().add(row);
+    }
+
+    private Map<YearMonth, BigDecimal> aggregateByMonth(List<Object[]> rows) {
+        Map<YearMonth, BigDecimal> byMonth = new LinkedHashMap<>();
+        for (Object[] row : rows) {
+            LocalDate date = (LocalDate) row[0];
+            BigDecimal amount = (BigDecimal) row[1];
+            YearMonth month = YearMonth.from(date);
+            byMonth.merge(month, amount, BigDecimal::add);
+        }
+        return byMonth;
     }
 
     private String formatMoney(BigDecimal amount) {

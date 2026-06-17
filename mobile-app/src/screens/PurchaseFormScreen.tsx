@@ -16,6 +16,9 @@ import {
   calculateNetAmount,
   calculateTaxAmount,
   formatCurrency,
+  formatTaxAmountValue,
+  optionalAmountField,
+  optionalTaxAmountField,
   parseAmount,
 } from '../utils/saleAmounts';
 
@@ -177,7 +180,7 @@ export function PurchaseFormScreen({ token, purchaseId, onSaved }: PurchaseFormS
   useEffect(() => {
     if (amountMode === 'products' && !taxEdited) {
       const nextTax = calculateTaxAmount(productTotals.gross, productTotals.discount, percent);
-      setTaxAmount(nextTax > 0 ? String(nextTax) : '');
+      setTaxAmount(formatTaxAmountValue(nextTax));
     }
   }, [amountMode, productTotals.discount, productTotals.gross, percent, taxEdited]);
 
@@ -185,7 +188,7 @@ export function PurchaseFormScreen({ token, purchaseId, onSaved }: PurchaseFormS
     setTaxPercent(value);
     setTaxEdited(false);
     const nextTax = calculateTaxAmount(gross, discount, parseAmount(value));
-    setTaxAmount(nextTax > 0 ? String(nextTax) : '');
+    setTaxAmount(formatTaxAmountValue(nextTax));
   };
 
   const handleGrossOrDiscountChange = (grossValue: string, discountValue: string) => {
@@ -195,7 +198,7 @@ export function PurchaseFormScreen({ token, purchaseId, onSaved }: PurchaseFormS
         parseAmount(discountValue),
         percent,
       );
-      setTaxAmount(nextTax > 0 ? String(nextTax) : '');
+      setTaxAmount(formatTaxAmountValue(nextTax));
     }
   };
 
@@ -256,8 +259,8 @@ export function PurchaseFormScreen({ token, purchaseId, onSaved }: PurchaseFormS
     const base = {
       vendorId: vendor!.id,
       billNumber: billNumber.trim() || undefined,
-      taxPercent: percent || undefined,
-      taxAmount: effectiveTax || undefined,
+      taxPercent: optionalAmountField(taxPercent, percent),
+      taxAmount: optionalTaxAmountField(taxAmount, taxEdited, effectiveTax),
       notes: notes.trim() || undefined,
     };
 

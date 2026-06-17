@@ -6,7 +6,7 @@ spring:
       max-file-size: 100MB
       max-request-size: 105MB
   datasource:
-    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/quickbooks}
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/quickbooks_multi}
     username: ${SPRING_DATASOURCE_USERNAME:postgres}
     password: ${SPRING_DATASOURCE_PASSWORD:root}
   jpa:

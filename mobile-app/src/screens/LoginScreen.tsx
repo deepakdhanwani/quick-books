@@ -91,7 +91,8 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
     setError('');
     try {
       const response = await api.subscriberLogin(phone, loginPin);
-      onLogin(response);
+      const selectedCompanyId = response.activeCompanyId ?? response.companies?.[0]?.id;
+      onLogin({ ...response, activeCompanyId: selectedCompanyId });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Login failed');
     } finally {

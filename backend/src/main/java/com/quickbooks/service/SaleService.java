@@ -9,6 +9,7 @@ import com.quickbooks.dto.sale.SalePaymentResponse;
 import com.quickbooks.dto.sale.SaleResponse;
 import com.quickbooks.util.InvoiceNumberGenerator;
 import com.quickbooks.entity.Customer;
+import com.quickbooks.entity.Company;
 import com.quickbooks.entity.Payment;
 import com.quickbooks.entity.Product;
 import com.quickbooks.entity.Sale;
@@ -51,6 +52,7 @@ public class SaleService {
     private final PaymentRepository paymentRepository;
     private final CustomerRepository customerRepository;
     private final SubscriberService subscriberService;
+    private final CompanyService companyService;
     private final ProductService productService;
     private final FileStorageService fileStorageService;
     private final AuditLogService auditLogService;
@@ -59,6 +61,7 @@ public class SaleService {
                        PaymentRepository paymentRepository,
                        CustomerRepository customerRepository,
                        SubscriberService subscriberService,
+                       CompanyService companyService,
                        ProductService productService,
                        FileStorageService fileStorageService,
                        AuditLogService auditLogService) {
@@ -66,6 +69,7 @@ public class SaleService {
         this.paymentRepository = paymentRepository;
         this.customerRepository = customerRepository;
         this.subscriberService = subscriberService;
+        this.companyService = companyService;
         this.productService = productService;
         this.fileStorageService = fileStorageService;
         this.auditLogService = auditLogService;
@@ -73,6 +77,19 @@ public class SaleService {
 
     @Transactional(readOnly = true)
     public PageResponse<SaleResponse> findPage(Long subscriberId,
+                                               int page,
+                                               int size,
+                                               String search,
+                                               PaymentListFilter paymentFilter,
+                                               LocalDate fromDate,
+                                               LocalDate toDate) {
+        Long companyId = companyService.ensureDefaultCompany(subscriberId, "Default Company").getId();
+        return findPage(subscriberId, companyId, page, size, search, paymentFilter, fromDate, toDate);
+    }
+
+    @Transactional(readOnly = true)
+    public PageResponse<SaleResponse> findPage(Long subscriberId,
+                                               Long companyId,
                                                int page,
                                                int size,
                                                String search,
@@ -87,6 +104,7 @@ public class SaleService {
         Pageable pageable = PageRequest.of(normalizedPage, normalizedSize, Sort.by("date").descending().and(Sort.by("id").descending()));
         Page<SaleResponse> result = saleRepository.findBySubscriber(
                         subscriberId,
+                        companyId,
                         normalizedSearch,
                         normalizedFilter.name(),
                         fromDate,
@@ -103,7 +121,18 @@ public class SaleService {
                                                          int page,
                                                          int size,
                                                          PaymentListFilter paymentFilter) {
-        customerRepository.findByIdAndSubscriberId(customerId, subscriberId)
+        Long companyId = companyService.ensureDefaultCompany(subscriberId, "Default Company").getId();
+        return findPageByCustomer(subscriberId, companyId, customerId, page, size, paymentFilter);
+    }
+
+    @Transactional(readOnly = true)
+    public PageResponse<SaleResponse> findPageByCustomer(Long subscriberId,
+                                                         Long companyId,
+                                                         Long customerId,
+                                                         int page,
+                                                         int size,
+                                                         PaymentListFilter paymentFilter) {
+        customerRepository.findByIdAndSubscriberIdAndCompanyId(customerId, subscriberId, companyId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Customer not found"));
 
         int normalizedPage = Math.max(page, 0);
@@ -113,6 +142,7 @@ public class SaleService {
         Pageable pageable = PageRequest.of(normalizedPage, normalizedSize, Sort.by("date").descending().and(Sort.by("id").descending()));
         Page<SaleResponse> result = saleRepository.findBySubscriberAndCustomer(
                         subscriberId,
+                        companyId,
                         customerId,
                         normalizedFilter.name(),
                         pageable)
@@ -123,39 +153,59 @@ public class SaleService {
 
     @Transactional(readOnly = true)
     public NextInvoiceNumberResponse getNextInvoiceNumber(Long subscriberId) {
-        String suggested = suggestNextInvoiceNumber(subscriberId);
+        Long companyId = companyService.ensureDefaultCompany(subscriberId, "Default Company").getId();
+        return getNextInvoiceNumber(subscriberId, companyId);
+    }
+
+    @Transactional(readOnly = true)
+    public NextInvoiceNumberResponse getNextInvoiceNumber(Long subscriberId, Long companyId) {
+        String suggested = suggestNextInvoiceNumber(subscriberId, companyId);
         return new NextInvoiceNumberResponse(suggested, true);
     }
 
     @Transactional(readOnly = true)
     public SaleResponse getById(Long subscriberId, Long saleId) {
-        Sale sale = getOwnedSale(subscriberId, saleId);
+        Long companyId = companyService.ensureDefaultCompany(subscriberId, "Default Company").getId();
+        return getById(subscriberId, companyId, saleId);
+    }
+
+    @Transactional(readOnly = true)
+    public SaleResponse getById(Long subscriberId, Long companyId, Long saleId) {
+        Sale sale = getOwnedSale(subscriberId, companyId, saleId);
         SaleResponse response = SaleResponse.from(sale);
         response.setItems(mapSaleItems(sale));
-        response.setPayments(loadPayments(subscriberId, saleId));
+        response.setPayments(loadPayments(subscriberId, companyId, saleId));
         return response;
     }
 
     @Transactional
     public SaleResponse create(Long subscriberId, CreateSaleRequest request) {
+        Long companyId = companyService.ensureDefaultCompany(subscriberId, "Default Company").getId();
+        return create(subscriberId, companyId, request);
+    }
+
+    @Transactional
+    public SaleResponse create(Long subscriberId, Long companyId, CreateSaleRequest request) {
         Subscriber subscriber = subscriberService.getById(subscriberId);
-        Customer customer = customerRepository.findByIdAndSubscriberId(request.getCustomerId(), subscriberId)
+        Company company = companyService.requireAccessibleCompany(subscriberId, companyId);
+        Customer customer = customerRepository.findByIdAndSubscriberIdAndCompanyId(request.getCustomerId(), subscriberId, companyId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Customer not found"));
 
         if (!customer.isActive()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Selected customer is inactive");
         }
 
-        String invoiceNumber = resolveInvoiceNumber(subscriberId, request.getInvoiceNumber());
-        if (saleRepository.existsBySubscriberIdAndInvoiceNumberIgnoreCase(subscriberId, invoiceNumber)) {
+        String invoiceNumber = resolveInvoiceNumber(subscriberId, companyId, request.getInvoiceNumber());
+        if (saleRepository.existsBySubscriberIdAndCompanyIdAndInvoiceNumberIgnoreCase(subscriberId, companyId, invoiceNumber)) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Invoice number already exists");
         }
 
-        List<BuiltSaleItem> builtItems = buildSaleItems(subscriberId, request.getItems());
+        List<BuiltSaleItem> builtItems = buildSaleItems(subscriberId, companyId, request.getItems());
         AmountBreakdown amounts = calculateAmounts(request, builtItems);
 
         Sale sale = new Sale();
         sale.setSubscriber(subscriber);
+        sale.setCompany(company);
         sale.setCustomer(customer);
         sale.setInvoiceNumber(invoiceNumber);
         sale.setInvoiceDetails(normalizeOptional(request.getInvoiceDetails()));
@@ -181,13 +231,19 @@ public class SaleService {
 
     @Transactional
     public SaleResponse update(Long subscriberId, Long saleId, CreateSaleRequest request) {
-        Sale sale = getOwnedSale(subscriberId, saleId);
+        Long companyId = companyService.ensureDefaultCompany(subscriberId, "Default Company").getId();
+        return update(subscriberId, companyId, saleId, request);
+    }
+
+    @Transactional
+    public SaleResponse update(Long subscriberId, Long companyId, Long saleId, CreateSaleRequest request) {
+        Sale sale = getOwnedSale(subscriberId, companyId, saleId);
 
         if (sale.getPaymentStatus() == PaymentStatus.PAID) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Fully paid sales cannot be edited");
         }
 
-        Customer customer = customerRepository.findByIdAndSubscriberId(request.getCustomerId(), subscriberId)
+        Customer customer = customerRepository.findByIdAndSubscriberIdAndCompanyId(request.getCustomerId(), subscriberId, companyId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Customer not found"));
 
         if (!customer.isActive()) {
@@ -195,7 +251,7 @@ public class SaleService {
         }
 
         String invoiceNumber = normalizeRequired(request.getInvoiceNumber(), "Invoice number is required");
-        if (saleRepository.existsBySubscriberIdAndInvoiceNumberIgnoreCaseAndIdNot(subscriberId, invoiceNumber, saleId)) {
+        if (saleRepository.existsBySubscriberIdAndCompanyIdAndInvoiceNumberIgnoreCaseAndIdNot(subscriberId, companyId, invoiceNumber, saleId)) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Invoice number already exists");
         }
 
@@ -204,7 +260,7 @@ public class SaleService {
                 .map(item -> item.getProduct().getId())
                 .collect(java.util.stream.Collectors.toSet());
 
-        List<BuiltSaleItem> builtItems = buildSaleItems(subscriberId, request.getItems(), existingProductIds);
+        List<BuiltSaleItem> builtItems = buildSaleItems(subscriberId, companyId, request.getItems(), existingProductIds);
         AmountBreakdown amounts = calculateAmounts(request, builtItems);
 
         BigDecimal paidAmount = sale.getPaidAmount();
@@ -233,7 +289,7 @@ public class SaleService {
         Sale saved = saleRepository.save(sale);
         SaleResponse response = SaleResponse.from(saved);
         response.setItems(mapSaleItems(saved));
-        response.setPayments(loadPayments(subscriberId, saleId));
+        response.setPayments(loadPayments(subscriberId, companyId, saleId));
         return response;
     }
 
@@ -247,11 +303,26 @@ public class SaleService {
                                        String paymentDetails,
                                        String notes,
                                        MultipartFile proofFile) {
+        Long companyId = companyService.ensureDefaultCompany(subscriberId, "Default Company").getId();
+        return receivePayment(subscriberId, companyId, saleId, amount, date, paymentMode, settlementType, paymentDetails, notes, proofFile);
+    }
+
+    @Transactional
+    public SaleResponse receivePayment(Long subscriberId,
+                                       Long companyId,
+                                       Long saleId,
+                                       BigDecimal amount,
+                                       LocalDate date,
+                                       PaymentMode paymentMode,
+                                       PaymentSettlementType settlementType,
+                                       String paymentDetails,
+                                       String notes,
+                                       MultipartFile proofFile) {
         if (paymentMode == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Payment mode is required");
         }
 
-        Sale sale = getOwnedSale(subscriberId, saleId);
+        Sale sale = getOwnedSale(subscriberId, companyId, saleId);
         if (sale.getPaymentStatus() == PaymentStatus.PAID) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Sale is already fully paid");
         }
@@ -271,6 +342,7 @@ public class SaleService {
 
         Payment payment = new Payment();
         payment.setSubscriber(sale.getSubscriber());
+        payment.setCompany(sale.getCompany());
         payment.setType(PaymentType.RECEIVED);
         payment.setAmount(paymentAmount);
         payment.setDate(date != null ? date : LocalDate.now());
@@ -309,13 +381,19 @@ public class SaleService {
         auditLogService.log(AuditAction.UPDATE, AuditEntityType.SALE, sale.getId(), sale.getInvoiceNumber());
 
         SaleResponse response = SaleResponse.from(sale);
-        response.setPayments(loadPayments(subscriberId, saleId));
+        response.setPayments(loadPayments(subscriberId, companyId, saleId));
         return response;
     }
 
     @Transactional(readOnly = true)
     public Resource getPaymentProof(Long subscriberId, Long paymentId) {
-        Payment payment = paymentRepository.findByIdAndSubscriberId(paymentId, subscriberId)
+        Long companyId = companyService.ensureDefaultCompany(subscriberId, "Default Company").getId();
+        return getPaymentProof(subscriberId, companyId, paymentId);
+    }
+
+    @Transactional(readOnly = true)
+    public Resource getPaymentProof(Long subscriberId, Long companyId, Long paymentId) {
+        Payment payment = paymentRepository.findByIdAndSubscriberIdAndCompanyId(paymentId, subscriberId, companyId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Payment not found"));
 
         if (payment.getProofFilePath() == null || payment.getProofFilePath().isBlank()) {
@@ -331,7 +409,13 @@ public class SaleService {
 
     @Transactional(readOnly = true)
     public String getPaymentProofContentType(Long subscriberId, Long paymentId) {
-        Payment payment = paymentRepository.findByIdAndSubscriberId(paymentId, subscriberId)
+        Long companyId = companyService.ensureDefaultCompany(subscriberId, "Default Company").getId();
+        return getPaymentProofContentType(subscriberId, companyId, paymentId);
+    }
+
+    @Transactional(readOnly = true)
+    public String getPaymentProofContentType(Long subscriberId, Long companyId, Long paymentId) {
+        Payment payment = paymentRepository.findByIdAndSubscriberIdAndCompanyId(paymentId, subscriberId, companyId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Payment not found"));
         if (payment.getProofContentType() == null) {
             return "application/octet-stream";
@@ -341,34 +425,40 @@ public class SaleService {
 
     @Transactional(readOnly = true)
     public String getPaymentProofFileName(Long subscriberId, Long paymentId) {
-        Payment payment = paymentRepository.findByIdAndSubscriberId(paymentId, subscriberId)
+        Long companyId = companyService.ensureDefaultCompany(subscriberId, "Default Company").getId();
+        return getPaymentProofFileName(subscriberId, companyId, paymentId);
+    }
+
+    @Transactional(readOnly = true)
+    public String getPaymentProofFileName(Long subscriberId, Long companyId, Long paymentId) {
+        Payment payment = paymentRepository.findByIdAndSubscriberIdAndCompanyId(paymentId, subscriberId, companyId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Payment not found"));
         return payment.getProofFileName() != null ? payment.getProofFileName() : "payment-proof";
     }
 
-    private List<SalePaymentResponse> loadPayments(Long subscriberId, Long saleId) {
-        return paymentRepository.findBySale(subscriberId, ReferenceType.SALE, saleId, PaymentType.RECEIVED).stream()
+    private List<SalePaymentResponse> loadPayments(Long subscriberId, Long companyId, Long saleId) {
+        return paymentRepository.findBySale(subscriberId, companyId, ReferenceType.SALE, saleId, PaymentType.RECEIVED).stream()
                 .map(SalePaymentResponse::from)
                 .toList();
     }
 
-    private String suggestNextInvoiceNumber(Long subscriberId) {
-        return saleRepository.findFirstBySubscriber_IdOrderByIdDesc(subscriberId)
+    private String suggestNextInvoiceNumber(Long subscriberId, Long companyId) {
+        return saleRepository.findFirstBySubscriber_IdAndCompany_IdOrderByIdDesc(subscriberId, companyId)
                 .map(Sale::getInvoiceNumber)
                 .map(InvoiceNumberGenerator::suggestNext)
                 .orElseGet(InvoiceNumberGenerator::defaultFirst);
     }
 
-    private String resolveInvoiceNumber(Long subscriberId, String requestedInvoiceNumber) {
+    private String resolveInvoiceNumber(Long subscriberId, Long companyId, String requestedInvoiceNumber) {
         String trimmed = normalizeOptional(requestedInvoiceNumber);
         if (trimmed != null) {
             return trimmed;
         }
-        return suggestNextInvoiceNumber(subscriberId);
+        return suggestNextInvoiceNumber(subscriberId, companyId);
     }
 
-    private Sale getOwnedSale(Long subscriberId, Long saleId) {
-        return saleRepository.findByIdAndSubscriberId(saleId, subscriberId)
+    private Sale getOwnedSale(Long subscriberId, Long companyId, Long saleId) {
+        return saleRepository.findByIdAndSubscriberIdAndCompanyId(saleId, subscriberId, companyId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Sale not found"));
     }
 
@@ -385,11 +475,12 @@ public class SaleService {
         }
     }
 
-    private List<BuiltSaleItem> buildSaleItems(Long subscriberId, List<CreateSaleItemRequest> items) {
-        return buildSaleItems(subscriberId, items, Set.of());
+    private List<BuiltSaleItem> buildSaleItems(Long subscriberId, Long companyId, List<CreateSaleItemRequest> items) {
+        return buildSaleItems(subscriberId, companyId, items, Set.of());
     }
 
     private List<BuiltSaleItem> buildSaleItems(Long subscriberId,
+                                               Long companyId,
                                                List<CreateSaleItemRequest> items,
                                                Set<Long> allowedInactiveProductIds) {
         if (items == null || items.isEmpty()) {
@@ -398,7 +489,7 @@ public class SaleService {
 
         List<BuiltSaleItem> builtItems = new ArrayList<>();
         for (CreateSaleItemRequest itemRequest : items) {
-            Product product = productService.getOwnedEntity(subscriberId, itemRequest.getProductId());
+            Product product = productService.getOwnedEntity(subscriberId, companyId, itemRequest.getProductId());
             if (!product.isActive() && !allowedInactiveProductIds.contains(product.getId())) {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Selected product is inactive: " + product.getName());
             }

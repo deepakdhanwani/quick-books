@@ -3,6 +3,25 @@ export function parseAmount(value: string) {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
+export function formatTaxAmountValue(amount: number) {
+  return String(amount);
+}
+
+export function optionalAmountField(raw: string, parsed: number): number | undefined {
+  return raw.trim() !== '' ? parsed : undefined;
+}
+
+export function optionalTaxAmountField(
+  rawTaxAmount: string,
+  taxEdited: boolean,
+  effectiveTax: number,
+): number | undefined {
+  if (taxEdited || rawTaxAmount.trim() !== '') {
+    return effectiveTax;
+  }
+  return undefined;
+}
+
 export function calculateTaxAmount(gross: number, discount: number, taxPercent: number) {
   const taxable = Math.max(gross - discount, 0);
   return Number(((taxable * taxPercent) / 100).toFixed(2));

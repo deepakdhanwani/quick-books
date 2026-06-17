@@ -27,5 +27,8 @@
     <include file="db/changelog/changes/020-user-preferences.xml"/>
     <include file="db/changelog/changes/021-party-opening-balance.xml"/>
     <include file="db/changelog/changes/022-payment-reminders.xml"/>
+    <include file="db/changelog/changes/023-multi-company-foundation.xml"/>
+    <include file="db/changelog/changes/024-company-business-type.xml"/>
+    <include file="db/changelog/changes/025-company-data-isolation.xml"/>
 
 </databaseChangeLog>

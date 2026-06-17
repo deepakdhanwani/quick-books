@@ -19,6 +19,10 @@ public class PaymentReminder {
     private Subscriber subscriber;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "company_id", nullable = false)
+    private Company company;
+
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "customer_id", nullable = false)
     private Customer customer;
 
@@ -51,6 +55,8 @@ public class PaymentReminder {
     public void setId(Long id) { this.id = id; }
     public Subscriber getSubscriber() { return subscriber; }
     public void setSubscriber(Subscriber subscriber) { this.subscriber = subscriber; }
+    public Company getCompany() { return company; }
+    public void setCompany(Company company) { this.company = company; }
     public Customer getCustomer() { return customer; }
     public void setCustomer(Customer customer) { this.customer = customer; }
     public Sale getSale() { return sale; }

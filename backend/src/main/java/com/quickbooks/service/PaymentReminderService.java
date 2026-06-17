@@ -6,6 +6,7 @@ import com.quickbooks.dto.reminder.PaymentReminderResponse;
 import com.quickbooks.dto.reminder.SnoozePaymentReminderRequest;
 import com.quickbooks.dto.reminder.UpdatePaymentReminderRequest;
 import com.quickbooks.entity.Customer;
+import com.quickbooks.entity.Company;
 import com.quickbooks.entity.PaymentReminder;
 import com.quickbooks.entity.Sale;
 import com.quickbooks.entity.Subscriber;
@@ -43,24 +44,27 @@ public class PaymentReminderService {
     private final CustomerRepository customerRepository;
     private final SaleRepository saleRepository;
     private final SubscriberService subscriberService;
+    private final CompanyService companyService;
     private final AuditLogService auditLogService;
 
     public PaymentReminderService(PaymentReminderRepository paymentReminderRepository,
                                   CustomerRepository customerRepository,
                                   SaleRepository saleRepository,
                                   SubscriberService subscriberService,
+                                  CompanyService companyService,
                                   AuditLogService auditLogService) {
         this.paymentReminderRepository = paymentReminderRepository;
         this.customerRepository = customerRepository;
         this.saleRepository = saleRepository;
         this.subscriberService = subscriberService;
+        this.companyService = companyService;
         this.auditLogService = auditLogService;
     }
 
     @Transactional(readOnly = true)
-    public List<PaymentReminderResponse> findDueToday(Long subscriberId) {
+    public List<PaymentReminderResponse> findDueToday(Long subscriberId, Long companyId) {
         LocalDate today = LocalDate.now();
-        return paymentReminderRepository.findActiveBySubscriber(subscriberId, ACTIVE_STATUSES).stream()
+        return paymentReminderRepository.findActiveBySubscriber(subscriberId, companyId, ACTIVE_STATUSES).stream()
                 .map(reminder -> PaymentReminderResponse.from(reminder, today))
                 .filter(PaymentReminderResponse::isDueToday)
                 .sorted(Comparator.comparing(PaymentReminderResponse::getCustomerName))
@@ -68,9 +72,9 @@ public class PaymentReminderService {
     }
 
     @Transactional(readOnly = true)
-    public List<PaymentReminderResponse> findDueSummary(Long subscriberId) {
+    public List<PaymentReminderResponse> findDueSummary(Long subscriberId, Long companyId) {
         LocalDate today = LocalDate.now();
-        return paymentReminderRepository.findActiveBySubscriber(subscriberId, ACTIVE_STATUSES).stream()
+        return paymentReminderRepository.findActiveBySubscriber(subscriberId, companyId, ACTIVE_STATUSES).stream()
                 .map(reminder -> PaymentReminderResponse.from(reminder, today))
                 .filter(response -> response.isDueToday() || response.isOverdue())
                 .sorted(Comparator
@@ -84,6 +88,7 @@ public class PaymentReminderService {
     @Transactional(readOnly = true)
     public PageResponse<PaymentReminderResponse> findPage(
             Long subscriberId,
+            Long companyId,
             int page,
             int size,
             String timeFilter) {
@@ -97,28 +102,30 @@ public class PaymentReminderService {
 
         Page<PaymentReminder> result = switch (normalizeTimeFilter(timeFilter)) {
             case "past" -> paymentReminderRepository.findPastBySubscriber(
-                    subscriberId, PAST_STATUSES, pageable);
-            case "all" -> paymentReminderRepository.findAllBySubscriber(subscriberId, pageable);
+                    subscriberId, companyId, PAST_STATUSES, pageable);
+            case "all" -> paymentReminderRepository.findAllBySubscriber(subscriberId, companyId, pageable);
             default -> paymentReminderRepository.findBySubscriberAndStatuses(
-                    subscriberId, ACTIVE_STATUSES, pageable);
+                    subscriberId, companyId, ACTIVE_STATUSES, pageable);
         };
 
         return PageResponse.from(result.map(reminder -> PaymentReminderResponse.from(reminder, today)));
     }
 
     @Transactional(readOnly = true)
-    public PaymentReminderResponse getById(Long subscriberId, Long reminderId) {
-        return PaymentReminderResponse.from(getOwnedReminder(subscriberId, reminderId), LocalDate.now());
+    public PaymentReminderResponse getById(Long subscriberId, Long companyId, Long reminderId) {
+        return PaymentReminderResponse.from(getOwnedReminder(subscriberId, companyId, reminderId), LocalDate.now());
     }
 
     @Transactional
-    public PaymentReminderResponse create(Long subscriberId, CreatePaymentReminderRequest request) {
+    public PaymentReminderResponse create(Long subscriberId, Long companyId, CreatePaymentReminderRequest request) {
         Subscriber subscriber = subscriberService.getById(subscriberId);
-        Customer customer = getOwnedCustomer(subscriberId, request.getCustomerId());
-        Sale sale = resolveSale(subscriberId, request.getSaleId(), customer.getId());
+        Company company = companyService.requireAccessibleCompany(subscriberId, companyId);
+        Customer customer = getOwnedCustomer(subscriberId, companyId, request.getCustomerId());
+        Sale sale = resolveSale(subscriberId, companyId, request.getSaleId(), customer.getId());
 
         PaymentReminder reminder = new PaymentReminder();
         reminder.setSubscriber(subscriber);
+        reminder.setCompany(company);
         applyFields(reminder, customer, sale, request.getAmount(), request.getPromisedDate(), request.getNotes());
         reminder.setStatus(PaymentReminderStatus.PENDING);
         reminder.setSnoozedUntil(null);
@@ -132,16 +139,17 @@ public class PaymentReminderService {
     @Transactional
     public PaymentReminderResponse update(
             Long subscriberId,
+            Long companyId,
             Long reminderId,
             UpdatePaymentReminderRequest request) {
-        PaymentReminder reminder = getOwnedReminder(subscriberId, reminderId);
+        PaymentReminder reminder = getOwnedReminder(subscriberId, companyId, reminderId);
         if (reminder.getStatus() == PaymentReminderStatus.COMPLETED
                 || reminder.getStatus() == PaymentReminderStatus.CANCELLED) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Completed reminders cannot be edited");
         }
 
-        Customer customer = getOwnedCustomer(subscriberId, request.getCustomerId());
-        Sale sale = resolveSale(subscriberId, request.getSaleId(), customer.getId());
+        Customer customer = getOwnedCustomer(subscriberId, companyId, request.getCustomerId());
+        Sale sale = resolveSale(subscriberId, companyId, request.getSaleId(), customer.getId());
         applyFields(reminder, customer, sale, request.getAmount(), request.getPromisedDate(), request.getNotes());
         if (reminder.getStatus() == PaymentReminderStatus.SNOOZED) {
             reminder.setStatus(PaymentReminderStatus.PENDING);
@@ -158,9 +166,10 @@ public class PaymentReminderService {
     @Transactional
     public PaymentReminderResponse snooze(
             Long subscriberId,
+            Long companyId,
             Long reminderId,
             SnoozePaymentReminderRequest request) {
-        PaymentReminder reminder = getOwnedReminder(subscriberId, reminderId);
+        PaymentReminder reminder = getOwnedReminder(subscriberId, companyId, reminderId);
         if (reminder.getStatus() == PaymentReminderStatus.COMPLETED
                 || reminder.getStatus() == PaymentReminderStatus.CANCELLED) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "This reminder is already closed");
@@ -185,8 +194,8 @@ public class PaymentReminderService {
     }
 
     @Transactional
-    public PaymentReminderResponse complete(Long subscriberId, Long reminderId) {
-        PaymentReminder reminder = getOwnedReminder(subscriberId, reminderId);
+    public PaymentReminderResponse complete(Long subscriberId, Long companyId, Long reminderId) {
+        PaymentReminder reminder = getOwnedReminder(subscriberId, companyId, reminderId);
         reminder.setStatus(PaymentReminderStatus.COMPLETED);
         reminder.setSnoozedUntil(null);
         reminder.setUpdatedAt(OffsetDateTime.now());
@@ -197,28 +206,28 @@ public class PaymentReminderService {
     }
 
     @Transactional
-    public void delete(Long subscriberId, Long reminderId) {
-        PaymentReminder reminder = getOwnedReminder(subscriberId, reminderId);
+    public void delete(Long subscriberId, Long companyId, Long reminderId) {
+        PaymentReminder reminder = getOwnedReminder(subscriberId, companyId, reminderId);
         auditLogService.log(AuditAction.DELETE, AuditEntityType.PAYMENT_REMINDER, reminder.getId(),
                 reminder.getCustomer().getName());
         paymentReminderRepository.delete(reminder);
     }
 
-    private PaymentReminder getOwnedReminder(Long subscriberId, Long reminderId) {
-        return paymentReminderRepository.findDetailedByIdAndSubscriberId(reminderId, subscriberId)
+    private PaymentReminder getOwnedReminder(Long subscriberId, Long companyId, Long reminderId) {
+        return paymentReminderRepository.findDetailedByIdAndSubscriberId(reminderId, subscriberId, companyId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Reminder not found"));
     }
 
-    private Customer getOwnedCustomer(Long subscriberId, Long customerId) {
-        return customerRepository.findByIdAndSubscriberId(customerId, subscriberId)
+    private Customer getOwnedCustomer(Long subscriberId, Long companyId, Long customerId) {
+        return customerRepository.findByIdAndSubscriberIdAndCompanyId(customerId, subscriberId, companyId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Customer not found"));
     }
 
-    private Sale resolveSale(Long subscriberId, Long saleId, Long customerId) {
+    private Sale resolveSale(Long subscriberId, Long companyId, Long saleId, Long customerId) {
         if (saleId == null) {
             return null;
         }
-        Sale sale = saleRepository.findByIdAndSubscriberId(saleId, subscriberId)
+        Sale sale = saleRepository.findByIdAndSubscriberIdAndCompanyId(saleId, subscriberId, companyId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Sale not found"));
         if (!sale.getCustomer().getId().equals(customerId)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Sale does not belong to this customer");

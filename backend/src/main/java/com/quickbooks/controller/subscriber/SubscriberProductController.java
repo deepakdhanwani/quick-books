@@ -29,39 +29,39 @@ public class SubscriberProductController {
             @RequestParam(defaultValue = "20") int size,
             @RequestParam(required = false) Boolean active,
             @RequestParam(required = false) String search) {
-        return productService.findPage(principal.getId(), page, size, active, search);
+        return productService.findPage(principal.getId(), principal.getCompanyId(), page, size, active, search);
     }
 
     @GetMapping("/{id}")
     public ProductResponse get(@AuthenticationPrincipal UserPrincipal principal,
                                @PathVariable Long id) {
-        return productService.getById(principal.getId(), id);
+        return productService.getById(principal.getId(), principal.getCompanyId(), id);
     }
 
     @PostMapping
     public ProductResponse create(@AuthenticationPrincipal UserPrincipal principal,
                                   @Valid @RequestBody CreateProductRequest request) {
-        return productService.create(principal.getId(), request);
+        return productService.create(principal.getId(), principal.getCompanyId(), request);
     }
 
     @PutMapping("/{id}")
     public ProductResponse update(@AuthenticationPrincipal UserPrincipal principal,
                                   @PathVariable Long id,
                                   @Valid @RequestBody UpdateProductRequest request) {
-        return productService.update(principal.getId(), id, request);
+        return productService.update(principal.getId(), principal.getCompanyId(), id, request);
     }
 
     @PatchMapping("/{id}/active")
     public ProductResponse updateActive(@AuthenticationPrincipal UserPrincipal principal,
                                         @PathVariable Long id,
                                         @Valid @RequestBody UpdateProductActiveRequest request) {
-        return productService.updateActive(principal.getId(), id, request);
+        return productService.updateActive(principal.getId(), principal.getCompanyId(), id, request);
     }
 
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void delete(@AuthenticationPrincipal UserPrincipal principal,
                        @PathVariable Long id) {
-        productService.delete(principal.getId(), id);
+        productService.delete(principal.getId(), principal.getCompanyId(), id);
     }
 }

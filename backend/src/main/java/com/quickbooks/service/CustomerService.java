@@ -6,6 +6,7 @@ import com.quickbooks.dto.customer.CustomerResponse;
 import com.quickbooks.dto.customer.UpdateCustomerActiveRequest;
 import com.quickbooks.dto.customer.UpdateCustomerRequest;
 import com.quickbooks.entity.Customer;
+import com.quickbooks.entity.Company;
 import com.quickbooks.entity.Subscriber;
 import com.quickbooks.entity.enums.AuditAction;
 import com.quickbooks.entity.enums.AuditEntityType;
@@ -33,20 +34,29 @@ public class CustomerService {
     private final CustomerRepository customerRepository;
     private final SaleRepository saleRepository;
     private final SubscriberService subscriberService;
+    private final CompanyService companyService;
     private final AuditLogService auditLogService;
 
     public CustomerService(CustomerRepository customerRepository,
                            SaleRepository saleRepository,
                            SubscriberService subscriberService,
+                           CompanyService companyService,
                            AuditLogService auditLogService) {
         this.customerRepository = customerRepository;
         this.saleRepository = saleRepository;
         this.subscriberService = subscriberService;
+        this.companyService = companyService;
         this.auditLogService = auditLogService;
     }
 
     @Transactional(readOnly = true)
     public PageResponse<CustomerResponse> findPage(Long subscriberId, int page, int size, Boolean active, String search) {
+        Long companyId = companyService.ensureDefaultCompany(subscriberId, "Default Company").getId();
+        return findPage(subscriberId, companyId, page, size, active, search);
+    }
+
+    @Transactional(readOnly = true)
+    public PageResponse<CustomerResponse> findPage(Long subscriberId, Long companyId, int page, int size, Boolean active, String search) {
         int normalizedPage = Math.max(page, 0);
         int normalizedSize = Math.min(Math.max(size, 1), 100);
         String normalizedSearch = normalizeOptional(search);
@@ -54,13 +64,14 @@ public class CustomerService {
         Pageable pageable = PageRequest.of(normalizedPage, normalizedSize, Sort.by("name").ascending());
         Page<Customer> result = customerRepository.findBySubscriber(
                 subscriberId,
+                companyId,
                 active,
                 normalizedSearch,
                 pageable
         );
 
         List<Long> customerIds = result.getContent().stream().map(Customer::getId).toList();
-        Map<Long, BigDecimal> pendingByCustomer = loadPendingAmountsByCustomer(subscriberId, customerIds);
+        Map<Long, BigDecimal> pendingByCustomer = loadPendingAmountsByCustomer(subscriberId, companyId, customerIds);
 
         return PageResponse.from(result.map(customer -> {
             CustomerResponse response = CustomerResponse.from(customer);
@@ -71,12 +82,12 @@ public class CustomerService {
         }));
     }
 
-    private Map<Long, BigDecimal> loadPendingAmountsByCustomer(Long subscriberId, List<Long> customerIds) {
+    private Map<Long, BigDecimal> loadPendingAmountsByCustomer(Long subscriberId, Long companyId, List<Long> customerIds) {
         if (customerIds.isEmpty()) {
             return Map.of();
         }
 
-        return saleRepository.sumPendingAmountsByCustomerIds(subscriberId, customerIds).stream()
+        return saleRepository.sumPendingAmountsByCustomerIds(subscriberId, companyId, customerIds).stream()
                 .collect(Collectors.toMap(
                         row -> (Long) row[0],
                         row -> (BigDecimal) row[1]
@@ -85,26 +96,40 @@ public class CustomerService {
 
     @Transactional(readOnly = true)
     public CustomerResponse getById(Long subscriberId, Long customerId) {
-        Customer customer = getOwnedCustomer(subscriberId, customerId);
+        Long companyId = companyService.ensureDefaultCompany(subscriberId, "Default Company").getId();
+        return getById(subscriberId, companyId, customerId);
+    }
+
+    @Transactional(readOnly = true)
+    public CustomerResponse getById(Long subscriberId, Long companyId, Long customerId) {
+        Customer customer = getOwnedCustomer(subscriberId, companyId, customerId);
         CustomerResponse response = CustomerResponse.from(customer);
         response.setTotalPendingAmount(computeCustomerOutstanding(
                 customer,
-                loadPendingAmountsByCustomer(subscriberId, List.of(customerId))
+                loadPendingAmountsByCustomer(subscriberId, companyId, List.of(customerId))
                         .getOrDefault(customerId, BigDecimal.ZERO)));
         return response;
     }
 
     @Transactional
     public CustomerResponse create(Long subscriberId, CreateCustomerRequest request) {
+        Long companyId = companyService.ensureDefaultCompany(subscriberId, "Default Company").getId();
+        return create(subscriberId, companyId, request);
+    }
+
+    @Transactional
+    public CustomerResponse create(Long subscriberId, Long companyId, CreateCustomerRequest request) {
         Subscriber subscriber = subscriberService.getById(subscriberId);
+        Company company = companyService.requireAccessibleCompany(subscriberId, companyId);
         String name = normalizeName(request.getName());
 
-        if (customerRepository.existsBySubscriberIdAndNameIgnoreCase(subscriberId, name)) {
+        if (customerRepository.existsBySubscriberIdAndCompanyIdAndNameIgnoreCase(subscriberId, companyId, name)) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Customer with this name already exists");
         }
 
         Customer customer = new Customer();
         customer.setSubscriber(subscriber);
+        customer.setCompany(company);
         applyFields(customer, request, name);
         customer.setActive(request.getActive() == null || request.getActive());
 
@@ -115,10 +140,16 @@ public class CustomerService {
 
     @Transactional
     public CustomerResponse update(Long subscriberId, Long customerId, UpdateCustomerRequest request) {
-        Customer customer = getOwnedCustomer(subscriberId, customerId);
+        Long companyId = companyService.ensureDefaultCompany(subscriberId, "Default Company").getId();
+        return update(subscriberId, companyId, customerId, request);
+    }
+
+    @Transactional
+    public CustomerResponse update(Long subscriberId, Long companyId, Long customerId, UpdateCustomerRequest request) {
+        Customer customer = getOwnedCustomer(subscriberId, companyId, customerId);
         String name = normalizeName(request.getName());
 
-        if (customerRepository.existsBySubscriberIdAndNameIgnoreCaseAndIdNot(subscriberId, name, customerId)) {
+        if (customerRepository.existsBySubscriberIdAndCompanyIdAndNameIgnoreCaseAndIdNot(subscriberId, companyId, name, customerId)) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Customer with this name already exists");
         }
 
@@ -134,7 +165,13 @@ public class CustomerService {
 
     @Transactional
     public CustomerResponse updateActive(Long subscriberId, Long customerId, UpdateCustomerActiveRequest request) {
-        Customer customer = getOwnedCustomer(subscriberId, customerId);
+        Long companyId = companyService.ensureDefaultCompany(subscriberId, "Default Company").getId();
+        return updateActive(subscriberId, companyId, customerId, request);
+    }
+
+    @Transactional
+    public CustomerResponse updateActive(Long subscriberId, Long companyId, Long customerId, UpdateCustomerActiveRequest request) {
+        Customer customer = getOwnedCustomer(subscriberId, companyId, customerId);
         customer.setActive(request.getActive());
         Customer saved = customerRepository.save(customer);
         auditLogService.log(AuditAction.UPDATE, AuditEntityType.CUSTOMER, saved.getId(),
@@ -144,13 +181,19 @@ public class CustomerService {
 
     @Transactional
     public void delete(Long subscriberId, Long customerId) {
-        Customer customer = getOwnedCustomer(subscriberId, customerId);
+        Long companyId = companyService.ensureDefaultCompany(subscriberId, "Default Company").getId();
+        delete(subscriberId, companyId, customerId);
+    }
+
+    @Transactional
+    public void delete(Long subscriberId, Long companyId, Long customerId) {
+        Customer customer = getOwnedCustomer(subscriberId, companyId, customerId);
         auditLogService.log(AuditAction.DELETE, AuditEntityType.CUSTOMER, customer.getId(), customer.getName());
         customerRepository.delete(customer);
     }
 
-    private Customer getOwnedCustomer(Long subscriberId, Long customerId) {
-        return customerRepository.findByIdAndSubscriberId(customerId, subscriberId)
+    private Customer getOwnedCustomer(Long subscriberId, Long companyId, Long customerId) {
+        return customerRepository.findByIdAndSubscriberIdAndCompanyId(customerId, subscriberId, companyId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Customer not found"));
     }
 

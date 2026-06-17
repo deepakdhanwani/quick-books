@@ -53,11 +53,14 @@ public class SubscriptionPlanService {
         if (subscriptionPlanRepository.existsByNameIgnoreCase(name)) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Subscription plan already exists");
         }
+        validateCompanyRange(request.getMinCompanies(), request.getMaxCompanies());
 
         SubscriptionPlan plan = new SubscriptionPlan();
         plan.setName(name);
         plan.setDuration(request.getDuration());
         plan.setPrice(request.getPrice());
+        plan.setMinCompanies(request.getMinCompanies());
+        plan.setMaxCompanies(request.getMaxCompanies());
         plan.setDescription(trimToNull(request.getDescription()));
         plan.setActive(true);
 
@@ -72,10 +75,13 @@ public class SubscriptionPlanService {
         if (subscriptionPlanRepository.existsByNameIgnoreCaseAndIdNot(name, id)) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Subscription plan name already exists");
         }
+        validateCompanyRange(request.getMinCompanies(), request.getMaxCompanies());
 
         plan.setName(name);
         plan.setDuration(request.getDuration());
         plan.setPrice(request.getPrice());
+        plan.setMinCompanies(request.getMinCompanies());
+        plan.setMaxCompanies(request.getMaxCompanies());
         plan.setDescription(trimToNull(request.getDescription()));
         if (request.getActive() != null) {
             plan.setActive(request.getActive());
@@ -123,5 +129,14 @@ public class SubscriptionPlanService {
         }
         String trimmed = value.trim();
         return trimmed.isEmpty() ? null : trimmed;
+    }
+
+    private void validateCompanyRange(Integer minCompanies, Integer maxCompanies) {
+        if (minCompanies == null || maxCompanies == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Company range is required");
+        }
+        if (maxCompanies < minCompanies) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Maximum companies must be >= minimum companies");
+        }
     }
 }

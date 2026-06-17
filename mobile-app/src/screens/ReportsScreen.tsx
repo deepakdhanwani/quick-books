@@ -20,6 +20,7 @@ import { quickPresetToDateFilter, resolveReportPeriod } from '../utils/reportPer
 
 type ReportsScreenProps = {
   token: string;
+  activeCompanyId?: number;
   refreshing: boolean;
   onRefresh: () => void | Promise<void>;
 };
@@ -61,7 +62,7 @@ const SEGMENT_TABLE_TITLE: Partial<Record<ReportSegment, string>> = {
   SALES: 'Sales breakdown',
 };
 
-export function ReportsScreen({ token, refreshing, onRefresh }: ReportsScreenProps) {
+export function ReportsScreen({ token, activeCompanyId, refreshing, onRefresh }: ReportsScreenProps) {
   const styles = useThemedStyles(createStyles);
 
   const [segment, setSegment] = useState<ReportSegment>('PULSE');
@@ -89,7 +90,7 @@ export function ReportsScreen({ token, refreshing, onRefresh }: ReportsScreenPro
     } finally {
       setLoadingIntel(false);
     }
-  }, [token]);
+  }, [token, activeCompanyId]);
 
   const loadDetail = useCallback(async () => {
     if (segment === 'PULSE') {
@@ -141,15 +142,19 @@ export function ReportsScreen({ token, refreshing, onRefresh }: ReportsScreenPro
     } finally {
       setLoadingDetail(false);
     }
-  }, [segment, quickPreset, dateFilter, token]);
+  }, [segment, quickPreset, dateFilter, token, activeCompanyId]);
 
   useEffect(() => {
-    loadIntelligence();
-  }, [loadIntelligence]);
+    setIntelligence(null);
+    setDetailReport(null);
+    setCashReceivables(null);
+    setCashPayables(null);
+    void loadIntelligence();
+  }, [loadIntelligence, activeCompanyId]);
 
   useEffect(() => {
-    loadDetail();
-  }, [loadDetail]);
+    void loadDetail();
+  }, [loadDetail, activeCompanyId]);
 
   const handleRefresh = async () => {
     await onRefresh();

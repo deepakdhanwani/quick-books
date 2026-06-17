@@ -1,12 +1,17 @@
 package com.quickbooks.entity;
 
 import jakarta.persistence.*;
-import java.math.BigDecimal;
+
 import java.time.OffsetDateTime;
 
 @Entity
-@Table(name = "products")
-public class Product {
+@Table(
+        name = "companies",
+        uniqueConstraints = {
+                @UniqueConstraint(name = "uk_companies_subscriber_name", columnNames = {"subscriber_id", "name"})
+        }
+)
+public class Company {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -16,18 +21,12 @@ public class Product {
     @JoinColumn(name = "subscriber_id", nullable = false)
     private Subscriber subscriber;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "company_id", nullable = false)
-    private Company company;
-
     @Column(nullable = false)
     private String name;
 
-    @Column(name = "selling_price", nullable = false)
-    private BigDecimal sellingPrice;
-
-    @Column(nullable = false)
-    private BigDecimal discount = BigDecimal.ZERO;
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "business_type_id", nullable = false)
+    private BusinessType businessType;
 
     @Column(name = "is_active", nullable = false)
     private boolean active = true;
@@ -39,14 +38,10 @@ public class Product {
     public void setId(Long id) { this.id = id; }
     public Subscriber getSubscriber() { return subscriber; }
     public void setSubscriber(Subscriber subscriber) { this.subscriber = subscriber; }
-    public Company getCompany() { return company; }
-    public void setCompany(Company company) { this.company = company; }
     public String getName() { return name; }
     public void setName(String name) { this.name = name; }
-    public BigDecimal getSellingPrice() { return sellingPrice; }
-    public void setSellingPrice(BigDecimal sellingPrice) { this.sellingPrice = sellingPrice; }
-    public BigDecimal getDiscount() { return discount; }
-    public void setDiscount(BigDecimal discount) { this.discount = discount; }
+    public BusinessType getBusinessType() { return businessType; }
+    public void setBusinessType(BusinessType businessType) { this.businessType = businessType; }
     public boolean isActive() { return active; }
     public void setActive(boolean active) { this.active = active; }
     public OffsetDateTime getCreatedAt() { return createdAt; }

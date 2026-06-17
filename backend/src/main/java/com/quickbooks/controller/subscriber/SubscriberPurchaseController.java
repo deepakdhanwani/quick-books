@@ -40,31 +40,31 @@ public class SubscriberPurchaseController {
             @RequestParam(required = false) PaymentListFilter paymentFilter,
             @RequestParam(required = false) LocalDate fromDate,
             @RequestParam(required = false) LocalDate toDate) {
-        return purchaseService.findPage(principal.getId(), page, size, search, paymentFilter, fromDate, toDate);
+        return purchaseService.findPage(principal.getId(), principal.getCompanyId(), page, size, search, paymentFilter, fromDate, toDate);
     }
 
     @GetMapping("/next-bill-number")
     public NextBillNumberResponse nextBillNumber(@AuthenticationPrincipal UserPrincipal principal) {
-        return purchaseService.getNextBillNumber(principal.getId());
+        return purchaseService.getNextBillNumber(principal.getId(), principal.getCompanyId());
     }
 
     @GetMapping("/{id}")
     public PurchaseResponse get(@AuthenticationPrincipal UserPrincipal principal,
                                 @PathVariable Long id) {
-        return purchaseService.getById(principal.getId(), id);
+        return purchaseService.getById(principal.getId(), principal.getCompanyId(), id);
     }
 
     @PostMapping
     public PurchaseResponse create(@AuthenticationPrincipal UserPrincipal principal,
                                    @Valid @RequestBody CreatePurchaseRequest request) {
-        return purchaseService.create(principal.getId(), request);
+        return purchaseService.create(principal.getId(), principal.getCompanyId(), request);
     }
 
     @PutMapping("/{id}")
     public PurchaseResponse update(@AuthenticationPrincipal UserPrincipal principal,
                                    @PathVariable Long id,
                                    @Valid @RequestBody CreatePurchaseRequest request) {
-        return purchaseService.update(principal.getId(), id, request);
+        return purchaseService.update(principal.getId(), principal.getCompanyId(), id, request);
     }
 
     @PostMapping(value = "/{id}/payments", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
@@ -79,6 +79,7 @@ public class SubscriberPurchaseController {
                                         @RequestPart(value = "proof", required = false) MultipartFile proof) {
         return purchaseService.makePayment(
                 principal.getId(),
+                principal.getCompanyId(),
                 id,
                 amount,
                 date,
@@ -93,9 +94,9 @@ public class SubscriberPurchaseController {
     @GetMapping("/payments/{paymentId}/proof")
     public ResponseEntity<Resource> downloadProof(@AuthenticationPrincipal UserPrincipal principal,
                                                   @PathVariable Long paymentId) {
-        Resource resource = purchaseService.getPaymentProof(principal.getId(), paymentId);
-        String fileName = purchaseService.getPaymentProofFileName(principal.getId(), paymentId);
-        String contentType = purchaseService.getPaymentProofContentType(principal.getId(), paymentId);
+        Resource resource = purchaseService.getPaymentProof(principal.getId(), principal.getCompanyId(), paymentId);
+        String fileName = purchaseService.getPaymentProofFileName(principal.getId(), principal.getCompanyId(), paymentId);
+        String contentType = purchaseService.getPaymentProofContentType(principal.getId(), principal.getCompanyId(), paymentId);
 
         return ResponseEntity.ok()
                 .contentType(MediaType.parseMediaType(contentType))

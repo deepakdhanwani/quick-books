@@ -44,19 +44,19 @@ public class SubscriberCustomerController {
             @RequestParam(defaultValue = "20") int size,
             @RequestParam(required = false) Boolean active,
             @RequestParam(required = false) String search) {
-        return customerService.findPage(principal.getId(), page, size, active, search);
+        return customerService.findPage(principal.getId(), principal.getCompanyId(), page, size, active, search);
     }
 
     @GetMapping("/{id}")
     public CustomerResponse get(@AuthenticationPrincipal UserPrincipal principal,
                                 @PathVariable Long id) {
-        return customerService.getById(principal.getId(), id);
+        return customerService.getById(principal.getId(), principal.getCompanyId(), id);
     }
 
     @GetMapping("/{id}/account-summary")
     public PartyLedgerSummaryResponse accountSummary(@AuthenticationPrincipal UserPrincipal principal,
                                                      @PathVariable Long id) {
-        return partyLedgerService.getCustomerAccountSummary(principal.getId(), id);
+        return partyLedgerService.getCustomerAccountSummary(principal.getId(), principal.getCompanyId(), id);
     }
 
     @GetMapping("/{id}/ledger")
@@ -67,7 +67,7 @@ public class SubscriberCustomerController {
             @RequestParam(defaultValue = "20") int size,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fromDate,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate toDate) {
-        return partyLedgerService.getCustomerLedger(principal.getId(), id, page, size, fromDate, toDate);
+        return partyLedgerService.getCustomerLedger(principal.getId(), principal.getCompanyId(), id, page, size, fromDate, toDate);
     }
 
     @GetMapping("/{id}/sales")
@@ -77,33 +77,33 @@ public class SubscriberCustomerController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
             @RequestParam(defaultValue = "ALL") PaymentListFilter paymentFilter) {
-        return saleService.findPageByCustomer(principal.getId(), id, page, size, paymentFilter);
+        return saleService.findPageByCustomer(principal.getId(), principal.getCompanyId(), id, page, size, paymentFilter);
     }
 
     @PostMapping
     public CustomerResponse create(@AuthenticationPrincipal UserPrincipal principal,
                                    @Valid @RequestBody CreateCustomerRequest request) {
-        return customerService.create(principal.getId(), request);
+        return customerService.create(principal.getId(), principal.getCompanyId(), request);
     }
 
     @PutMapping("/{id}")
     public CustomerResponse update(@AuthenticationPrincipal UserPrincipal principal,
                                    @PathVariable Long id,
                                    @Valid @RequestBody UpdateCustomerRequest request) {
-        return customerService.update(principal.getId(), id, request);
+        return customerService.update(principal.getId(), principal.getCompanyId(), id, request);
     }
 
     @PatchMapping("/{id}/active")
     public CustomerResponse updateActive(@AuthenticationPrincipal UserPrincipal principal,
                                          @PathVariable Long id,
                                          @Valid @RequestBody UpdateCustomerActiveRequest request) {
-        return customerService.updateActive(principal.getId(), id, request);
+        return customerService.updateActive(principal.getId(), principal.getCompanyId(), id, request);
     }
 
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void delete(@AuthenticationPrincipal UserPrincipal principal,
                        @PathVariable Long id) {
-        customerService.delete(principal.getId(), id);
+        customerService.delete(principal.getId(), principal.getCompanyId(), id);
     }
 }

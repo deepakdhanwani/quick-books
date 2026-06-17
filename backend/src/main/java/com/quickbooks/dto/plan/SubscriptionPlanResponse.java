@@ -12,6 +12,8 @@ public class SubscriptionPlanResponse {
     private String name;
     private PlanDuration duration;
     private BigDecimal price;
+    private Integer minCompanies;
+    private Integer maxCompanies;
     private String description;
     private boolean active;
     private OffsetDateTime createdAt;
@@ -22,6 +24,8 @@ public class SubscriptionPlanResponse {
         response.setName(plan.getName());
         response.setDuration(plan.getDuration());
         response.setPrice(plan.getPrice());
+        response.setMinCompanies(plan.getMinCompanies());
+        response.setMaxCompanies(plan.getMaxCompanies());
         response.setDescription(plan.getDescription());
         response.setActive(plan.isActive());
         response.setCreatedAt(plan.getCreatedAt());
@@ -36,6 +40,10 @@ public class SubscriptionPlanResponse {
     public void setDuration(PlanDuration duration) { this.duration = duration; }
     public BigDecimal getPrice() { return price; }
     public void setPrice(BigDecimal price) { this.price = price; }
+    public Integer getMinCompanies() { return minCompanies; }
+    public void setMinCompanies(Integer minCompanies) { this.minCompanies = minCompanies; }
+    public Integer getMaxCompanies() { return maxCompanies; }
+    public void setMaxCompanies(Integer maxCompanies) { this.maxCompanies = maxCompanies; }
     public String getDescription() { return description; }
     public void setDescription(String description) { this.description = description; }
     public boolean isActive() { return active; }

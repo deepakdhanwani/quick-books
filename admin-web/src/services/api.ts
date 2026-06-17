@@ -115,6 +115,8 @@ export type SubscriptionPlan = {
   name: string;
   duration: 'MONTHLY' | 'QUARTERLY' | 'HALF_YEARLY' | 'ANNUAL';
   price: number;
+  minCompanies: number;
+  maxCompanies: number;
   description?: string;
   active: boolean;
   createdAt: string;
@@ -124,6 +126,8 @@ export type CreateSubscriptionPlanPayload = {
   name: string;
   duration: SubscriptionPlan['duration'];
   price: number;
+  minCompanies: number;
+  maxCompanies: number;
   description?: string;
 };
 
@@ -131,6 +135,8 @@ export type UpdateSubscriptionPlanPayload = {
   name: string;
   duration: SubscriptionPlan['duration'];
   price: number;
+  minCompanies: number;
+  maxCompanies: number;
   description?: string;
   active?: boolean;
 };

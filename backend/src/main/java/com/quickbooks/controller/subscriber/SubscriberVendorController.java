@@ -44,19 +44,19 @@ public class SubscriberVendorController {
             @RequestParam(defaultValue = "20") int size,
             @RequestParam(required = false) Boolean active,
             @RequestParam(required = false) String search) {
-        return vendorService.findPage(principal.getId(), page, size, active, search);
+        return vendorService.findPage(principal.getId(), principal.getCompanyId(), page, size, active, search);
     }
 
     @GetMapping("/{id}")
     public VendorResponse get(@AuthenticationPrincipal UserPrincipal principal,
                               @PathVariable Long id) {
-        return vendorService.getById(principal.getId(), id);
+        return vendorService.getById(principal.getId(), principal.getCompanyId(), id);
     }
 
     @GetMapping("/{id}/account-summary")
     public PartyLedgerSummaryResponse accountSummary(@AuthenticationPrincipal UserPrincipal principal,
                                                      @PathVariable Long id) {
-        return partyLedgerService.getVendorAccountSummary(principal.getId(), id);
+        return partyLedgerService.getVendorAccountSummary(principal.getId(), principal.getCompanyId(), id);
     }
 
     @GetMapping("/{id}/ledger")
@@ -67,7 +67,7 @@ public class SubscriberVendorController {
             @RequestParam(defaultValue = "20") int size,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fromDate,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate toDate) {
-        return partyLedgerService.getVendorLedger(principal.getId(), id, page, size, fromDate, toDate);
+        return partyLedgerService.getVendorLedger(principal.getId(), principal.getCompanyId(), id, page, size, fromDate, toDate);
     }
 
     @GetMapping("/{id}/purchases")
@@ -77,33 +77,33 @@ public class SubscriberVendorController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
             @RequestParam(defaultValue = "ALL") PaymentListFilter paymentFilter) {
-        return purchaseService.findPageByVendor(principal.getId(), id, page, size, paymentFilter);
+        return purchaseService.findPageByVendor(principal.getId(), principal.getCompanyId(), id, page, size, paymentFilter);
     }
 
     @PostMapping
     public VendorResponse create(@AuthenticationPrincipal UserPrincipal principal,
                                  @Valid @RequestBody CreateVendorRequest request) {
-        return vendorService.create(principal.getId(), request);
+        return vendorService.create(principal.getId(), principal.getCompanyId(), request);
     }
 
     @PutMapping("/{id}")
     public VendorResponse update(@AuthenticationPrincipal UserPrincipal principal,
                                  @PathVariable Long id,
                                  @Valid @RequestBody UpdateVendorRequest request) {
-        return vendorService.update(principal.getId(), id, request);
+        return vendorService.update(principal.getId(), principal.getCompanyId(), id, request);
     }
 
     @PatchMapping("/{id}/active")
     public VendorResponse updateActive(@AuthenticationPrincipal UserPrincipal principal,
                                        @PathVariable Long id,
                                        @Valid @RequestBody UpdateVendorActiveRequest request) {
-        return vendorService.updateActive(principal.getId(), id, request);
+        return vendorService.updateActive(principal.getId(), principal.getCompanyId(), id, request);
     }
 
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void delete(@AuthenticationPrincipal UserPrincipal principal,
                        @PathVariable Long id) {
-        vendorService.delete(principal.getId(), id);
+        vendorService.delete(principal.getId(), principal.getCompanyId(), id);
     }
 }

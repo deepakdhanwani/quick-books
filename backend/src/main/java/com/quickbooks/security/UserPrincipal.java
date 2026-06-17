@@ -11,6 +11,7 @@ public class UserPrincipal {
     private final Long actorId;
     private final String actorName;
     private final String actorPin;
+    private Long companyId;
 
     public UserPrincipal(Long subscriberId,
                          String identifier,
@@ -74,4 +75,6 @@ public class UserPrincipal {
     public Long getActorId() { return actorId; }
     public String getActorName() { return actorName; }
     public String getActorPin() { return actorPin; }
+    public Long getCompanyId() { return companyId; }
+    public void setCompanyId(Long companyId) { this.companyId = companyId; }
 }

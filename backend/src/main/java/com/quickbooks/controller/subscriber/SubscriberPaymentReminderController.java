@@ -30,50 +30,50 @@ public class SubscriberPaymentReminderController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
             @RequestParam(defaultValue = "active") String timeFilter) {
-        return paymentReminderService.findPage(principal.getId(), page, size, timeFilter);
+        return paymentReminderService.findPage(principal.getId(), principal.getCompanyId(), page, size, timeFilter);
     }
 
     @GetMapping("/due")
     public List<PaymentReminderResponse> due(@AuthenticationPrincipal UserPrincipal principal) {
-        return paymentReminderService.findDueSummary(principal.getId());
+        return paymentReminderService.findDueSummary(principal.getId(), principal.getCompanyId());
     }
 
     @GetMapping("/{id}")
     public PaymentReminderResponse get(@AuthenticationPrincipal UserPrincipal principal,
                                        @PathVariable Long id) {
-        return paymentReminderService.getById(principal.getId(), id);
+        return paymentReminderService.getById(principal.getId(), principal.getCompanyId(), id);
     }
 
     @PostMapping
     public PaymentReminderResponse create(@AuthenticationPrincipal UserPrincipal principal,
                                           @Valid @RequestBody CreatePaymentReminderRequest request) {
-        return paymentReminderService.create(principal.getId(), request);
+        return paymentReminderService.create(principal.getId(), principal.getCompanyId(), request);
     }
 
     @PutMapping("/{id}")
     public PaymentReminderResponse update(@AuthenticationPrincipal UserPrincipal principal,
                                           @PathVariable Long id,
                                           @Valid @RequestBody UpdatePaymentReminderRequest request) {
-        return paymentReminderService.update(principal.getId(), id, request);
+        return paymentReminderService.update(principal.getId(), principal.getCompanyId(), id, request);
     }
 
     @PatchMapping("/{id}/snooze")
     public PaymentReminderResponse snooze(@AuthenticationPrincipal UserPrincipal principal,
                                           @PathVariable Long id,
                                           @Valid @RequestBody SnoozePaymentReminderRequest request) {
-        return paymentReminderService.snooze(principal.getId(), id, request);
+        return paymentReminderService.snooze(principal.getId(), principal.getCompanyId(), id, request);
     }
 
     @PatchMapping("/{id}/complete")
     public PaymentReminderResponse complete(@AuthenticationPrincipal UserPrincipal principal,
                                             @PathVariable Long id) {
-        return paymentReminderService.complete(principal.getId(), id);
+        return paymentReminderService.complete(principal.getId(), principal.getCompanyId(), id);
     }
 
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void delete(@AuthenticationPrincipal UserPrincipal principal,
                        @PathVariable Long id) {
-        paymentReminderService.delete(principal.getId(), id);
+        paymentReminderService.delete(principal.getId(), principal.getCompanyId(), id);
     }
 }

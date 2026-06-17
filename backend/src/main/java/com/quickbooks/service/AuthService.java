@@ -28,19 +28,22 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final SubscriberSubscriptionService subscriberSubscriptionService;
+    private final CompanyService companyService;
 
     public AuthService(AdminRepository adminRepository,
                        SubscriberRepository subscriberRepository,
                        SubscriberUserRepository subscriberUserRepository,
                        PasswordEncoder passwordEncoder,
                        JwtService jwtService,
-                       SubscriberSubscriptionService subscriberSubscriptionService) {
+                       SubscriberSubscriptionService subscriberSubscriptionService,
+                       CompanyService companyService) {
         this.adminRepository = adminRepository;
         this.subscriberRepository = subscriberRepository;
         this.subscriberUserRepository = subscriberUserRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
         this.subscriberSubscriptionService = subscriberSubscriptionService;
+        this.companyService = companyService;
     }
 
     public AuthResponse adminLogin(AdminLoginRequest request) {
@@ -84,6 +87,9 @@ public class AuthService {
         if (principal.getActorType() == ActorType.STAFF) {
             response.setStaffUserId(principal.getActorId());
         }
+        var defaultCompany = companyService.ensureDefaultCompany(subscriber.getId(), subscriber.getBusinessName());
+        response.setActiveCompanyId(defaultCompany.getId());
+        response.setCompanies(companyService.list(subscriber.getId(), defaultCompany.getId()));
         return response;
     }
 

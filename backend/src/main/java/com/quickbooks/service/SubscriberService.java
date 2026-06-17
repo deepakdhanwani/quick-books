@@ -43,6 +43,7 @@ public class SubscriberService {
     private final SubscriberSubscriptionRepository subscriberSubscriptionRepository;
     private final SubscriberSubscriptionService subscriberSubscriptionService;
     private final BusinessTypeService businessTypeService;
+    private final CompanyService companyService;
     private final PasswordEncoder passwordEncoder;
     private final PinGenerator pinGenerator;
 
@@ -51,6 +52,7 @@ public class SubscriberService {
                              SubscriberSubscriptionRepository subscriberSubscriptionRepository,
                              SubscriberSubscriptionService subscriberSubscriptionService,
                              BusinessTypeService businessTypeService,
+                             CompanyService companyService,
                              PasswordEncoder passwordEncoder,
                              PinGenerator pinGenerator) {
         this.subscriberRepository = subscriberRepository;
@@ -58,6 +60,7 @@ public class SubscriberService {
         this.subscriberSubscriptionRepository = subscriberSubscriptionRepository;
         this.subscriberSubscriptionService = subscriberSubscriptionService;
         this.businessTypeService = businessTypeService;
+        this.companyService = companyService;
         this.passwordEncoder = passwordEncoder;
         this.pinGenerator = pinGenerator;
     }
@@ -174,6 +177,7 @@ public class SubscriberService {
         subscriber.setActive(true);
 
         Subscriber saved = subscriberRepository.save(subscriber);
+        companyService.ensureDefaultCompany(saved.getId(), saved.getBusinessName());
         SubscriberResponse response = SubscriberResponse.from(saved);
         response.setLoginPin(loginPin);
         return response;

@@ -21,6 +21,10 @@ public class Payment {
     @JoinColumn(name = "subscriber_id", nullable = false)
     private Subscriber subscriber;
 
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "company_id", nullable = false)
+    private Company company;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private PaymentType type;
@@ -71,6 +75,8 @@ public class Payment {
     public void setId(Long id) { this.id = id; }
     public Subscriber getSubscriber() { return subscriber; }
     public void setSubscriber(Subscriber subscriber) { this.subscriber = subscriber; }
+    public Company getCompany() { return company; }
+    public void setCompany(Company company) { this.company = company; }
     public PaymentType getType() { return type; }
     public void setType(PaymentType type) { this.type = type; }
     public BigDecimal getAmount() { return amount; }

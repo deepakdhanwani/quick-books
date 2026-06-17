@@ -18,6 +18,10 @@ public class Vendor {
     @JoinColumn(name = "subscriber_id", nullable = false)
     private Subscriber subscriber;
 
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "company_id", nullable = false)
+    private Company company;
+
     @Column(nullable = false)
     private String name;
 
@@ -60,6 +64,8 @@ public class Vendor {
     public void setId(Long id) { this.id = id; }
     public Subscriber getSubscriber() { return subscriber; }
     public void setSubscriber(Subscriber subscriber) { this.subscriber = subscriber; }
+    public Company getCompany() { return company; }
+    public void setCompany(Company company) { this.company = company; }
     public String getName() { return name; }
     public void setName(String name) { this.name = name; }
     public String getContactPerson() { return contactPerson; }
