@@ -26,5 +26,6 @@
     <include file="db/changelog/changes/019-subscriber-demo-flag.xml"/>
     <include file="db/changelog/changes/020-user-preferences.xml"/>
     <include file="db/changelog/changes/021-party-opening-balance.xml"/>
+    <include file="db/changelog/changes/022-payment-reminders.xml"/>
 
 </databaseChangeLog>

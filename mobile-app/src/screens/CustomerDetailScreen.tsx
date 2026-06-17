@@ -55,6 +55,7 @@ type CustomerDetailScreenProps = {
   onEdit: () => void;
   onDeleted: () => void;
   onOpenSale: (saleId: number) => void;
+  onCreateReminder: () => void;
 };
 
 function getSubtitle(customer: Customer) {
@@ -71,6 +72,7 @@ export function CustomerDetailScreen({
   onEdit,
   onDeleted,
   onOpenSale,
+  onCreateReminder,
 }: CustomerDetailScreenProps) {
   const theme = useAppTheme();
   const styles = useThemedStyles(createStyles);
@@ -552,6 +554,7 @@ export function CustomerDetailScreen({
       </Card>
 
       <View style={styles.actions}>
+        <Button title="Create Reminder" variant="secondary" onPress={onCreateReminder} />
         <Button title="Edit Customer" onPress={onEdit} />
         <Pressable style={styles.deleteButton} onPress={handleDelete}>
           <Ionicons name="trash-outline" size={18} color={theme.colors.error} />

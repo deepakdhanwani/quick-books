@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Text, View } from 'react-native';
+import { useEffect, useRef } from 'react';
+import { Animated, Easing, Pressable, Text, View } from 'react-native';
 import { useAppTheme } from '../../theme/AppThemeContext';
 import type { AppTheme } from '../../theme/types';
 import { useThemedStyles } from '../../theme/useThemedStyles';
@@ -9,6 +10,8 @@ type DashboardHeroProps = {
   businessName: string;
   subscriptionLabel: string;
   subscriptionColor: string;
+  todayReminderCount?: number;
+  onOpenReminders?: () => void;
 };
 
 function getTimeGreeting() {
@@ -31,9 +34,57 @@ export function DashboardHero({
   businessName,
   subscriptionLabel,
   subscriptionColor,
+  todayReminderCount = 0,
+  onOpenReminders,
 }: DashboardHeroProps) {
   const theme = useAppTheme();
   const styles = useThemedStyles(createStyles);
+  const shake = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (todayReminderCount <= 0) {
+      shake.setValue(0);
+      return;
+    }
+
+    const animation = Animated.loop(
+      Animated.sequence([
+        Animated.timing(shake, {
+          toValue: 1,
+          duration: 85,
+          easing: Easing.linear,
+          useNativeDriver: true,
+        }),
+        Animated.timing(shake, {
+          toValue: -1,
+          duration: 85,
+          easing: Easing.linear,
+          useNativeDriver: true,
+        }),
+        Animated.timing(shake, {
+          toValue: 0.8,
+          duration: 75,
+          easing: Easing.linear,
+          useNativeDriver: true,
+        }),
+        Animated.timing(shake, {
+          toValue: -0.8,
+          duration: 75,
+          easing: Easing.linear,
+          useNativeDriver: true,
+        }),
+        Animated.timing(shake, {
+          toValue: 0,
+          duration: 90,
+          easing: Easing.linear,
+          useNativeDriver: true,
+        }),
+        Animated.delay(1150),
+      ]),
+    );
+    animation.start();
+    return () => animation.stop();
+  }, [shake, todayReminderCount]);
 
   return (
     <View style={styles.hero}>
@@ -51,11 +102,41 @@ export function DashboardHero({
         </View>
       </View>
 
-      <Text style={styles.greeting}>
-        {getTimeGreeting()}, {greetingName}
-      </Text>
+      <View style={styles.greetingRow}>
+        <Text style={styles.greeting}>
+          {getTimeGreeting()}, {greetingName}
+        </Text>
+      </View>
       <Text style={styles.business}>{businessName}</Text>
-      <Text style={styles.date}>{formatTodayDate()}</Text>
+      <View style={styles.bottomRow}>
+        <Text style={styles.date}>{formatTodayDate()}</Text>
+        <Pressable
+          style={styles.reminderBadge}
+          onPress={onOpenReminders}
+          disabled={!onOpenReminders}
+          accessibilityRole="button"
+          accessibilityLabel="Open reminders"
+        >
+          <View style={styles.reminderCountWrap}>
+            <Text style={styles.reminderCount}>{todayReminderCount}</Text>
+            <Text style={styles.reminderLabel}>Today</Text>
+          </View>
+          <Animated.View
+            style={{
+              transform: [
+                {
+                  rotate: shake.interpolate({
+                    inputRange: [-1, 1],
+                    outputRange: ['-14deg', '14deg'],
+                  }),
+                },
+              ],
+            }}
+          >
+            <Ionicons name="alarm" size={30} color={theme.colors.warning} />
+          </Animated.View>
+        </Pressable>
+      </View>
     </View>
   );
 }
@@ -135,6 +216,40 @@ function createStyles(theme: AppTheme) {
       fontSize: theme.scaleFont(26),
       fontWeight: '800' as const,
       letterSpacing: -0.3,
+      flex: 1,
+    },
+    greetingRow: {
+      flexDirection: 'row' as const,
+      alignItems: 'center' as const,
+      justifyContent: 'space-between' as const,
+      gap: 12,
+    },
+    reminderBadge: {
+      flexDirection: 'row' as const,
+      alignItems: 'center' as const,
+      justifyContent: 'flex-end' as const,
+      gap: 8,
+      paddingVertical: 6,
+      paddingHorizontal: 10,
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: `${theme.colors.warning}66`,
+      backgroundColor: 'rgba(250, 204, 21, 0.12)',
+    },
+    reminderCountWrap: {
+      alignItems: 'flex-end' as const,
+    },
+    reminderCount: {
+      color: theme.colors.warning,
+      fontSize: theme.scaleFont(18),
+      fontWeight: '800' as const,
+      lineHeight: theme.scaleFont(20),
+    },
+    reminderLabel: {
+      color: 'rgba(248,250,252,0.8)',
+      fontSize: theme.scaleFont(10),
+      fontWeight: '700' as const,
+      textTransform: 'uppercase' as const,
     },
     business: {
       color: 'rgba(248,250,252,0.88)',
@@ -142,10 +257,17 @@ function createStyles(theme: AppTheme) {
       marginTop: 6,
       fontWeight: '500' as const,
     },
+    bottomRow: {
+      flexDirection: 'row' as const,
+      alignItems: 'flex-end' as const,
+      justifyContent: 'space-between' as const,
+      gap: 12,
+      marginTop: 8,
+    },
     date: {
       color: 'rgba(248,250,252,0.65)',
       fontSize: theme.scaleFont(13),
-      marginTop: 8,
+      flex: 1,
     },
   };
 }

@@ -10,6 +10,7 @@ export type DrawerRoute =
   | 'products'
   | 'sales'
   | 'purchases'
+  | 'reminders'
   | 'reports'
   | 'settings';
 
@@ -33,7 +34,8 @@ export type StackRoute =
   | 'team-user-form'
   | 'team-user-detail'
   | 'activity-log'
-  | 'preferences';
+  | 'preferences'
+  | 'reminder-form';
 
 export type AppRoute = DrawerRoute | StackRoute;
 
@@ -50,10 +52,11 @@ export const DRAWER_NAV_ITEMS: DrawerNavItem[] = [
   { id: 'products', label: 'Products', icon: 'cube-outline' },
   { id: 'sales', label: 'Sales', icon: 'cart-outline' },
   { id: 'purchases', label: 'Purchases', icon: 'bag-handle-outline' },
+  { id: 'reminders', label: 'Reminders', icon: 'alarm-outline' },
   { id: 'reports', label: 'Reports', icon: 'bar-chart-outline' },
   { id: 'settings', label: 'Settings', icon: 'settings-outline' },
 ];
 
-export const PLACEHOLDER_TITLES: Record<Exclude<DrawerRoute, 'dashboard' | 'settings' | 'customers' | 'vendors' | 'products' | 'sales' | 'purchases'>, string> = {
+export const PLACEHOLDER_TITLES: Record<Exclude<DrawerRoute, 'dashboard' | 'settings' | 'customers' | 'vendors' | 'products' | 'sales' | 'purchases' | 'reminders'>, string> = {
   reports: 'Reports',
 };

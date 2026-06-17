@@ -7,12 +7,15 @@ import { DashboardHero } from '../components/dashboard/DashboardHero';
 import { DashboardInsightPreview } from '../components/dashboard/DashboardInsightPreview';
 import { DashboardPulseStrip } from '../components/dashboard/DashboardPulseStrip';
 import { DashboardQuickActions } from '../components/dashboard/DashboardQuickActions';
+import { DashboardRemindersCard } from '../components/dashboard/DashboardRemindersCard';
 import { DashboardTodayCards } from '../components/dashboard/DashboardTodayCards';
 import { MonthPerformanceCard } from '../components/dashboard/MonthPerformanceCard';
 import { WorkspaceTiles } from '../components/dashboard/WorkspaceTiles';
 import { RefreshableScrollView } from '../components/RefreshableScrollView';
+import { SnoozeReminderModal } from '../components/SnoozeReminderModal';
 import type { DrawerRoute } from '../navigation/types';
-import { api, BusinessIntelligence, SubscriberAccountProfile, SubscriberDashboard } from '../services/api';
+import { api, BusinessIntelligence, PaymentReminder, SubscriberAccountProfile, SubscriberDashboard } from '../services/api';
+import { appAlert } from '../utils/appAlert';
 import { useAppTheme } from '../theme/AppThemeContext';
 import type { AppTheme } from '../theme/types';
 import { useThemedStyles } from '../theme/useThemedStyles';
@@ -28,6 +31,10 @@ type DashboardScreenProps = {
   onAddCustomer?: () => void;
   onOpenReports?: () => void;
   onNavigate?: (route: DrawerRoute) => void;
+  onOpenReminders?: () => void;
+  onCreateReminder?: () => void;
+  onSnoozeReminder?: (reminderId: number, snoozedUntil: string) => void | Promise<void>;
+  onCompleteReminder?: (reminderId: number) => void | Promise<void>;
 };
 
 export function DashboardScreen({
@@ -40,25 +47,35 @@ export function DashboardScreen({
   onAddCustomer,
   onOpenReports,
   onNavigate,
+  onOpenReminders,
+  onCreateReminder,
+  onSnoozeReminder,
+  onCompleteReminder,
 }: DashboardScreenProps) {
   const theme = useAppTheme();
   const styles = useThemedStyles(createStyles);
 
   const [dashboard, setDashboard] = useState<SubscriberDashboard | null>(null);
   const [intelligence, setIntelligence] = useState<BusinessIntelligence | null>(null);
+  const [dueReminders, setDueReminders] = useState<PaymentReminder[]>([]);
+  const [snoozeTarget, setSnoozeTarget] = useState<PaymentReminder | null>(null);
+  const [snoozing, setSnoozing] = useState(false);
   const [loading, setLoading] = useState(true);
 
   const loadDashboard = useCallback(async () => {
     try {
-      const [dash, intel] = await Promise.all([
+      const [dash, intel, reminders] = await Promise.all([
         api.getDashboard(token),
         api.getIntelligence(token).catch(() => null),
+        api.getDuePaymentReminders(token).catch(() => []),
       ]);
       setDashboard(dash);
       setIntelligence(intel);
+      setDueReminders(reminders);
     } catch {
       setDashboard(null);
       setIntelligence(null);
+      setDueReminders([]);
     } finally {
       setLoading(false);
     }
@@ -95,6 +112,7 @@ export function DashboardScreen({
     intelligence?.forecasts.find((item) => item.key === 'SALES_MONTH') ?? null;
 
   const trendData = (intelligence?.salesTrend ?? []).slice(-7);
+  const todayReminderCount = dueReminders.filter((item) => item.dueToday).length;
 
   const handleQuickAction = (key: string) => {
     if (key === 'sale') {
@@ -105,6 +123,38 @@ export function DashboardScreen({
       onAddCustomer?.();
     } else if (key === 'reports') {
       onOpenReports?.();
+    } else if (key === 'reminder') {
+      onCreateReminder?.();
+    }
+  };
+
+  const handleSnoozeConfirm = async (snoozedUntil: string) => {
+    if (!snoozeTarget || !onSnoozeReminder) {
+      return;
+    }
+
+    setSnoozing(true);
+    try {
+      await onSnoozeReminder(snoozeTarget.id, snoozedUntil);
+      setSnoozeTarget(null);
+      void loadDashboard();
+    } catch (err) {
+      appAlert('Snooze failed', err instanceof Error ? err.message : 'Could not snooze reminder');
+    } finally {
+      setSnoozing(false);
+    }
+  };
+
+  const handleCompleteReminder = async (reminder: PaymentReminder) => {
+    if (!onCompleteReminder) {
+      return;
+    }
+
+    try {
+      await onCompleteReminder(reminder.id);
+      void loadDashboard();
+    } catch (err) {
+      appAlert('Update failed', err instanceof Error ? err.message : 'Could not complete reminder');
     }
   };
 
@@ -154,6 +204,8 @@ export function DashboardScreen({
         businessName={profile?.businessName ?? 'Your business'}
         subscriptionLabel={subscriptionLabel}
         subscriptionColor={subscriptionColor}
+        todayReminderCount={todayReminderCount}
+        onOpenReminders={onOpenReminders}
       />
 
       {loading && !dashboard ? (
@@ -176,6 +228,13 @@ export function DashboardScreen({
             todaySales={formatCurrency(dashboard?.todaySales ?? 0)}
             todayPurchases={formatCurrency(dashboard?.todayPurchases ?? 0)}
             outstanding={formatCurrency(pendingTotal)}
+          />
+
+          <DashboardRemindersCard
+            reminders={dueReminders}
+            onViewAll={onOpenReminders}
+            onSnooze={setSnoozeTarget}
+            onComplete={handleCompleteReminder}
           />
 
           <MonthPerformanceCard
@@ -224,6 +283,14 @@ export function DashboardScreen({
         </View>
         <Ionicons name="arrow-forward-circle" size={28} color={theme.colors.primary} />
       </Pressable>
+
+      <SnoozeReminderModal
+        visible={snoozeTarget != null}
+        customerName={snoozeTarget?.customerName}
+        onClose={() => setSnoozeTarget(null)}
+        onConfirm={handleSnoozeConfirm}
+        saving={snoozing}
+      />
     </RefreshableScrollView>
   );
 }

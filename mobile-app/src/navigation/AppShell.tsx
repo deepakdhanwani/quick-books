@@ -33,6 +33,8 @@ import { TeamUserFormScreen } from '../screens/TeamUserFormScreen';
 import { TeamUserDetailScreen } from '../screens/TeamUserDetailScreen';
 import { ActivityLogScreen } from '../screens/ActivityLogScreen';
 import { PreferencesScreen } from '../screens/PreferencesScreen';
+import { PaymentRemindersScreen } from '../screens/PaymentRemindersScreen';
+import { PaymentReminderFormScreen } from '../screens/PaymentReminderFormScreen';
 import { api, SubscriberAccountProfile, SubscriberAuthResponse } from '../services/api';
 import { saveCachedPreferences } from '../services/preferenceStorage';
 import { useUserPreferences } from '../theme/AppThemeContext';
@@ -63,6 +65,8 @@ export function AppShell({ auth, onLogout, onSubscriptionChanged }: AppShellProp
   const [selectedPurchaseId, setSelectedPurchaseId] = useState<number | undefined>(undefined);
   const [editingPurchaseId, setEditingPurchaseId] = useState<number | undefined>(undefined);
   const [selectedTeamUserId, setSelectedTeamUserId] = useState<number | undefined>(undefined);
+  const [editingReminderId, setEditingReminderId] = useState<number | undefined>(undefined);
+  const [initialReminderCustomerId, setInitialReminderCustomerId] = useState<number | undefined>(undefined);
 
   const [profile, setProfile] = useState<SubscriberAccountProfile | null>(null);
   const [profileLoading, setProfileLoading] = useState(true);
@@ -164,6 +168,7 @@ export function AppShell({ auth, onLogout, onSubscriptionChanged }: AppShellProp
     setEditingSaleId(undefined);
     setSelectedPurchaseId(undefined);
     setEditingPurchaseId(undefined);
+    setInitialReminderCustomerId(undefined);
   };
 
   const openStack = (route: StackRoute) => {
@@ -225,6 +230,13 @@ export function AppShell({ auth, onLogout, onSubscriptionChanged }: AppShellProp
     if (stackRoute === 'team-user-detail') {
       setStackRoute('team-users');
       setSelectedTeamUserId(undefined);
+      return;
+    }
+
+    if (stackRoute === 'reminder-form') {
+      setStackRoute(null);
+      setEditingReminderId(undefined);
+      setInitialReminderCustomerId(undefined);
       return;
     }
 
@@ -407,6 +419,32 @@ export function AppShell({ auth, onLogout, onSubscriptionChanged }: AppShellProp
     openStack('make-payment');
   };
 
+  const openCreateReminder = () => {
+    if (requiresSubscription) {
+      promptMembershipRequired();
+      return;
+    }
+    setEditingReminderId(undefined);
+    setInitialReminderCustomerId(undefined);
+    openStack('reminder-form');
+  };
+
+  const openCreateReminderForCustomer = (customerId: number) => {
+    if (requiresSubscription) {
+      promptMembershipRequired();
+      return;
+    }
+    setEditingReminderId(undefined);
+    setInitialReminderCustomerId(customerId);
+    openStack('reminder-form');
+  };
+
+  const openEditReminder = (reminderId: number) => {
+    setEditingReminderId(reminderId);
+    setInitialReminderCustomerId(undefined);
+    openStack('reminder-form');
+  };
+
   const handleSubscribed = async () => {
     await loadProfile(true);
   };
@@ -440,6 +478,9 @@ export function AppShell({ auth, onLogout, onSubscriptionChanged }: AppShellProp
     if (stackRoute === 'team-user-detail') return 'Team User';
     if (stackRoute === 'activity-log') return 'Activity Log';
     if (stackRoute === 'preferences') return 'Appearance';
+    if (stackRoute === 'reminder-form') {
+      return editingReminderId == null ? 'New Reminder' : 'Edit Reminder';
+    }
 
     if (drawerRoute === 'dashboard') return 'Dashboard';
     if (drawerRoute === 'settings') return 'Settings';
@@ -448,6 +489,7 @@ export function AppShell({ auth, onLogout, onSubscriptionChanged }: AppShellProp
     if (drawerRoute === 'products') return 'Products';
     if (drawerRoute === 'sales') return 'Sales';
     if (drawerRoute === 'purchases') return 'Purchases';
+    if (drawerRoute === 'reminders') return 'Payment Reminders';
     if (drawerRoute === 'reports') return 'Business Intelligence';
     return 'Quick Books';
   };
@@ -588,6 +630,7 @@ export function AppShell({ auth, onLogout, onSubscriptionChanged }: AppShellProp
           onEdit={() => openEditCustomer(selectedCustomerId)}
           onDeleted={closeStack}
           onOpenSale={openSaleDetail}
+          onCreateReminder={() => openCreateReminderForCustomer(selectedCustomerId)}
         />
       );
     }
@@ -710,6 +753,17 @@ export function AppShell({ auth, onLogout, onSubscriptionChanged }: AppShellProp
       );
     }
 
+    if (stackRoute === 'reminder-form') {
+      return (
+        <PaymentReminderFormScreen
+          token={auth.token}
+          reminderId={editingReminderId}
+          initialCustomerId={initialReminderCustomerId}
+          onSaved={closeStack}
+        />
+      );
+    }
+
     if (drawerRoute === 'dashboard') {
       return (
         <DashboardScreen
@@ -722,6 +776,14 @@ export function AppShell({ auth, onLogout, onSubscriptionChanged }: AppShellProp
           onAddCustomer={openCreateCustomer}
           onOpenReports={() => navigateDrawer('reports')}
           onNavigate={navigateDrawer}
+          onOpenReminders={() => navigateDrawer('reminders')}
+          onCreateReminder={openCreateReminder}
+          onSnoozeReminder={async (reminderId, snoozedUntil) => {
+            await api.snoozePaymentReminder(auth.token, reminderId, { snoozedUntil });
+          }}
+          onCompleteReminder={async (reminderId) => {
+            await api.completePaymentReminder(auth.token, reminderId);
+          }}
         />
       );
     }
@@ -778,6 +840,16 @@ export function AppShell({ auth, onLogout, onSubscriptionChanged }: AppShellProp
           token={auth.token}
           onAddPurchase={openCreatePurchase}
           onOpenPurchase={openPurchaseDetail}
+        />
+      );
+    }
+
+    if (drawerRoute === 'reminders') {
+      return (
+        <PaymentRemindersScreen
+          token={auth.token}
+          onAddReminder={openCreateReminder}
+          onEditReminder={openEditReminder}
         />
       );
     }

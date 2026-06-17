@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <changeSet id="022-payment-reminders" author="quickbooks">
+        <createTable tableName="payment_reminders">
+            <column name="id" type="BIGSERIAL" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="subscriber_id" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="customer_id" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="sale_id" type="BIGINT"/>
+            <column name="amount" type="DECIMAL(19,2)"/>
+            <column name="promised_date" type="DATE">
+                <constraints nullable="false"/>
+            </column>
+            <column name="notes" type="TEXT"/>
+            <column name="status" type="VARCHAR(20)" defaultValue="PENDING">
+                <constraints nullable="false"/>
+            </column>
+            <column name="snoozed_until" type="DATE"/>
+            <column name="created_at" type="TIMESTAMPTZ" defaultValueComputed="CURRENT_TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+            <column name="updated_at" type="TIMESTAMPTZ" defaultValueComputed="CURRENT_TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <addForeignKeyConstraint
+                baseTableName="payment_reminders"
+                baseColumnNames="subscriber_id"
+                constraintName="fk_payment_reminders_subscriber"
+                referencedTableName="subscribers"
+                referencedColumnNames="id"/>
+        <addForeignKeyConstraint
+                baseTableName="payment_reminders"
+                baseColumnNames="customer_id"
+                constraintName="fk_payment_reminders_customer"
+                referencedTableName="customers"
+                referencedColumnNames="id"/>
+        <addForeignKeyConstraint
+                baseTableName="payment_reminders"
+                baseColumnNames="sale_id"
+                constraintName="fk_payment_reminders_sale"
+                referencedTableName="sales"
+                referencedColumnNames="id"/>
+
+        <createIndex tableName="payment_reminders" indexName="idx_payment_reminders_subscriber_status">
+            <column name="subscriber_id"/>
+            <column name="status"/>
+        </createIndex>
+        <createIndex tableName="payment_reminders" indexName="idx_payment_reminders_subscriber_promised_date">
+            <column name="subscriber_id"/>
+            <column name="promised_date"/>
+        </createIndex>
+        <createIndex tableName="payment_reminders" indexName="idx_payment_reminders_subscriber_customer">
+            <column name="subscriber_id"/>
+            <column name="customer_id"/>
+        </createIndex>
+    </changeSet>
+
+</databaseChangeLog>

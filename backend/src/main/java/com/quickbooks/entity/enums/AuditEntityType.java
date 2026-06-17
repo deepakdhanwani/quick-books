@@ -7,5 +7,6 @@ public enum AuditEntityType {
     SALE,
     PURCHASE,
     PAYMENT,
+    PAYMENT_REMINDER,
     SUBSCRIBER_USER
 }

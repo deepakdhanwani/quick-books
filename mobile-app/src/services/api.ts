@@ -458,6 +458,40 @@ export type MakePaymentPayload = {
   notes?: string;
 };
 
+export type PaymentReminderStatus = 'PENDING' | 'SNOOZED' | 'COMPLETED' | 'CANCELLED';
+
+export type PaymentReminderTimeFilter = 'active' | 'past' | 'all';
+
+export type PaymentReminder = {
+  id: number;
+  customerId: number;
+  customerName: string;
+  saleId?: number;
+  invoiceNumber?: string;
+  amount?: number;
+  promisedDate: string;
+  notes?: string;
+  status: PaymentReminderStatus;
+  snoozedUntil?: string;
+  effectiveDueDate: string;
+  overdue: boolean;
+  dueToday: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type PaymentReminderPayload = {
+  customerId: number;
+  saleId?: number;
+  amount?: number;
+  promisedDate: string;
+  notes?: string;
+};
+
+export type SnoozePaymentReminderPayload = {
+  snoozedUntil: string;
+};
+
 export const api = {
   subscriberLogin: (phone: string, loginPin: string) =>
     request<SubscriberAuthResponse>('/api/auth/subscriber/login', {
@@ -841,6 +875,59 @@ export const api = {
 
   getDashboard: (token: string) =>
     request<SubscriberDashboard>('/api/subscriber/reports/dashboard', { token }),
+
+  listPaymentReminders: (
+    token: string,
+    page = 0,
+    size = 20,
+    timeFilter: PaymentReminderTimeFilter = 'active',
+  ) => {
+    const params = new URLSearchParams({
+      page: String(page),
+      size: String(size),
+      timeFilter,
+    });
+    return request<PageResponse<PaymentReminder>>(
+      `/api/subscriber/payment-reminders?${params}`,
+      { token },
+    );
+  },
+
+  getDuePaymentReminders: (token: string) =>
+    request<PaymentReminder[]>('/api/subscriber/payment-reminders/due', { token }),
+
+  getPaymentReminder: (token: string, id: number) =>
+    request<PaymentReminder>(`/api/subscriber/payment-reminders/${id}`, { token }),
+
+  createPaymentReminder: (token: string, payload: PaymentReminderPayload) =>
+    request<PaymentReminder>('/api/subscriber/payment-reminders', {
+      method: 'POST',
+      token,
+      body: payload,
+    }),
+
+  updatePaymentReminder: (token: string, id: number, payload: PaymentReminderPayload) =>
+    request<PaymentReminder>(`/api/subscriber/payment-reminders/${id}`, {
+      method: 'PUT',
+      token,
+      body: payload,
+    }),
+
+  snoozePaymentReminder: (token: string, id: number, payload: SnoozePaymentReminderPayload) =>
+    request<PaymentReminder>(`/api/subscriber/payment-reminders/${id}/snooze`, {
+      method: 'PATCH',
+      token,
+      body: payload,
+    }),
+
+  completePaymentReminder: (token: string, id: number) =>
+    request<PaymentReminder>(`/api/subscriber/payment-reminders/${id}/complete`, {
+      method: 'PATCH',
+      token,
+    }),
+
+  deletePaymentReminder: (token: string, id: number) =>
+    request<void>(`/api/subscriber/payment-reminders/${id}`, { method: 'DELETE', token }),
 
   getBusinessSummaryReport: (token: string, from?: string, to?: string) =>
     request<BusinessReport>(
