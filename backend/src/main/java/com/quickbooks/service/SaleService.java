@@ -523,23 +523,35 @@ public class SaleService {
         BigDecimal discountAmount;
 
         if (!builtItems.isEmpty()) {
-            grossAmount = builtItems.stream()
+            BigDecimal itemsGross = builtItems.stream()
                     .map(BuiltSaleItem::lineGross)
                     .reduce(BigDecimal.ZERO, BigDecimal::add)
                     .setScale(2, RoundingMode.HALF_UP);
-            discountAmount = builtItems.stream()
+            BigDecimal itemsDiscount = builtItems.stream()
                     .map(BuiltSaleItem::lineDiscount)
                     .reduce(BigDecimal.ZERO, BigDecimal::add)
                     .setScale(2, RoundingMode.HALF_UP);
+
+            if (request.getGrossAmount() != null && request.getGrossAmount().compareTo(BigDecimal.ZERO) > 0) {
+                grossAmount = request.getGrossAmount().setScale(2, RoundingMode.HALF_UP);
+            } else {
+                grossAmount = itemsGross;
+            }
+            if (request.getDiscountAmount() != null) {
+                discountAmount = request.getDiscountAmount().setScale(2, RoundingMode.HALF_UP);
+            } else {
+                discountAmount = itemsDiscount;
+            }
         } else {
             if (request.getGrossAmount() == null || request.getGrossAmount().compareTo(BigDecimal.ZERO) <= 0) {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Gross amount must be greater than zero");
             }
             grossAmount = request.getGrossAmount().setScale(2, RoundingMode.HALF_UP);
             discountAmount = nullToZero(request.getDiscountAmount()).setScale(2, RoundingMode.HALF_UP);
-            if (discountAmount.compareTo(grossAmount) > 0) {
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Discount cannot exceed gross amount");
-            }
+        }
+
+        if (discountAmount.compareTo(grossAmount) > 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Discount cannot exceed gross amount");
         }
 
         BigDecimal taxableAmount = grossAmount.subtract(discountAmount);

@@ -60,6 +60,13 @@ function createAddedProduct(product: Product, quantity = '1'): AddedProduct {
   };
 }
 
+function formatAmountInput(value: number) {
+  if (value <= 0) {
+    return '';
+  }
+  return String(Number(value.toFixed(2)));
+}
+
 export function SaleFormScreen({ token, saleId, onSaved }: SaleFormScreenProps) {
   const theme = useAppTheme();
   const styles = useThemedStyles(createStyles);
@@ -75,6 +82,7 @@ export function SaleFormScreen({ token, saleId, onSaved }: SaleFormScreenProps) 
   const [taxPercent, setTaxPercent] = useState('');
   const [taxAmount, setTaxAmount] = useState('');
   const [taxEdited, setTaxEdited] = useState(false);
+  const [amountsManuallyEdited, setAmountsManuallyEdited] = useState(false);
   const [notes, setNotes] = useState('');
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -114,6 +122,13 @@ export function SaleFormScreen({ token, saleId, onSaved }: SaleFormScreenProps) 
                 })
                 .filter((line): line is AddedProduct => line != null),
             );
+            setGrossAmount(sale.grossAmount != null ? String(sale.grossAmount) : '');
+            setDiscountAmount(
+              sale.discountAmount != null && sale.discountAmount > 0
+                ? String(sale.discountAmount)
+                : '',
+            );
+            setAmountsManuallyEdited(true);
           } else {
             setAmountMode('manual');
             setGrossAmount(sale.grossAmount != null ? String(sale.grossAmount) : '');
@@ -163,8 +178,8 @@ export function SaleFormScreen({ token, saleId, onSaved }: SaleFormScreenProps) 
 
   const productTotals = useMemo(() => calculateLinesTotals(parsedLines), [parsedLines]);
 
-  const gross = amountMode === 'products' ? productTotals.gross : parseAmount(grossAmount);
-  const discount = amountMode === 'products' ? productTotals.discount : parseAmount(discountAmount);
+  const gross = parseAmount(grossAmount);
+  const discount = parseAmount(discountAmount);
   const percent = parseAmount(taxPercent);
 
   const calculatedTax = useMemo(
@@ -178,11 +193,15 @@ export function SaleFormScreen({ token, saleId, onSaved }: SaleFormScreenProps) 
   );
 
   useEffect(() => {
-    if (amountMode === 'products' && !taxEdited) {
-      const nextTax = calculateTaxAmount(productTotals.gross, productTotals.discount, percent);
-      setTaxAmount(formatTaxAmountValue(nextTax));
+    if (amountMode === 'products' && !amountsManuallyEdited) {
+      setGrossAmount(formatAmountInput(productTotals.gross));
+      setDiscountAmount(formatAmountInput(productTotals.discount));
+      if (!taxEdited) {
+        const nextTax = calculateTaxAmount(productTotals.gross, productTotals.discount, percent);
+        setTaxAmount(formatTaxAmountValue(nextTax));
+      }
     }
-  }, [amountMode, productTotals.discount, productTotals.gross, percent, taxEdited]);
+  }, [amountMode, amountsManuallyEdited, productTotals.discount, productTotals.gross, percent, taxEdited]);
 
   const handleTaxPercentChange = (value: string) => {
     setTaxPercent(value);
@@ -192,6 +211,7 @@ export function SaleFormScreen({ token, saleId, onSaved }: SaleFormScreenProps) 
   };
 
   const handleGrossOrDiscountChange = (grossValue: string, discountValue: string) => {
+    setAmountsManuallyEdited(true);
     if (!taxEdited) {
       const nextTax = calculateTaxAmount(
         parseAmount(grossValue),
@@ -203,6 +223,7 @@ export function SaleFormScreen({ token, saleId, onSaved }: SaleFormScreenProps) 
   };
 
   const handleAddProduct = (product: Product) => {
+    setAmountsManuallyEdited(false);
     setAddedProducts((current) => {
       const existing = current.find((line) => line.product.id === product.id);
       if (existing) {
@@ -217,6 +238,7 @@ export function SaleFormScreen({ token, saleId, onSaved }: SaleFormScreenProps) 
   };
 
   const updateProductQuantity = (key: string, quantity: string) => {
+    setAmountsManuallyEdited(false);
     setAddedProducts((current) =>
       current.map((line) => (line.key === key ? { ...line, quantity } : line)),
     );
@@ -228,6 +250,7 @@ export function SaleFormScreen({ token, saleId, onSaved }: SaleFormScreenProps) 
   };
 
   const removeProduct = (key: string) => {
+    setAmountsManuallyEdited(false);
     setAddedProducts((current) => current.filter((line) => line.key !== key));
   };
 
@@ -267,6 +290,8 @@ export function SaleFormScreen({ token, saleId, onSaved }: SaleFormScreenProps) 
     if (amountMode === 'products') {
       return {
         ...base,
+        grossAmount: gross,
+        discountAmount: discount,
         items: parsedLines.map((line) => ({
           productId: line.product.id,
           quantity: line.quantity,
@@ -277,7 +302,7 @@ export function SaleFormScreen({ token, saleId, onSaved }: SaleFormScreenProps) 
     return {
       ...base,
       grossAmount: gross,
-      discountAmount: discount || undefined,
+      discountAmount: discount,
     };
   };
 
@@ -296,8 +321,13 @@ export function SaleFormScreen({ token, saleId, onSaved }: SaleFormScreenProps) 
       return;
     }
 
-    if (amountMode === 'manual' && gross <= 0) {
+    if (gross <= 0) {
       setError('Gross amount must be greater than zero');
+      return;
+    }
+
+    if (discount > gross) {
+      setError('Discount cannot exceed gross amount');
       return;
     }
 
@@ -332,6 +362,7 @@ export function SaleFormScreen({ token, saleId, onSaved }: SaleFormScreenProps) 
         style={[styles.modeChip, selected && styles.modeChipActive]}
         onPress={() => {
           setAmountMode(mode);
+          setAmountsManuallyEdited(false);
           setError('');
         }}
       >
@@ -433,14 +464,27 @@ export function SaleFormScreen({ token, saleId, onSaved }: SaleFormScreenProps) 
               <Text style={styles.emptyProducts}>Search and select products to add them here.</Text>
             )}
 
-            <View style={styles.calculatedRow}>
-              <Text style={styles.calculatedLabel}>Gross (from products)</Text>
-              <Text style={styles.calculatedValue}>{formatCurrency(productTotals.gross)}</Text>
-            </View>
-            <View style={styles.calculatedRow}>
-              <Text style={styles.calculatedLabel}>Discount (from products)</Text>
-              <Text style={styles.calculatedValue}>{formatCurrency(productTotals.discount)}</Text>
-            </View>
+            <Input
+              label="Gross Amount *"
+              value={grossAmount}
+              onChangeText={(value) => {
+                setGrossAmount(value);
+                handleGrossOrDiscountChange(value, discountAmount);
+              }}
+              keyboardType="decimal-pad"
+            />
+            <Text style={styles.fieldHint}>
+              Pre-filled from products. You can adjust before saving.
+            </Text>
+            <Input
+              label="Discount"
+              value={discountAmount}
+              onChangeText={(value) => {
+                setDiscountAmount(value);
+                handleGrossOrDiscountChange(grossAmount, value);
+              }}
+              keyboardType="decimal-pad"
+            />
           </View>
         ) : (
           <>
