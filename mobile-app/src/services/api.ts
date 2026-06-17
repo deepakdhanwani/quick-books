@@ -93,6 +93,8 @@ export type PageResponse<T> = {
 
 export type CustomerType = 'INDIVIDUAL' | 'COMPANY' | 'SHOP' | 'OTHER';
 
+export type OpeningBalanceNature = 'TO_RECEIVE' | 'TO_PAY';
+
 export type Customer = {
   id: number;
   name: string;
@@ -105,6 +107,8 @@ export type Customer = {
   businessDetails?: string;
   active: boolean;
   createdAt: string;
+  openingBalance?: number;
+  openingBalanceNature?: OpeningBalanceNature;
   totalPendingAmount?: number;
 };
 
@@ -118,6 +122,8 @@ export type CustomerPayload = {
   gstNumber?: string;
   businessDetails?: string;
   active?: boolean;
+  openingBalance?: number;
+  openingBalanceNature?: OpeningBalanceNature;
 };
 
 export type Vendor = {
@@ -133,6 +139,8 @@ export type Vendor = {
   businessDetails?: string;
   active: boolean;
   createdAt: string;
+  openingBalance?: number;
+  openingBalanceNature?: OpeningBalanceNature;
   totalPendingAmount?: number;
 };
 
@@ -147,6 +155,8 @@ export type VendorPayload = {
   gstNumber?: string;
   businessDetails?: string;
   active?: boolean;
+  openingBalance?: number;
+  openingBalanceNature?: OpeningBalanceNature;
 };
 
 export type Product = {
@@ -544,6 +554,28 @@ export const api = {
     }),
   deleteCustomer: (token: string, id: number) =>
     request<void>(`/api/subscriber/customers/${id}`, { method: 'DELETE', token }),
+  getCustomerAccountSummary: (token: string, customerId: number) =>
+    request<PartyAccountSummary>(`/api/subscriber/customers/${customerId}/account-summary`, { token }),
+  getCustomerLedger: (
+    token: string,
+    customerId: number,
+    page = 0,
+    size = 20,
+    fromDate?: string,
+    toDate?: string,
+  ) => {
+    const params = new URLSearchParams({ page: String(page), size: String(size) });
+    if (fromDate) {
+      params.set('fromDate', fromDate);
+    }
+    if (toDate) {
+      params.set('toDate', toDate);
+    }
+    return request<PartyLedgerPageResponse>(
+      `/api/subscriber/customers/${customerId}/ledger?${params}`,
+      { token },
+    );
+  },
   listVendors: (
     token: string,
     page = 0,
@@ -590,6 +622,28 @@ export const api = {
     }),
   deleteVendor: (token: string, id: number) =>
     request<void>(`/api/subscriber/vendors/${id}`, { method: 'DELETE', token }),
+  getVendorAccountSummary: (token: string, vendorId: number) =>
+    request<PartyAccountSummary>(`/api/subscriber/vendors/${vendorId}/account-summary`, { token }),
+  getVendorLedger: (
+    token: string,
+    vendorId: number,
+    page = 0,
+    size = 20,
+    fromDate?: string,
+    toDate?: string,
+  ) => {
+    const params = new URLSearchParams({ page: String(page), size: String(size) });
+    if (fromDate) {
+      params.set('fromDate', fromDate);
+    }
+    if (toDate) {
+      params.set('toDate', toDate);
+    }
+    return request<PartyLedgerPageResponse>(
+      `/api/subscriber/vendors/${vendorId}/ledger?${params}`,
+      { token },
+    );
+  },
   listProducts: (
     token: string,
     page = 0,
@@ -845,6 +899,38 @@ function buildReportQuery(from?: string, to?: string) {
   const query = params.toString();
   return query ? `?${query}` : '';
 }
+
+export type PartyLedgerEntry = {
+  id: string;
+  date: string;
+  kind: 'INVOICE' | 'PAYMENT_IN' | 'BILL' | 'PAYMENT_OUT' | string;
+  referenceId: number;
+  referenceLabel: string;
+  particulars: string;
+  debit: number;
+  credit: number;
+  balance: number;
+};
+
+export type PartyAccountSummary = {
+  totalDebit: number;
+  totalCredit: number;
+  totalAdjusted: number;
+  closingBalance: number;
+  openingDebit: number;
+  openingCredit: number;
+  openingBalance: number;
+  entryCount: number;
+};
+
+export type PartyLedgerPageResponse = {
+  summary: PartyAccountSummary;
+  content: PartyLedgerEntry[];
+  page: number;
+  size: number;
+  totalElements: number;
+  totalPages: number;
+};
 
 export type ChartPoint = {
   label: string;

@@ -10,6 +10,7 @@ import com.quickbooks.entity.Subscriber;
 import com.quickbooks.entity.enums.AuditAction;
 import com.quickbooks.entity.enums.AuditEntityType;
 import com.quickbooks.entity.enums.CustomerType;
+import com.quickbooks.entity.enums.OpeningBalanceNature;
 import com.quickbooks.repository.CustomerRepository;
 import com.quickbooks.repository.SaleRepository;
 import org.springframework.data.domain.Page;
@@ -63,7 +64,9 @@ public class CustomerService {
 
         return PageResponse.from(result.map(customer -> {
             CustomerResponse response = CustomerResponse.from(customer);
-            response.setTotalPendingAmount(pendingByCustomer.getOrDefault(customer.getId(), BigDecimal.ZERO));
+            response.setTotalPendingAmount(computeCustomerOutstanding(
+                    customer,
+                    pendingByCustomer.getOrDefault(customer.getId(), BigDecimal.ZERO)));
             return response;
         }));
     }
@@ -82,7 +85,13 @@ public class CustomerService {
 
     @Transactional(readOnly = true)
     public CustomerResponse getById(Long subscriberId, Long customerId) {
-        return CustomerResponse.from(getOwnedCustomer(subscriberId, customerId));
+        Customer customer = getOwnedCustomer(subscriberId, customerId);
+        CustomerResponse response = CustomerResponse.from(customer);
+        response.setTotalPendingAmount(computeCustomerOutstanding(
+                customer,
+                loadPendingAmountsByCustomer(subscriberId, List.of(customerId))
+                        .getOrDefault(customerId, BigDecimal.ZERO)));
+        return response;
     }
 
     @Transactional
@@ -159,6 +168,7 @@ public class CustomerService {
         customer.setAddress(normalizeOptional(request.getAddress()));
         applyBusinessFields(customer, request.getCustomerType(), request.getBusinessName(),
                 request.getGstNumber(), request.getBusinessDetails());
+        applyOpeningBalance(customer, request.getOpeningBalance(), request.getOpeningBalanceNature());
     }
 
     private void applyFields(Customer customer, UpdateCustomerRequest request, String name) {
@@ -168,6 +178,29 @@ public class CustomerService {
         customer.setAddress(normalizeOptional(request.getAddress()));
         applyBusinessFields(customer, request.getCustomerType(), request.getBusinessName(),
                 request.getGstNumber(), request.getBusinessDetails());
+        applyOpeningBalance(customer, request.getOpeningBalance(), request.getOpeningBalanceNature());
+    }
+
+    private void applyOpeningBalance(Customer customer,
+                                     BigDecimal openingBalance,
+                                     OpeningBalanceNature openingBalanceNature) {
+        if (openingBalance == null && openingBalanceNature == null) {
+            return;
+        }
+        if (openingBalance != null) {
+            customer.setOpeningBalance(OpeningBalanceSupport.normalizeAmount(openingBalance));
+        }
+        if (openingBalanceNature != null) {
+            customer.setOpeningBalanceNature(openingBalanceNature);
+        }
+    }
+
+    private BigDecimal computeCustomerOutstanding(Customer customer, BigDecimal pendingFromSales) {
+        OpeningBalanceSupport.OpeningSplit opening = OpeningBalanceSupport.customerOpening(
+                customer.getOpeningBalance(),
+                customer.getOpeningBalanceNature());
+        return OpeningBalanceSupport.normalizeAmount(
+                pendingFromSales.add(OpeningBalanceSupport.customerNetBalance(opening)));
     }
 
     private void applyBusinessFields(Customer customer,

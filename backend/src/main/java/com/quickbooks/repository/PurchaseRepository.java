@@ -161,4 +161,41 @@ public interface PurchaseRepository extends JpaRepository<Purchase, Long> {
             @Param("subscriberId") Long subscriberId,
             @Param("fromDate") LocalDate fromDate,
             @Param("toDate") LocalDate toDate);
+
+    @Query("""
+            SELECT p FROM Purchase p
+            WHERE p.subscriber.id = :subscriberId
+            AND p.vendor.id = :vendorId
+            ORDER BY p.date ASC, p.id ASC
+            """)
+    List<Purchase> findAllBySubscriberAndVendor(
+            @Param("subscriberId") Long subscriberId,
+            @Param("vendorId") Long vendorId);
+
+    @Query("""
+            SELECT COALESCE(SUM(p.totalAmount), 0) FROM Purchase p
+            WHERE p.subscriber.id = :subscriberId
+            AND p.vendor.id = :vendorId
+            """)
+    BigDecimal sumTotalAmountByVendor(
+            @Param("subscriberId") Long subscriberId,
+            @Param("vendorId") Long vendorId);
+
+    @Query("""
+            SELECT COALESCE(SUM(p.pendingAmount), 0) FROM Purchase p
+            WHERE p.subscriber.id = :subscriberId
+            AND p.vendor.id = :vendorId
+            """)
+    BigDecimal sumPendingAmountByVendor(
+            @Param("subscriberId") Long subscriberId,
+            @Param("vendorId") Long vendorId);
+
+    @Query("""
+            SELECT COUNT(p) FROM Purchase p
+            WHERE p.subscriber.id = :subscriberId
+            AND p.vendor.id = :vendorId
+            """)
+    long countBySubscriberAndVendor(
+            @Param("subscriberId") Long subscriberId,
+            @Param("vendorId") Long vendorId);
 }

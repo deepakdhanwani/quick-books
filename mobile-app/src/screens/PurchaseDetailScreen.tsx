@@ -6,9 +6,13 @@ import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
+import { ExportingOverlay } from '../components/ExportingOverlay';
+import { ExportPdfButton } from '../components/ExportPdfButton';
 import { PaymentProofLink } from '../components/PaymentProofLink';
 import { RefreshableScrollView } from '../components/RefreshableScrollView';
 import { api, Purchase, PurchaseItem } from '../services/api';
+import { appAlert } from '../utils/appAlert';
+import { exportPurchaseDocument } from '../utils/exportPurchaseDocument';
 import {
   formatCurrency,
   formatDate,
@@ -20,6 +24,7 @@ import {
 type PurchaseDetailScreenProps = {
   token: string;
   purchaseId: number;
+  businessName?: string;
   onEdit: () => void;
   onMakePayment: () => void;
 };
@@ -27,6 +32,7 @@ type PurchaseDetailScreenProps = {
 export function PurchaseDetailScreen({
   token,
   purchaseId,
+  businessName,
   onEdit,
   onMakePayment,
 }: PurchaseDetailScreenProps) {
@@ -36,6 +42,7 @@ export function PurchaseDetailScreen({
   const [purchase, setPurchase] = useState<Purchase | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const [error, setError] = useState('');
 
   const loadPurchase = useCallback(
@@ -78,8 +85,24 @@ export function PurchaseDetailScreen({
   const canMakePayment = purchase.paymentStatus !== 'PAID';
   const canEdit = purchase.paymentStatus !== 'PAID';
 
+  const handleExport = async () => {
+    if (exporting) return;
+    setExporting(true);
+    try {
+      await exportPurchaseDocument(
+        { purchase, businessName },
+        { onPdfReady: () => setExporting(false) },
+      );
+    } catch (err) {
+      appAlert('Export failed', err instanceof Error ? err.message : 'Could not export purchase order');
+    } finally {
+      setExporting(false);
+    }
+  };
+
   return (
-    <RefreshableScrollView
+    <View style={styles.screen}>
+      <RefreshableScrollView
       style={styles.container}
       contentContainerStyle={styles.content}
       refreshing={refreshing}
@@ -99,6 +122,12 @@ export function PurchaseDetailScreen({
           </Text>
         </View>
       </Card>
+
+      <ExportPdfButton
+        label="Export purchase order"
+        onPress={() => void handleExport()}
+        disabled={exporting}
+      />
 
       {purchase.items && purchase.items.length > 0 ? (
         <Card>
@@ -167,7 +196,9 @@ export function PurchaseDetailScreen({
       {canMakePayment ? <Button title="Make Payment" onPress={onMakePayment} /> : null}
 
       {error ? <Text style={styles.error}>{error}</Text> : null}
-    </RefreshableScrollView>
+      </RefreshableScrollView>
+      <ExportingOverlay visible={exporting} message="Preparing purchase PDF..." />
+    </View>
   );
 }
 
@@ -230,6 +261,7 @@ function DetailRow({
 
 function createStyles(theme: AppTheme) {
   return {
+  screen: { flex: 1 },
   container: { flex: 1 },
   content: { padding: 20, paddingBottom: 32, gap: 16 },
   loading: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 },

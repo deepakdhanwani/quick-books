@@ -1,7 +1,10 @@
 package com.quickbooks.dto.vendor;
 
 import com.quickbooks.entity.enums.CustomerType;
+import com.quickbooks.entity.enums.OpeningBalanceNature;
 import jakarta.validation.constraints.NotBlank;
+
+import java.math.BigDecimal;
 
 public class UpdateVendorRequest {
 
@@ -17,6 +20,8 @@ public class UpdateVendorRequest {
     private String businessName;
     private String gstNumber;
     private String businessDetails;
+    private BigDecimal openingBalance;
+    private OpeningBalanceNature openingBalanceNature;
 
     public String getName() { return name; }
     public void setName(String name) { this.name = name; }
@@ -38,4 +43,10 @@ public class UpdateVendorRequest {
     public void setGstNumber(String gstNumber) { this.gstNumber = gstNumber; }
     public String getBusinessDetails() { return businessDetails; }
     public void setBusinessDetails(String businessDetails) { this.businessDetails = businessDetails; }
+    public BigDecimal getOpeningBalance() { return openingBalance; }
+    public void setOpeningBalance(BigDecimal openingBalance) { this.openingBalance = openingBalance; }
+    public OpeningBalanceNature getOpeningBalanceNature() { return openingBalanceNature; }
+    public void setOpeningBalanceNature(OpeningBalanceNature openingBalanceNature) {
+        this.openingBalanceNature = openingBalanceNature;
+    }
 }

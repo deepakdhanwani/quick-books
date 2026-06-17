@@ -2,6 +2,7 @@ package com.quickbooks.dto.vendor;
 
 import com.quickbooks.entity.Vendor;
 import com.quickbooks.entity.enums.CustomerType;
+import com.quickbooks.entity.enums.OpeningBalanceNature;
 
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
@@ -20,6 +21,8 @@ public class VendorResponse {
     private String businessDetails;
     private boolean active;
     private OffsetDateTime createdAt;
+    private BigDecimal openingBalance = BigDecimal.ZERO;
+    private OpeningBalanceNature openingBalanceNature = OpeningBalanceNature.TO_PAY;
     private BigDecimal totalPendingAmount = BigDecimal.ZERO;
 
     public static VendorResponse from(Vendor vendor) {
@@ -36,6 +39,8 @@ public class VendorResponse {
         response.setBusinessDetails(vendor.getBusinessDetails());
         response.setActive(vendor.isActive());
         response.setCreatedAt(vendor.getCreatedAt());
+        response.setOpeningBalance(vendor.getOpeningBalance());
+        response.setOpeningBalanceNature(vendor.getOpeningBalanceNature());
         return response;
     }
 
@@ -63,6 +68,12 @@ public class VendorResponse {
     public void setActive(boolean active) { this.active = active; }
     public OffsetDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(OffsetDateTime createdAt) { this.createdAt = createdAt; }
+    public BigDecimal getOpeningBalance() { return openingBalance; }
+    public void setOpeningBalance(BigDecimal openingBalance) { this.openingBalance = openingBalance; }
+    public OpeningBalanceNature getOpeningBalanceNature() { return openingBalanceNature; }
+    public void setOpeningBalanceNature(OpeningBalanceNature openingBalanceNature) {
+        this.openingBalanceNature = openingBalanceNature;
+    }
     public BigDecimal getTotalPendingAmount() { return totalPendingAmount; }
     public void setTotalPendingAmount(BigDecimal totalPendingAmount) { this.totalPendingAmount = totalPendingAmount; }
 }

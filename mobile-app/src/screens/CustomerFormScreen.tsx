@@ -6,8 +6,11 @@ import { ActivityIndicator, Pressable, StyleSheet, Switch, Text, View } from 're
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
 import { Input } from '../components/Input';
+import { OpeningBalanceFields } from '../components/OpeningBalanceFields';
 import { RefreshableScrollView } from '../components/RefreshableScrollView';
-import { api, CustomerType } from '../services/api';
+import { api, CustomerType, OpeningBalanceNature } from '../services/api';
+import { defaultOpeningBalanceNature } from '../utils/openingBalance';
+import { parseAmount } from '../utils/saleAmounts';
 import {
   CUSTOMER_TYPE_OPTIONS,
   getBusinessNameLabel,
@@ -35,6 +38,10 @@ export function CustomerFormScreen({ token, customerId, onSaved }: CustomerFormS
   const [gstNumber, setGstNumber] = useState('');
   const [businessDetails, setBusinessDetails] = useState('');
   const [active, setActive] = useState(true);
+  const [openingBalance, setOpeningBalance] = useState('');
+  const [openingBalanceNature, setOpeningBalanceNature] = useState<OpeningBalanceNature>(
+    defaultOpeningBalanceNature('customer'),
+  );
 
   const [loading, setLoading] = useState(isEditing);
   const [saving, setSaving] = useState(false);
@@ -64,6 +71,8 @@ export function CustomerFormScreen({ token, customerId, onSaved }: CustomerFormS
         setGstNumber(customer.gstNumber ?? '');
         setBusinessDetails(customer.businessDetails ?? '');
         setActive(customer.active);
+        setOpeningBalance(customer.openingBalance ? String(customer.openingBalance) : '');
+        setOpeningBalanceNature(customer.openingBalanceNature ?? defaultOpeningBalanceNature('customer'));
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Could not load customer');
       } finally {
@@ -110,6 +119,12 @@ export function CustomerFormScreen({ token, customerId, onSaved }: CustomerFormS
       return;
     }
 
+    const parsedOpeningBalance = parseAmount(openingBalance);
+    if (parsedOpeningBalance < 0) {
+      setError('Opening balance cannot be negative');
+      return;
+    }
+
     setSaving(true);
     setError('');
     try {
@@ -124,6 +139,8 @@ export function CustomerFormScreen({ token, customerId, onSaved }: CustomerFormS
         businessDetails:
           customerType === 'OTHER' ? businessDetails.trim() || undefined : undefined,
         active,
+        openingBalance: parsedOpeningBalance,
+        openingBalanceNature,
       };
 
       if (isEditing && customerId != null) {
@@ -227,6 +244,14 @@ export function CustomerFormScreen({ token, customerId, onSaved }: CustomerFormS
             ) : null}
           </View>
         ) : null}
+
+        <OpeningBalanceFields
+          mode="customer"
+          amount={openingBalance}
+          nature={openingBalanceNature}
+          onAmountChange={setOpeningBalance}
+          onNatureChange={setOpeningBalanceNature}
+        />
 
         <View style={styles.activeRow}>
           <Text style={styles.activeLabel}>Active customer</Text>

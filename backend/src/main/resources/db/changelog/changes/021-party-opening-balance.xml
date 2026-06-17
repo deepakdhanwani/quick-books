@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <changeSet id="021-customer-opening-balance" author="quickbooks">
+        <addColumn tableName="customers">
+            <column name="opening_balance" type="DECIMAL(19,2)" defaultValueNumeric="0">
+                <constraints nullable="false"/>
+            </column>
+            <column name="opening_balance_nature" type="VARCHAR(20)" defaultValue="TO_RECEIVE">
+                <constraints nullable="false"/>
+            </column>
+        </addColumn>
+    </changeSet>
+
+    <changeSet id="021-vendor-opening-balance" author="quickbooks">
+        <addColumn tableName="vendors">
+            <column name="opening_balance" type="DECIMAL(19,2)" defaultValueNumeric="0">
+                <constraints nullable="false"/>
+            </column>
+            <column name="opening_balance_nature" type="VARCHAR(20)" defaultValue="TO_PAY">
+                <constraints nullable="false"/>
+            </column>
+        </addColumn>
+    </changeSet>
+
+</databaseChangeLog>

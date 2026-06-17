@@ -17,13 +17,20 @@ import { Card } from '../components/Card';
 import { DetailTabBar } from '../components/DetailTabBar';
 import { PaymentListFilterChips } from '../components/PaymentListFilterChips';
 import { RefreshableScrollView } from '../components/RefreshableScrollView';
-import { api, Customer, PaymentListFilter, Sale } from '../services/api';
+import { ExportingOverlay } from '../components/ExportingOverlay';
+import { LedgerExportModal } from '../components/LedgerExportModal';
+import { PartyAccountSummary as PartyAccountSummaryBar } from '../components/PartyAccountSummary';
+import { PartyLedgerTab } from '../components/PartyLedgerTab';
+import { api, Customer, PartyAccountSummary, PartyLedgerEntry, PaymentListFilter, Sale } from '../services/api';
+import { LEDGER_PAGE_SIZE } from '../utils/partyLedger';
 import { appAlert } from '../utils/appAlert';
+import { exportSaleDocument } from '../utils/exportSaleDocument';
 import {
   getBusinessNameLabel,
   getCustomerTypeLabel,
   isBusinessCustomerType,
 } from '../utils/customerType';
+import { formatOpeningBalanceLabel } from '../utils/openingBalance';
 import {
   formatCurrency,
   formatDate,
@@ -33,11 +40,18 @@ import {
 
 const PAGE_SIZE = 20;
 
-type CustomerDetailTab = 'details' | 'invoices';
+type CustomerDetailTab = 'details' | 'invoices' | 'ledger';
+
+const CUSTOMER_DETAIL_TABS = [
+  { id: 'details', label: 'Details' },
+  { id: 'invoices', label: 'Invoices' },
+  { id: 'ledger', label: 'Ledger' },
+] as const;
 
 type CustomerDetailScreenProps = {
   token: string;
   customerId: number;
+  businessName?: string;
   onEdit: () => void;
   onDeleted: () => void;
   onOpenSale: (saleId: number) => void;
@@ -53,6 +67,7 @@ function getSubtitle(customer: Customer) {
 export function CustomerDetailScreen({
   token,
   customerId,
+  businessName,
   onEdit,
   onDeleted,
   onOpenSale,
@@ -76,6 +91,21 @@ export function CustomerDetailScreen({
   const [salesHasMore, setSalesHasMore] = useState(true);
   const [salesLoadingMore, setSalesLoadingMore] = useState(false);
   const loadingMoreRef = useRef(false);
+
+  const [accountSummary, setAccountSummary] = useState<PartyAccountSummary | null>(null);
+  const [accountSummaryLoading, setAccountSummaryLoading] = useState(true);
+
+  const [ledgerEntries, setLedgerEntries] = useState<PartyLedgerEntry[]>([]);
+  const [ledgerPage, setLedgerPage] = useState(0);
+  const [ledgerHasMore, setLedgerHasMore] = useState(true);
+  const [ledgerLoading, setLedgerLoading] = useState(false);
+  const [ledgerRefreshing, setLedgerRefreshing] = useState(false);
+  const [ledgerLoadingMore, setLedgerLoadingMore] = useState(false);
+  const [ledgerError, setLedgerError] = useState('');
+  const ledgerLoadingMoreRef = useRef(false);
+
+  const [ledgerExportVisible, setLedgerExportVisible] = useState(false);
+  const [saleExporting, setSaleExporting] = useState(false);
 
   const loadCustomer = useCallback(
     async (isPullRefresh = false) => {
@@ -147,9 +177,68 @@ export function CustomerDetailScreen({
     [fetchSalesPage, salesHasMore, salesPage],
   );
 
+  const loadAccountSummary = useCallback(async () => {
+    setAccountSummaryLoading(true);
+    try {
+      setAccountSummary(await api.getCustomerAccountSummary(token, customerId));
+    } catch {
+      setAccountSummary(null);
+    } finally {
+      setAccountSummaryLoading(false);
+    }
+  }, [customerId, token]);
+
+  const fetchLedgerPage = useCallback(
+    async (pageNumber: number, reset: boolean) => {
+      const response = await api.getCustomerLedger(token, customerId, pageNumber, LEDGER_PAGE_SIZE);
+      setAccountSummary(response.summary);
+      setLedgerEntries((current) => (reset ? response.content : [...current, ...response.content]));
+      setLedgerPage(pageNumber);
+      setLedgerHasMore(pageNumber + 1 < response.totalPages);
+    },
+    [customerId, token],
+  );
+
+  const loadLedger = useCallback(
+    async (options?: { pullRefresh?: boolean; loadMore?: boolean }) => {
+      const pullRefresh = options?.pullRefresh ?? false;
+      const loadMore = options?.loadMore ?? false;
+
+      if (loadMore) {
+        if (!ledgerHasMore || ledgerLoadingMoreRef.current) return;
+        ledgerLoadingMoreRef.current = true;
+        setLedgerLoadingMore(true);
+        setLedgerError('');
+        try {
+          await fetchLedgerPage(ledgerPage + 1, false);
+        } catch (err) {
+          setLedgerError(err instanceof Error ? err.message : 'Could not load more ledger entries');
+        } finally {
+          ledgerLoadingMoreRef.current = false;
+          setLedgerLoadingMore(false);
+        }
+        return;
+      }
+
+      if (!pullRefresh) setLedgerLoading(true);
+      setLedgerError('');
+      try {
+        await fetchLedgerPage(0, true);
+      } catch (err) {
+        setLedgerEntries([]);
+        setLedgerHasMore(false);
+        setLedgerError(err instanceof Error ? err.message : 'Could not load ledger');
+      } finally {
+        setLedgerLoading(false);
+      }
+    },
+    [fetchLedgerPage, ledgerHasMore, ledgerPage],
+  );
+
   useEffect(() => {
     loadCustomer();
-  }, [loadCustomer]);
+    loadAccountSummary();
+  }, [loadCustomer, loadAccountSummary]);
 
   useEffect(() => {
     if (activeTab === 'invoices') {
@@ -157,14 +246,24 @@ export function CustomerDetailScreen({
     }
   }, [activeTab, paymentFilter, customerId, token]);
 
+  useEffect(() => {
+    if (activeTab === 'ledger') {
+      loadLedger();
+    }
+  }, [activeTab, customerId, token, loadLedger]);
+
   const handleRefresh = async () => {
     setRefreshing(true);
     if (activeTab === 'details') {
-      await loadCustomer(true);
-    } else {
+      await Promise.all([loadCustomer(true), loadAccountSummary()]);
+    } else if (activeTab === 'invoices') {
       setSalesRefreshing(true);
       await loadSales({ pullRefresh: true });
       setSalesRefreshing(false);
+    } else {
+      setLedgerRefreshing(true);
+      await Promise.all([loadLedger({ pullRefresh: true }), loadAccountSummary()]);
+      setLedgerRefreshing(false);
     }
     setRefreshing(false);
   };
@@ -230,6 +329,11 @@ export function CustomerDetailScreen({
       </View>
       <Text style={[styles.name, !customer.active && styles.nameInactive]}>{customer.name}</Text>
       <Text style={styles.subtitle}>{getSubtitle(customer)}</Text>
+      <PartyAccountSummaryBar
+        mode="customer"
+        summary={accountSummary}
+        loading={accountSummaryLoading}
+      />
     </Card>
   );
 
@@ -243,7 +347,12 @@ export function CustomerDetailScreen({
     }
 
     return (
-      <Pressable style={styles.invoiceRow} onPress={() => onOpenSale(item.id)}>
+      <Pressable
+        style={styles.invoiceRow}
+        onPress={() => onOpenSale(item.id)}
+        onLongPress={() => void handleExportSale(item)}
+        delayLongPress={400}
+      >
         <View style={[styles.invoiceDot, { backgroundColor: statusColor }]} />
         <View style={styles.invoiceMain}>
           <View style={styles.invoiceTop}>
@@ -264,10 +373,70 @@ export function CustomerDetailScreen({
     );
   };
 
+  const handleExportSale = async (sale: Sale) => {
+    if (saleExporting) return;
+    setSaleExporting(true);
+    try {
+      const fullSale = await api.getSale(token, sale.id);
+      await exportSaleDocument(
+        { sale: fullSale, businessName },
+        { onPdfReady: () => setSaleExporting(false) },
+      );
+    } catch (err) {
+      appAlert('Export failed', err instanceof Error ? err.message : 'Could not export invoice');
+    } finally {
+      setSaleExporting(false);
+    }
+  };
+
+  if (activeTab === 'ledger') {
+    return (
+      <>
+        <PartyLedgerTab
+          mode="customer"
+          headerCard={headerCard}
+          tabBar={
+            <DetailTabBar
+              tabs={[...CUSTOMER_DETAIL_TABS]}
+              activeTab={activeTab}
+              onChange={(tab) => setActiveTab(tab as CustomerDetailTab)}
+            />
+          }
+          entries={ledgerEntries}
+          loading={ledgerLoading}
+          loadingMore={ledgerLoadingMore}
+          error={ledgerError}
+          refreshing={ledgerRefreshing}
+          onRefresh={async () => {
+            setLedgerRefreshing(true);
+            await Promise.all([loadLedger({ pullRefresh: true }), loadAccountSummary()]);
+            setLedgerRefreshing(false);
+          }}
+          onLoadMore={() => void loadLedger({ loadMore: true })}
+          onOpenReference={onOpenSale}
+          onExport={() => setLedgerExportVisible(true)}
+          openingDebit={accountSummary?.openingDebit ?? 0}
+          openingCredit={accountSummary?.openingCredit ?? 0}
+          openingBalance={accountSummary?.openingBalance ?? 0}
+        />
+        <LedgerExportModal
+          visible={ledgerExportVisible}
+          token={token}
+          mode="customer"
+          partyId={customerId}
+          partyName={customer.name}
+          businessName={businessName}
+          onClose={() => setLedgerExportVisible(false)}
+        />
+      </>
+    );
+  }
+
   if (activeTab === 'invoices') {
     return (
-      <View style={styles.container}>
-        <FlatList
+      <>
+        <View style={styles.container}>
+          <FlatList
           data={sales}
           keyExtractor={(item) => String(item.id)}
           renderItem={renderSale}
@@ -280,10 +449,7 @@ export function CustomerDetailScreen({
             <View>
               {headerCard}
               <DetailTabBar
-                tabs={[
-                  { id: 'details', label: 'Details' },
-                  { id: 'invoices', label: 'Invoices' },
-                ]}
+                tabs={[...CUSTOMER_DETAIL_TABS]}
                 activeTab={activeTab}
                 onChange={(tab) => setActiveTab(tab as CustomerDetailTab)}
               />
@@ -311,7 +477,9 @@ export function CustomerDetailScreen({
             ) : null
           }
         />
-      </View>
+        </View>
+        <ExportingOverlay visible={saleExporting} message="Preparing invoice PDF..." />
+      </>
     );
   }
 
@@ -324,10 +492,7 @@ export function CustomerDetailScreen({
     >
       {headerCard}
       <DetailTabBar
-        tabs={[
-          { id: 'details', label: 'Details' },
-          { id: 'invoices', label: 'Invoices' },
-        ]}
+        tabs={[...CUSTOMER_DETAIL_TABS]}
         activeTab={activeTab}
         onChange={(tab) => setActiveTab(tab as CustomerDetailTab)}
       />
@@ -354,6 +519,16 @@ export function CustomerDetailScreen({
               />
             ) : null}
           </>
+        ) : null}
+        {(customer.openingBalance ?? 0) > 0 ? (
+          <DetailRow
+            icon="wallet-outline"
+            label="Opening Balance"
+            value={`${formatCurrency(customer.openingBalance ?? 0)} · ${formatOpeningBalanceLabel(
+              'customer',
+              customer.openingBalanceNature ?? 'TO_RECEIVE',
+            )}`}
+          />
         ) : null}
         <DetailRow icon="call-outline" label="Phone" value={customer.phone} />
         <DetailRow icon="mail-outline" label="Email" value={customer.email} />

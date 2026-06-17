@@ -161,4 +161,41 @@ public interface SaleRepository extends JpaRepository<Sale, Long> {
             @Param("subscriberId") Long subscriberId,
             @Param("fromDate") LocalDate fromDate,
             @Param("toDate") LocalDate toDate);
+
+    @Query("""
+            SELECT s FROM Sale s
+            WHERE s.subscriber.id = :subscriberId
+            AND s.customer.id = :customerId
+            ORDER BY s.date ASC, s.id ASC
+            """)
+    List<Sale> findAllBySubscriberAndCustomer(
+            @Param("subscriberId") Long subscriberId,
+            @Param("customerId") Long customerId);
+
+    @Query("""
+            SELECT COALESCE(SUM(s.totalAmount), 0) FROM Sale s
+            WHERE s.subscriber.id = :subscriberId
+            AND s.customer.id = :customerId
+            """)
+    BigDecimal sumTotalAmountByCustomer(
+            @Param("subscriberId") Long subscriberId,
+            @Param("customerId") Long customerId);
+
+    @Query("""
+            SELECT COALESCE(SUM(s.pendingAmount), 0) FROM Sale s
+            WHERE s.subscriber.id = :subscriberId
+            AND s.customer.id = :customerId
+            """)
+    BigDecimal sumPendingAmountByCustomer(
+            @Param("subscriberId") Long subscriberId,
+            @Param("customerId") Long customerId);
+
+    @Query("""
+            SELECT COUNT(s) FROM Sale s
+            WHERE s.subscriber.id = :subscriberId
+            AND s.customer.id = :customerId
+            """)
+    long countBySubscriberAndCustomer(
+            @Param("subscriberId") Long subscriberId,
+            @Param("customerId") Long customerId);
 }

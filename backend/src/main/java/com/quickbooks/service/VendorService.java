@@ -10,6 +10,7 @@ import com.quickbooks.entity.Vendor;
 import com.quickbooks.entity.enums.AuditAction;
 import com.quickbooks.entity.enums.AuditEntityType;
 import com.quickbooks.entity.enums.CustomerType;
+import com.quickbooks.entity.enums.OpeningBalanceNature;
 import com.quickbooks.repository.PurchaseRepository;
 import com.quickbooks.repository.VendorRepository;
 import org.springframework.data.domain.Page;
@@ -63,7 +64,9 @@ public class VendorService {
 
         return PageResponse.from(result.map(vendor -> {
             VendorResponse response = VendorResponse.from(vendor);
-            response.setTotalPendingAmount(pendingByVendor.getOrDefault(vendor.getId(), BigDecimal.ZERO));
+            response.setTotalPendingAmount(computeVendorOutstanding(
+                    vendor,
+                    pendingByVendor.getOrDefault(vendor.getId(), BigDecimal.ZERO)));
             return response;
         }));
     }
@@ -82,7 +85,13 @@ public class VendorService {
 
     @Transactional(readOnly = true)
     public VendorResponse getById(Long subscriberId, Long vendorId) {
-        return VendorResponse.from(getOwnedVendor(subscriberId, vendorId));
+        Vendor vendor = getOwnedVendor(subscriberId, vendorId);
+        VendorResponse response = VendorResponse.from(vendor);
+        response.setTotalPendingAmount(computeVendorOutstanding(
+                vendor,
+                loadPendingAmountsByVendor(subscriberId, List.of(vendorId))
+                        .getOrDefault(vendorId, BigDecimal.ZERO)));
+        return response;
     }
 
     @Transactional
@@ -160,6 +169,7 @@ public class VendorService {
         vendor.setAddress(normalizeOptional(request.getAddress()));
         applyBusinessFields(vendor, request.getVendorType(), request.getBusinessName(),
                 request.getGstNumber(), request.getBusinessDetails());
+        applyOpeningBalance(vendor, request.getOpeningBalance(), request.getOpeningBalanceNature());
     }
 
     private void applyFields(Vendor vendor, UpdateVendorRequest request, String name) {
@@ -170,6 +180,29 @@ public class VendorService {
         vendor.setAddress(normalizeOptional(request.getAddress()));
         applyBusinessFields(vendor, request.getVendorType(), request.getBusinessName(),
                 request.getGstNumber(), request.getBusinessDetails());
+        applyOpeningBalance(vendor, request.getOpeningBalance(), request.getOpeningBalanceNature());
+    }
+
+    private void applyOpeningBalance(Vendor vendor,
+                                     BigDecimal openingBalance,
+                                     OpeningBalanceNature openingBalanceNature) {
+        if (openingBalance == null && openingBalanceNature == null) {
+            return;
+        }
+        if (openingBalance != null) {
+            vendor.setOpeningBalance(OpeningBalanceSupport.normalizeAmount(openingBalance));
+        }
+        if (openingBalanceNature != null) {
+            vendor.setOpeningBalanceNature(openingBalanceNature);
+        }
+    }
+
+    private BigDecimal computeVendorOutstanding(Vendor vendor, BigDecimal pendingFromPurchases) {
+        OpeningBalanceSupport.OpeningSplit opening = OpeningBalanceSupport.vendorOpening(
+                vendor.getOpeningBalance(),
+                vendor.getOpeningBalanceNature());
+        return OpeningBalanceSupport.normalizeAmount(
+                pendingFromPurchases.add(OpeningBalanceSupport.vendorNetBalance(opening)));
     }
 
     private void applyBusinessFields(Vendor vendor,

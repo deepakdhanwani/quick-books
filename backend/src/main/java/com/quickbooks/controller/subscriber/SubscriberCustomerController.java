@@ -8,12 +8,18 @@ import com.quickbooks.dto.customer.UpdateCustomerRequest;
 import com.quickbooks.dto.sale.SaleResponse;
 import com.quickbooks.entity.enums.PaymentListFilter;
 import com.quickbooks.security.UserPrincipal;
+import com.quickbooks.dto.ledger.PartyLedgerPageResponse;
+import com.quickbooks.dto.ledger.PartyLedgerSummaryResponse;
 import com.quickbooks.service.CustomerService;
+import com.quickbooks.service.PartyLedgerService;
 import com.quickbooks.service.SaleService;
 import jakarta.validation.Valid;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+
+import java.time.LocalDate;
 
 @RestController
 @RequestMapping("/api/subscriber/customers")
@@ -21,10 +27,14 @@ public class SubscriberCustomerController {
 
     private final CustomerService customerService;
     private final SaleService saleService;
+    private final PartyLedgerService partyLedgerService;
 
-    public SubscriberCustomerController(CustomerService customerService, SaleService saleService) {
+    public SubscriberCustomerController(CustomerService customerService,
+                                        SaleService saleService,
+                                        PartyLedgerService partyLedgerService) {
         this.customerService = customerService;
         this.saleService = saleService;
+        this.partyLedgerService = partyLedgerService;
     }
 
     @GetMapping
@@ -41,6 +51,23 @@ public class SubscriberCustomerController {
     public CustomerResponse get(@AuthenticationPrincipal UserPrincipal principal,
                                 @PathVariable Long id) {
         return customerService.getById(principal.getId(), id);
+    }
+
+    @GetMapping("/{id}/account-summary")
+    public PartyLedgerSummaryResponse accountSummary(@AuthenticationPrincipal UserPrincipal principal,
+                                                     @PathVariable Long id) {
+        return partyLedgerService.getCustomerAccountSummary(principal.getId(), id);
+    }
+
+    @GetMapping("/{id}/ledger")
+    public PartyLedgerPageResponse ledger(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable Long id,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fromDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate toDate) {
+        return partyLedgerService.getCustomerLedger(principal.getId(), id, page, size, fromDate, toDate);
     }
 
     @GetMapping("/{id}/sales")

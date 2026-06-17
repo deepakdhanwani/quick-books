@@ -17,8 +17,15 @@ import { Card } from '../components/Card';
 import { DetailTabBar } from '../components/DetailTabBar';
 import { PaymentListFilterChips } from '../components/PaymentListFilterChips';
 import { RefreshableScrollView } from '../components/RefreshableScrollView';
-import { api, PaymentListFilter, Purchase, Vendor } from '../services/api';
+import { ExportingOverlay } from '../components/ExportingOverlay';
+import { LedgerExportModal } from '../components/LedgerExportModal';
+import { PartyAccountSummary as PartyAccountSummaryBar } from '../components/PartyAccountSummary';
+import { PartyLedgerTab } from '../components/PartyLedgerTab';
+import { api, PartyAccountSummary, PartyLedgerEntry, PaymentListFilter, Purchase, Vendor } from '../services/api';
+import { LEDGER_PAGE_SIZE } from '../utils/partyLedger';
 import { appAlert } from '../utils/appAlert';
+import { exportPurchaseDocument } from '../utils/exportPurchaseDocument';
+import { formatOpeningBalanceLabel } from '../utils/openingBalance';
 import {
   formatCurrency,
   formatDate,
@@ -29,11 +36,18 @@ import { getVendorDisplayName } from '../utils/vendorType';
 
 const PAGE_SIZE = 20;
 
-type VendorDetailTab = 'details' | 'purchases';
+type VendorDetailTab = 'details' | 'purchases' | 'ledger';
+
+const VENDOR_DETAIL_TABS = [
+  { id: 'details', label: 'Details' },
+  { id: 'purchases', label: 'Purchases' },
+  { id: 'ledger', label: 'Ledger' },
+] as const;
 
 type VendorDetailScreenProps = {
   token: string;
   vendorId: number;
+  businessName?: string;
   onEdit: () => void;
   onDeleted: () => void;
   onOpenPurchase: (purchaseId: number) => void;
@@ -46,6 +60,7 @@ function getSubtitle(vendor: Vendor) {
 export function VendorDetailScreen({
   token,
   vendorId,
+  businessName,
   onEdit,
   onDeleted,
   onOpenPurchase,
@@ -69,6 +84,21 @@ export function VendorDetailScreen({
   const [purchasesHasMore, setPurchasesHasMore] = useState(true);
   const [purchasesLoadingMore, setPurchasesLoadingMore] = useState(false);
   const loadingMoreRef = useRef(false);
+
+  const [accountSummary, setAccountSummary] = useState<PartyAccountSummary | null>(null);
+  const [accountSummaryLoading, setAccountSummaryLoading] = useState(true);
+
+  const [ledgerEntries, setLedgerEntries] = useState<PartyLedgerEntry[]>([]);
+  const [ledgerPage, setLedgerPage] = useState(0);
+  const [ledgerHasMore, setLedgerHasMore] = useState(true);
+  const [ledgerLoading, setLedgerLoading] = useState(false);
+  const [ledgerRefreshing, setLedgerRefreshing] = useState(false);
+  const [ledgerLoadingMore, setLedgerLoadingMore] = useState(false);
+  const [ledgerError, setLedgerError] = useState('');
+  const ledgerLoadingMoreRef = useRef(false);
+
+  const [ledgerExportVisible, setLedgerExportVisible] = useState(false);
+  const [purchaseExporting, setPurchaseExporting] = useState(false);
 
   const loadVendor = useCallback(
     async (isPullRefresh = false) => {
@@ -140,9 +170,68 @@ export function VendorDetailScreen({
     [fetchPurchasesPage, purchasesHasMore, purchasesPage],
   );
 
+  const loadAccountSummary = useCallback(async () => {
+    setAccountSummaryLoading(true);
+    try {
+      setAccountSummary(await api.getVendorAccountSummary(token, vendorId));
+    } catch {
+      setAccountSummary(null);
+    } finally {
+      setAccountSummaryLoading(false);
+    }
+  }, [token, vendorId]);
+
+  const fetchLedgerPage = useCallback(
+    async (pageNumber: number, reset: boolean) => {
+      const response = await api.getVendorLedger(token, vendorId, pageNumber, LEDGER_PAGE_SIZE);
+      setAccountSummary(response.summary);
+      setLedgerEntries((current) => (reset ? response.content : [...current, ...response.content]));
+      setLedgerPage(pageNumber);
+      setLedgerHasMore(pageNumber + 1 < response.totalPages);
+    },
+    [token, vendorId],
+  );
+
+  const loadLedger = useCallback(
+    async (options?: { pullRefresh?: boolean; loadMore?: boolean }) => {
+      const pullRefresh = options?.pullRefresh ?? false;
+      const loadMore = options?.loadMore ?? false;
+
+      if (loadMore) {
+        if (!ledgerHasMore || ledgerLoadingMoreRef.current) return;
+        ledgerLoadingMoreRef.current = true;
+        setLedgerLoadingMore(true);
+        setLedgerError('');
+        try {
+          await fetchLedgerPage(ledgerPage + 1, false);
+        } catch (err) {
+          setLedgerError(err instanceof Error ? err.message : 'Could not load more ledger entries');
+        } finally {
+          ledgerLoadingMoreRef.current = false;
+          setLedgerLoadingMore(false);
+        }
+        return;
+      }
+
+      if (!pullRefresh) setLedgerLoading(true);
+      setLedgerError('');
+      try {
+        await fetchLedgerPage(0, true);
+      } catch (err) {
+        setLedgerEntries([]);
+        setLedgerHasMore(false);
+        setLedgerError(err instanceof Error ? err.message : 'Could not load ledger');
+      } finally {
+        setLedgerLoading(false);
+      }
+    },
+    [fetchLedgerPage, ledgerHasMore, ledgerPage],
+  );
+
   useEffect(() => {
     loadVendor();
-  }, [loadVendor]);
+    loadAccountSummary();
+  }, [loadVendor, loadAccountSummary]);
 
   useEffect(() => {
     if (activeTab === 'purchases') {
@@ -150,14 +239,24 @@ export function VendorDetailScreen({
     }
   }, [activeTab, paymentFilter, vendorId, token]);
 
+  useEffect(() => {
+    if (activeTab === 'ledger') {
+      loadLedger();
+    }
+  }, [activeTab, vendorId, token, loadLedger]);
+
   const handleRefresh = async () => {
     setRefreshing(true);
     if (activeTab === 'details') {
-      await loadVendor(true);
-    } else {
+      await Promise.all([loadVendor(true), loadAccountSummary()]);
+    } else if (activeTab === 'purchases') {
       setPurchasesRefreshing(true);
       await loadPurchases({ pullRefresh: true });
       setPurchasesRefreshing(false);
+    } else {
+      setLedgerRefreshing(true);
+      await Promise.all([loadLedger({ pullRefresh: true }), loadAccountSummary()]);
+      setLedgerRefreshing(false);
     }
     setRefreshing(false);
   };
@@ -224,6 +323,7 @@ export function VendorDetailScreen({
       </View>
       <Text style={[styles.name, !vendor.active && styles.nameInactive]}>{displayName}</Text>
       <Text style={styles.subtitle}>{getSubtitle(vendor)}</Text>
+      <PartyAccountSummaryBar mode="vendor" summary={accountSummary} loading={accountSummaryLoading} />
     </Card>
   );
 
@@ -237,7 +337,12 @@ export function VendorDetailScreen({
     }
 
     return (
-      <Pressable style={styles.orderRow} onPress={() => onOpenPurchase(item.id)}>
+      <Pressable
+        style={styles.orderRow}
+        onPress={() => onOpenPurchase(item.id)}
+        onLongPress={() => void handleExportPurchase(item)}
+        delayLongPress={400}
+      >
         <View style={[styles.orderDot, { backgroundColor: statusColor }]} />
         <View style={styles.orderMain}>
           <View style={styles.orderTop}>
@@ -258,10 +363,70 @@ export function VendorDetailScreen({
     );
   };
 
+  const handleExportPurchase = async (purchase: Purchase) => {
+    if (purchaseExporting) return;
+    setPurchaseExporting(true);
+    try {
+      const fullPurchase = await api.getPurchase(token, purchase.id);
+      await exportPurchaseDocument(
+        { purchase: fullPurchase, businessName },
+        { onPdfReady: () => setPurchaseExporting(false) },
+      );
+    } catch (err) {
+      appAlert('Export failed', err instanceof Error ? err.message : 'Could not export purchase order');
+    } finally {
+      setPurchaseExporting(false);
+    }
+  };
+
+  if (activeTab === 'ledger') {
+    return (
+      <>
+        <PartyLedgerTab
+          mode="vendor"
+          headerCard={headerCard}
+          tabBar={
+            <DetailTabBar
+              tabs={[...VENDOR_DETAIL_TABS]}
+              activeTab={activeTab}
+              onChange={(tab) => setActiveTab(tab as VendorDetailTab)}
+            />
+          }
+          entries={ledgerEntries}
+          loading={ledgerLoading}
+          loadingMore={ledgerLoadingMore}
+          error={ledgerError}
+          refreshing={ledgerRefreshing}
+          onRefresh={async () => {
+            setLedgerRefreshing(true);
+            await Promise.all([loadLedger({ pullRefresh: true }), loadAccountSummary()]);
+            setLedgerRefreshing(false);
+          }}
+          onLoadMore={() => void loadLedger({ loadMore: true })}
+          onOpenReference={onOpenPurchase}
+          onExport={() => setLedgerExportVisible(true)}
+          openingDebit={accountSummary?.openingDebit ?? 0}
+          openingCredit={accountSummary?.openingCredit ?? 0}
+          openingBalance={accountSummary?.openingBalance ?? 0}
+        />
+        <LedgerExportModal
+          visible={ledgerExportVisible}
+          token={token}
+          mode="vendor"
+          partyId={vendorId}
+          partyName={displayName}
+          businessName={businessName}
+          onClose={() => setLedgerExportVisible(false)}
+        />
+      </>
+    );
+  }
+
   if (activeTab === 'purchases') {
     return (
-      <View style={styles.container}>
-        <FlatList
+      <>
+        <View style={styles.container}>
+          <FlatList
           data={purchases}
           keyExtractor={(item) => String(item.id)}
           renderItem={renderPurchase}
@@ -274,10 +439,7 @@ export function VendorDetailScreen({
             <View>
               {headerCard}
               <DetailTabBar
-                tabs={[
-                  { id: 'details', label: 'Details' },
-                  { id: 'purchases', label: 'Purchases' },
-                ]}
+                tabs={[...VENDOR_DETAIL_TABS]}
                 activeTab={activeTab}
                 onChange={(tab) => setActiveTab(tab as VendorDetailTab)}
               />
@@ -305,7 +467,9 @@ export function VendorDetailScreen({
             ) : null
           }
         />
-      </View>
+        </View>
+        <ExportingOverlay visible={purchaseExporting} message="Preparing purchase PDF..." />
+      </>
     );
   }
 
@@ -318,10 +482,7 @@ export function VendorDetailScreen({
     >
       {headerCard}
       <DetailTabBar
-        tabs={[
-          { id: 'details', label: 'Details' },
-          { id: 'purchases', label: 'Purchases' },
-        ]}
+        tabs={[...VENDOR_DETAIL_TABS]}
         activeTab={activeTab}
         onChange={(tab) => setActiveTab(tab as VendorDetailTab)}
       />
@@ -337,6 +498,16 @@ export function VendorDetailScreen({
         />
 
         <Text style={styles.cardTitle}>Contact Details</Text>
+        {(vendor.openingBalance ?? 0) > 0 ? (
+          <DetailRow
+            icon="wallet-outline"
+            label="Opening Balance"
+            value={`${formatCurrency(vendor.openingBalance ?? 0)} · ${formatOpeningBalanceLabel(
+              'vendor',
+              vendor.openingBalanceNature ?? 'TO_PAY',
+            )}`}
+          />
+        ) : null}
         <DetailRow icon="person-outline" label="Contact Person" value={vendor.contactPerson} />
         <DetailRow icon="call-outline" label="Phone" value={vendor.phone} />
         <DetailRow icon="mail-outline" label="Email" value={vendor.email} />

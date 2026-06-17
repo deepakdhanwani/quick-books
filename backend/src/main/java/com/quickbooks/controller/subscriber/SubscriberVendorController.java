@@ -8,12 +8,18 @@ import com.quickbooks.dto.vendor.UpdateVendorRequest;
 import com.quickbooks.dto.vendor.VendorResponse;
 import com.quickbooks.entity.enums.PaymentListFilter;
 import com.quickbooks.security.UserPrincipal;
+import com.quickbooks.dto.ledger.PartyLedgerPageResponse;
+import com.quickbooks.dto.ledger.PartyLedgerSummaryResponse;
+import com.quickbooks.service.PartyLedgerService;
 import com.quickbooks.service.PurchaseService;
 import com.quickbooks.service.VendorService;
 import jakarta.validation.Valid;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+
+import java.time.LocalDate;
 
 @RestController
 @RequestMapping("/api/subscriber/vendors")
@@ -21,10 +27,14 @@ public class SubscriberVendorController {
 
     private final VendorService vendorService;
     private final PurchaseService purchaseService;
+    private final PartyLedgerService partyLedgerService;
 
-    public SubscriberVendorController(VendorService vendorService, PurchaseService purchaseService) {
+    public SubscriberVendorController(VendorService vendorService,
+                                      PurchaseService purchaseService,
+                                      PartyLedgerService partyLedgerService) {
         this.vendorService = vendorService;
         this.purchaseService = purchaseService;
+        this.partyLedgerService = partyLedgerService;
     }
 
     @GetMapping
@@ -41,6 +51,23 @@ public class SubscriberVendorController {
     public VendorResponse get(@AuthenticationPrincipal UserPrincipal principal,
                               @PathVariable Long id) {
         return vendorService.getById(principal.getId(), id);
+    }
+
+    @GetMapping("/{id}/account-summary")
+    public PartyLedgerSummaryResponse accountSummary(@AuthenticationPrincipal UserPrincipal principal,
+                                                     @PathVariable Long id) {
+        return partyLedgerService.getVendorAccountSummary(principal.getId(), id);
+    }
+
+    @GetMapping("/{id}/ledger")
+    public PartyLedgerPageResponse ledger(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable Long id,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fromDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate toDate) {
+        return partyLedgerService.getVendorLedger(principal.getId(), id, page, size, fromDate, toDate);
     }
 
     @GetMapping("/{id}/purchases")

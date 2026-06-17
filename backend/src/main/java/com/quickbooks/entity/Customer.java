@@ -1,7 +1,9 @@
 package com.quickbooks.entity;
 
 import com.quickbooks.entity.enums.CustomerType;
+import com.quickbooks.entity.enums.OpeningBalanceNature;
 import jakarta.persistence.*;
+import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 
 @Entity
@@ -41,6 +43,13 @@ public class Customer {
     @Column(nullable = false)
     private boolean active = true;
 
+    @Column(name = "opening_balance", nullable = false)
+    private BigDecimal openingBalance = BigDecimal.ZERO;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "opening_balance_nature", nullable = false)
+    private OpeningBalanceNature openingBalanceNature = OpeningBalanceNature.TO_RECEIVE;
+
     @Column(name = "created_at", nullable = false)
     private OffsetDateTime createdAt = OffsetDateTime.now();
 
@@ -66,6 +75,12 @@ public class Customer {
     public void setBusinessDetails(String businessDetails) { this.businessDetails = businessDetails; }
     public boolean isActive() { return active; }
     public void setActive(boolean active) { this.active = active; }
+    public BigDecimal getOpeningBalance() { return openingBalance; }
+    public void setOpeningBalance(BigDecimal openingBalance) { this.openingBalance = openingBalance; }
+    public OpeningBalanceNature getOpeningBalanceNature() { return openingBalanceNature; }
+    public void setOpeningBalanceNature(OpeningBalanceNature openingBalanceNature) {
+        this.openingBalanceNature = openingBalanceNature;
+    }
     public OffsetDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(OffsetDateTime createdAt) { this.createdAt = createdAt; }
 }

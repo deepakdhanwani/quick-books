@@ -584,6 +584,7 @@ export function AppShell({ auth, onLogout, onSubscriptionChanged }: AppShellProp
         <CustomerDetailScreen
           token={auth.token}
           customerId={selectedCustomerId}
+          businessName={profile?.businessName}
           onEdit={() => openEditCustomer(selectedCustomerId)}
           onDeleted={closeStack}
           onOpenSale={openSaleDetail}
@@ -606,6 +607,7 @@ export function AppShell({ auth, onLogout, onSubscriptionChanged }: AppShellProp
         <VendorDetailScreen
           token={auth.token}
           vendorId={selectedVendorId}
+          businessName={profile?.businessName}
           onEdit={() => openEditVendor(selectedVendorId)}
           onDeleted={closeStack}
           onOpenPurchase={openPurchaseDetail}
@@ -649,6 +651,7 @@ export function AppShell({ auth, onLogout, onSubscriptionChanged }: AppShellProp
         <SaleDetailScreen
           token={auth.token}
           saleId={selectedSaleId}
+          businessName={profile?.businessName}
           onEdit={() => openEditSale(selectedSaleId)}
           onReceivePayment={() => openReceivePayment(selectedSaleId)}
         />
@@ -680,6 +683,7 @@ export function AppShell({ auth, onLogout, onSubscriptionChanged }: AppShellProp
         <PurchaseDetailScreen
           token={auth.token}
           purchaseId={selectedPurchaseId}
+          businessName={profile?.businessName}
           onEdit={() => openEditPurchase(selectedPurchaseId)}
           onMakePayment={() => openMakePayment(selectedPurchaseId)}
         />

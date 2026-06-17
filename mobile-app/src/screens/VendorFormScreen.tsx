@@ -6,8 +6,11 @@ import { ActivityIndicator, StyleSheet, Switch, Text, View } from 'react-native'
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
 import { Input } from '../components/Input';
+import { OpeningBalanceFields } from '../components/OpeningBalanceFields';
 import { RefreshableScrollView } from '../components/RefreshableScrollView';
-import { api } from '../services/api';
+import { api, OpeningBalanceNature } from '../services/api';
+import { defaultOpeningBalanceNature } from '../utils/openingBalance';
+import { parseAmount } from '../utils/saleAmounts';
 type VendorFormScreenProps = {
   token: string;
   vendorId?: number;
@@ -28,6 +31,10 @@ export function VendorFormScreen({ token, vendorId, onSaved }: VendorFormScreenP
   const [email, setEmail] = useState('');
   const [address, setAddress] = useState('');
   const [active, setActive] = useState(true);
+  const [openingBalance, setOpeningBalance] = useState('');
+  const [openingBalanceNature, setOpeningBalanceNature] = useState<OpeningBalanceNature>(
+    defaultOpeningBalanceNature('vendor'),
+  );
 
   const [loading, setLoading] = useState(isEditing);
   const [saving, setSaving] = useState(false);
@@ -54,6 +61,8 @@ export function VendorFormScreen({ token, vendorId, onSaved }: VendorFormScreenP
         setEmail(vendor.email ?? '');
         setAddress(vendor.address ?? '');
         setActive(vendor.active);
+        setOpeningBalance(vendor.openingBalance ? String(vendor.openingBalance) : '');
+        setOpeningBalanceNature(vendor.openingBalanceNature ?? defaultOpeningBalanceNature('vendor'));
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Could not load vendor');
       } finally {
@@ -81,6 +90,12 @@ export function VendorFormScreen({ token, vendorId, onSaved }: VendorFormScreenP
       return;
     }
 
+    const parsedOpeningBalance = parseAmount(openingBalance);
+    if (parsedOpeningBalance < 0) {
+      setError('Opening balance cannot be negative');
+      return;
+    }
+
     setSaving(true);
     setError('');
     try {
@@ -95,6 +110,8 @@ export function VendorFormScreen({ token, vendorId, onSaved }: VendorFormScreenP
         email: email.trim() || undefined,
         address: address.trim() || undefined,
         active,
+        openingBalance: parsedOpeningBalance,
+        openingBalanceNature,
       };
 
       if (isEditing && vendorId != null) {
@@ -184,6 +201,14 @@ export function VendorFormScreen({ token, vendorId, onSaved }: VendorFormScreenP
             style={styles.multilineInput}
           />
         </View>
+
+        <OpeningBalanceFields
+          mode="vendor"
+          amount={openingBalance}
+          nature={openingBalanceNature}
+          onAmountChange={setOpeningBalance}
+          onNatureChange={setOpeningBalanceNature}
+        />
 
         <View style={styles.activeRow}>
           <Text style={styles.activeLabel}>Active vendor</Text>
